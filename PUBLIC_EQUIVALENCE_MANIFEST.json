@@ -4403,7 +4403,7 @@
                                   {
                                       "path":  "scripts\\deploy\\validate-compose-environments.mjs",
                                       "source_sha256":  "E2F1D3392A10B69798C163119686FD387F730D7372FE63C36AB4930A9FA5903F",
-                                      "export_sha256":  "5C9E8AC671380BA6F5B3459B999C6841061B97289D94B423B38F5A462344EFD9",
+                                      "export_sha256":  "EF8394BC6A8B4135393A0D7599F0EDCC8DB0FB82E567AE95307D9B9B388317D8",
                                       "match":  false
                                   },
                                   {

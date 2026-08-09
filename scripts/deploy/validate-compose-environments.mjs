@@ -19,8 +19,10 @@ for (const rel of ['compose.yaml', 'docker/compose.local.yaml', 'docker/compose.
   const text = readFileSync(resolve(root, rel), 'utf8');
   if (/\$\{[^}]*PASSWORD[^}]*\}[^\n]*https?:\/\//i.test(text)) throw new Error(`Unexpected credential-bearing URL in ${rel}`);
 }
-for (const args of [['docker', 'compose', '-f', 'compose.yaml', 'config'], ['docker', 'compose', '-f', 'docker/compose.local.yaml', 'config'], ['docker', 'compose', '-f', 'docker/compose.disposable.yaml', 'config']]) {
-  const result = spawnSync(args[0], args.slice(1), { cwd: root, encoding: 'utf8', shell: false, stdio: 'pipe' });
+const disposableEnv = { ...process.env, DISPOSABLE_COMPOSE_PROJECT: 'weight-app-public-validate', DISPOSABLE_RUNTIME_ID: 'public-validate', DISPOSABLE_POSTGRES_PASSWORD: 'public-validate-password', DISPOSABLE_POSTGRES_DB: 'weight_app', DISPOSABLE_POSTGRES_USER: 'weight_app', DISPOSABLE_POSTGRES_PORT: '55432', DISPOSABLE_REDIS_PORT: '56379' };
+for (const [args, env] of [[['docker', 'compose', '-f', 'compose.yaml', 'config'], process.env], [['docker', 'compose', '-f', 'docker/compose.local.yaml', 'config'], process.env], [['docker', 'compose', '-f', 'docker/compose.disposable.yaml', 'config'], disposableEnv]]) {
+  const result = spawnSync(args[0], args.slice(1), { cwd: root, encoding: 'utf8', shell: false, stdio: 'pipe', env });
   if (result.status !== 0) throw new Error(`Compose config failed: ${args.join(' ')}`);
 }
 console.info(JSON.stringify({ ok: true, scope: 'public-local-disposable-compose' }));
+
