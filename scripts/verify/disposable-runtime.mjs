@@ -307,8 +307,29 @@ function setRedisMarker(env) {
   docker(['exec', '-T', 'redis', 'redis-cli', 'SET', REDIS_MARKER, env.DISPOSABLE_RUNTIME_ID], env);
 }
 
+function setPostgresMarker(env) {
+  assertRuntimeId(env.DISPOSABLE_RUNTIME_ID);
+  docker([
+    'exec', '-T', 'postgres', 'psql', '-v', 'ON_ERROR_STOP=1',
+    '-U', env.DISPOSABLE_POSTGRES_USER, '-d', env.DISPOSABLE_POSTGRES_DB,
+    '-c',
+    `CREATE SCHEMA IF NOT EXISTS weight_app_runtime_metadata;
+CREATE TABLE IF NOT EXISTS weight_app_runtime_metadata.runtime_identity (
+  marker_name text PRIMARY KEY,
+  runtime_id text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  marker_version integer NOT NULL DEFAULT 1,
+  CHECK (marker_name = 'postgres-disposable-runtime')
+);
+INSERT INTO weight_app_runtime_metadata.runtime_identity (marker_name, runtime_id)
+VALUES ('postgres-disposable-runtime', '${env.DISPOSABLE_RUNTIME_ID}')
+ON CONFLICT (marker_name) DO UPDATE SET runtime_id = EXCLUDED.runtime_id;`,
+  ], env);
+}
+
 export async function startRuntime(env = createRuntimeEnv()) {
   docker(['up', '-d', '--wait', 'postgres', 'redis'], env);
+  setPostgresMarker(env);
   setRedisMarker(env);
   await assertServerMarkers(env);
   return env;
@@ -493,6 +514,7 @@ async function startTopology(env) {
 
 async function verifyRuntimeMarkers(env) {
   assertDisposableConfig(env);
+  setPostgresMarker(env);
   setRedisMarker(env);
   await assertServerMarkers(env);
   return { exitCode: 0, reason: 'PostgreSQL and Redis runtime markers match the owned runtimeId' };
@@ -613,8 +635,8 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     const result = await pnpmCommand(['db:migrate'], env, STAGE_BOUNDS.migration, `migration ${expected}`);
     if (result.exitCode === 0 && !result.timedOut) {
       const expectedPattern = expected === 'first'
-        ? /"applied"\s*:\s*107/
-        : /"applied"\s*:\s*0[\s\S]*"skipped"\s*:\s*107/;
+        ? /"applied"\s*:\s*108/
+        : /"applied"\s*:\s*0[\s\S]*"skipped"\s*:\s*108/;
       if (!expectedPattern.test(result.stdout)) return { ...result, exitCode: 1, reason: `migration ${expected} result did not match the required ledger counts` };
     }
     return result;
@@ -622,8 +644,8 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
   const stages = [
     { name: 'disposable topology startup', timeoutMs: STAGE_BOUNDS.topology, command: 'docker compose up -d --wait --wait-timeout 90 postgres redis', action: () => startTopology(env) },
     { name: 'PostgreSQL/Redis marker verification', timeoutMs: STAGE_BOUNDS.markers, command: 'owned marker probes', action: () => verifyRuntimeMarkers(env) },
-    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 107 applied)', action: migrationAction('first') },
-    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 0 applied / 107 skipped)', action: migrationAction('second') },
+    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 108 applied)', action: migrationAction('first') },
+    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 0 applied / 108 skipped)', action: migrationAction('second') },
     {
       name: 'static/lint/type validation', timeoutMs: STAGE_BOUNDS.static,
       command: 'root ESLint; migration/UI/workflow checks; direct API/Web/Worker typechecks; support package tests',

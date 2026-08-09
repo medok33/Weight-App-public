@@ -6,6 +6,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
+  Param,
   Post,
   Req,
   Res,
@@ -15,15 +16,25 @@ import { isPasswordAcceptable } from '../domain/auth.policy';
 import { UserAuthService } from '../application/user-auth.service';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { Public } from '../decorators/public.decorator';
-import { readSessionTokenFromCookieHeader } from '../domain/session-cookie';
-import { AuthAbuseBlockedError, normalizeClientAddress } from '../domain/auth-abuse.policy';
+import {
+  clearLegacyOwnerSessionCookie,
+  clearLegacyUserSessionCookie,
+  clearSessionCookie,
+  readSessionTokenFromCookieHeader,
+} from '../domain/session-cookie';
+import { AuthAbuseBlockedError, AuthAbuseGuardUnavailableError, normalizeClientAddress } from '../domain/auth-abuse.policy';
 import type { RequestUser } from '../domain/request-user.types';
 import { RequireRecentOwnerReauth } from '../decorators/require-recent-owner-reauth.decorator';
 import { Auth01aService } from '../application/auth-01a.service';
+import { Auth01bService } from '../application/auth-01b.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(@Inject(UserAuthService) private readonly userAuth: UserAuthService, @Inject(Auth01aService) private readonly auth01a: Auth01aService) {}
+  constructor(
+    @Inject(UserAuthService) private readonly userAuth: UserAuthService,
+    @Inject(Auth01aService) private readonly auth01a: Auth01aService,
+    @Inject(Auth01bService) private readonly auth01b?: Auth01bService,
+  ) {}
 
   @Public()
   @Post('password/check')
@@ -197,11 +208,55 @@ export class AuthController {
 
   @Public()
   @Post('logout')
-  async logout(@Headers('cookie') cookie: string | undefined, @Res({ passthrough: true }) res: Response) {
-    const rawToken = readSessionTokenFromCookieHeader(cookie);
+  async logout(@Headers('x-session-token') token: string | undefined, @Headers('cookie') cookie: string | undefined, @Res({ passthrough: true }) res: Response) {
+    const rawToken = token?.trim() || readSessionTokenFromCookieHeader(cookie);
     const result = await this.userAuth.logout(rawToken);
     res.setHeader('Set-Cookie', result.cookies);
     return { ok: true };
+  }
+
+  @Get('sessions')
+  async sessions(@CurrentUser() user: RequestUser, @Headers('x-session-token') token: string | undefined, @Headers('cookie') cookie: string | undefined) {
+    return this.requireAuth01b().listSessions(user, token?.trim() || readSessionTokenFromCookieHeader(cookie));
+  }
+
+  @Post('sessions/:sessionId/revoke')
+  async revokeSession(@CurrentUser() user: RequestUser, @Param('sessionId') sessionId: string) {
+    return this.requireAuth01b().revokeSession(user, sessionId);
+  }
+
+  @Post('sessions/revoke-others')
+  async revokeOtherSessions(@CurrentUser() user: RequestUser, @Headers('x-session-token') token: string | undefined, @Headers('cookie') cookie: string | undefined) {
+    return this.requireAuth01b().revokeOtherSessions(user, token?.trim() || readSessionTokenFromCookieHeader(cookie));
+  }
+
+  @Post('sessions/revoke-all')
+  async revokeAllSessions(@CurrentUser() user: RequestUser) {
+    return this.requireAuth01b().revokeAllSessions(user);
+  }
+
+  @Post('privacy/export')
+  async exportPrivacy(@CurrentUser() user: RequestUser) {
+    try {
+      return await this.requireAuth01b().exportAccount(user);
+    } catch (error) {
+      throw this.mapError(error);
+    }
+  }
+
+  @Post('account/delete')
+  async deleteAccount(
+    @CurrentUser() user: RequestUser,
+    @Body() body: { confirmation?: unknown },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      const result = await this.requireAuth01b().deleteAccount(user, body?.confirmation);
+      res.setHeader('Set-Cookie', [clearSessionCookie(), clearLegacyUserSessionCookie(), clearLegacyOwnerSessionCookie()]);
+      return result;
+    } catch (error) {
+      throw this.mapError(error);
+    }
   }
 
   @Get('me')
@@ -236,6 +291,18 @@ export class AuthController {
     if (error.message === 'REAUTH_FAILED') {
       return new HttpException(publicAuthError('REAUTH_FAILED', 'Reauthentication failed.'), HttpStatus.UNAUTHORIZED);
     }
+    if (error instanceof AuthAbuseGuardUnavailableError || error.message === 'AUTH_ABUSE_GUARD_UNAVAILABLE') {
+      return new HttpException(publicAuthError('AUTH_ABUSE_GUARD_UNAVAILABLE', 'Authentication abuse guard is unavailable.'), HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    if (error.message === 'RECENT_REAUTH_REQUIRED') {
+      return new HttpException(publicAuthError('RECENT_REAUTH_REQUIRED', 'Recent reauthentication is required.'), HttpStatus.FORBIDDEN);
+    }
+    if (error.message === 'DELETE_CONFIRMATION_REQUIRED') {
+      return new HttpException(publicAuthError('DELETE_CONFIRMATION_REQUIRED', 'Account deletion confirmation is required.'), HttpStatus.BAD_REQUEST);
+    }
+    if (error.message === 'LAST_OWNER_DELETION_BLOCKED') {
+      return new HttpException(publicAuthError('LAST_OWNER_DELETION_BLOCKED', 'The last active OWNER account cannot be deleted.'), HttpStatus.CONFLICT);
+    }
     if (['INVITE_REQUIRED', 'INVITE_INVALID', 'EMAIL_INVALID', 'RECOVERY_INVALID', 'INVITE_EXPIRY_INVALID'].includes(error.message)) {
       return new HttpException(publicAuthError(error.message, 'Authentication request rejected.'), HttpStatus.BAD_REQUEST);
     }
@@ -264,6 +331,11 @@ export class AuthController {
       return new HttpException(publicAuthError('AUTH_REQUEST_REJECTED', 'Authentication request rejected.'), HttpStatus.BAD_REQUEST);
     }
     return error;
+  }
+
+  private requireAuth01b(): Auth01bService {
+    if (!this.auth01b) throw new Error('AUTH_01B_SERVICE_UNAVAILABLE');
+    return this.auth01b;
   }
 }
 

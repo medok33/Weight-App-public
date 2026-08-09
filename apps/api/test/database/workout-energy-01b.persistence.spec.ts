@@ -16,6 +16,7 @@ const M217 = "217_workout_energy_profile_foundation";
 const M218 = "218_workout_session_energy_snapshot";
 const M219 = "219_workout_catalog_v3_01a_taxonomy_foundation";
 const M220 = "220_auth_01a_identity_invite_recovery";
+const M221 = "221_auth_01b_session_privacy_deletion_retention";
 const SHARED_DB_MARKER = "postgresql://weight_app:weight_app_local@localhost:5432/weight_app";
 
 async function createUser(pool: Pool): Promise<string> {
@@ -67,6 +68,7 @@ describe("WORKOUT-ENERGY-01B migration + persistence", () => {
             M218,
             M219,
             M220,
+            M221,
           ]);
         } finally {
           client.release();
@@ -84,7 +86,7 @@ describe("WORKOUT-ENERGY-01B migration + persistence", () => {
           `SELECT "migrationName" FROM "SchemaMigrationLedger"
            ORDER BY "migrationName" DESC LIMIT 1`,
         );
-        expect(latest.rows[0]?.migrationName).toBe(M220);
+        expect(latest.rows[0]?.migrationName).toBe(M221);
 
         const timingTable = await pool.query<{ exists: boolean }>(
           `SELECT EXISTS (

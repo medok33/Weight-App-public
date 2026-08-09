@@ -13,7 +13,6 @@ services:
       - "127.0.0.1:${DISPOSABLE_POSTGRES_PORT}:5432"
     volumes:
       - disposable_postgres:/var/lib/postgresql/data
-      - ./postgres/disposable-init.sh:/docker-entrypoint-initdb.d/001-disposable-init.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 2s

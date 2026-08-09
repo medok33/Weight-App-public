@@ -606,6 +606,7 @@ export class AuthRepository {
     );
     const row = result.rows[0];
     if (!row) return null;
+    await this.db.query(`UPDATE "Session" SET "lastSeenAt"=CURRENT_TIMESTAMP WHERE "tokenHash"=$1`, [tokenHash]);
     return { userId: row.userId, role: row.role, email: row.email, username: row.username, mfaVerifiedAt: row.mfaVerifiedAt, recentOwnerReauthAt: row.recentOwnerReauthAt };
   }
 

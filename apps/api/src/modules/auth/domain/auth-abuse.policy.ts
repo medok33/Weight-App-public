@@ -20,6 +20,7 @@ export const AUTH_ABUSE_POLICY = {
 
 export type AuthThrottleAction = 'login' | 'register' | 'password_reset' | 'mfa_challenge';
 export type AuthThrottleSubjectType = 'account' | 'ip' | 'account_ip' | 'challenge';
+export type AuthHighRiskAction = 'login' | 'register' | 'password_reset' | 'recovery_redeem' | 'reauth' | 'beta_invite';
 
 export type AuthBlockDecision = {
   blocked: boolean;
@@ -35,6 +36,12 @@ export class AuthAbuseBlockedError extends Error {
     super('AUTH_TEMPORARILY_BLOCKED');
     this.reason = reason;
     this.retryAfterSeconds = Math.max(1, Math.ceil(retryAfterSeconds));
+  }
+}
+
+export class AuthAbuseGuardUnavailableError extends Error {
+  constructor() {
+    super('AUTH_ABUSE_GUARD_UNAVAILABLE');
   }
 }
 
@@ -65,4 +72,8 @@ export function authAbuseHashSecret(source: NodeJS.ProcessEnv = process.env): st
 export function blockedUntilToRetryAfterSeconds(blockedUntil: Date | string, now = new Date()): number {
   const untilMs = blockedUntil instanceof Date ? blockedUntil.getTime() : new Date(blockedUntil).getTime();
   return Math.max(1, Math.ceil((untilMs - now.getTime()) / 1000));
+}
+
+export function redisAuthAbuseKey(action: AuthHighRiskAction, subjectHash: string): string {
+  return `auth01b:abuse:${action}:${subjectHash}`;
 }
