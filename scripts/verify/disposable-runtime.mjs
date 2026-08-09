@@ -250,8 +250,9 @@ export function createRuntimeEnv() {
   const password = `test-${randomBytes(18).toString('hex')}`;
   const pgPort = choosePort(55432);
   const redisPort = choosePort(56379);
-  const apiPort = '33001';
-  const webPort = '33000';
+  const e2ePortBase = 34000 + (Number.parseInt(randomBytes(2).toString('hex'), 16) % 20000);
+  const apiPort = String(choosePort(e2ePortBase));
+  const webPort = String(choosePort(e2ePortBase + 1));
   const apiBaseUrl = `http://127.0.0.1:${apiPort}/api/v1`;
   const browserApiBaseUrl = `http://localhost:${apiPort}/api/v1`;
   const webBaseUrl = `http://localhost:${webPort}`;
