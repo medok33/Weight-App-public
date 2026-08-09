@@ -17,8 +17,8 @@ export interface AuthDeliveryPort { deliverInvite(email: string, token: string):
 @Injectable()
 export class TestAuthDelivery implements AuthDeliveryPort {
   readonly issued = new Map<string, { kind: string; token: string }>();
-  async deliverInvite(email: string, token: string) { this.issued.set(`invite:${email}`, { kind: 'invite', token }); return { delivered: false }; }
-  async deliverRecovery(email: string, token: string) { this.issued.set(`recovery:${email}`, { kind: 'recovery', token }); return { delivered: false }; }
+  async deliverInvite(email: string, token: string): Promise<{ delivered: boolean; proofType?: string }> { this.issued.set(`invite:${email}`, { kind: 'invite', token }); return { delivered: false }; }
+  async deliverRecovery(email: string, token: string): Promise<{ delivered: boolean; proofType?: string }> { this.issued.set(`recovery:${email}`, { kind: 'recovery', token }); return { delivered: false }; }
 }
 
 @Injectable()
