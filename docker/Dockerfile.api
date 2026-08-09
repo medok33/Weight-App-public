@@ -56,6 +56,10 @@ COPY --from=build --chown=weightapp:weightapp /out/api/ ./
 COPY --from=build --chown=weightapp:weightapp /app/apps/api/dist ./dist
 COPY --from=build --chown=weightapp:weightapp /app/apps/api/scripts ./scripts
 COPY --from=build --chown=weightapp:weightapp /app/apps/api/prisma ./prisma
+# migrate.mjs imports the disposable safety guard even when disposable mode is
+# off. Keep the guard and its local helper in the migration runtime image.
+COPY --from=build --chown=weightapp:weightapp /app/scripts/verify/disposable-runtime.mjs ./scripts/verify/disposable-runtime.mjs
+COPY --from=build --chown=weightapp:weightapp /app/scripts/verify/orchestration.mjs ./scripts/verify/orchestration.mjs
 
 USER weightapp:weightapp
 
