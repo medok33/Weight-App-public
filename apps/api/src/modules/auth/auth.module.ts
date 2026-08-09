@@ -11,6 +11,7 @@ import { CsrfOriginGuard } from './guards/csrf-origin.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { OwnerMfaGuard } from './guards/owner-mfa.guard';
 import { RecentOwnerReauthGuard } from './guards/recent-owner-reauth.guard';
+import { Auth01aService, TestAuthDelivery } from './application/auth-01a.service';
 
 @Module({
   imports: [DatabaseModule],
@@ -23,11 +24,13 @@ import { RecentOwnerReauthGuard } from './guards/recent-owner-reauth.guard';
     RolesGuard,
     OwnerMfaGuard,
     RecentOwnerReauthGuard,
+    Auth01aService,
+    TestAuthDelivery,
     // CSRF/origin runs before session auth so rejects are stable even without a user.
     { provide: APP_GUARD, useClass: CsrfOriginGuard },
     { provide: APP_GUARD, useClass: SessionAuthGuard },
     { provide: APP_GUARD, useClass: RecentOwnerReauthGuard },
   ],
-  exports: [AuthService, UserAuthService, SessionAuthService, AuthRepository, RolesGuard, OwnerMfaGuard, RecentOwnerReauthGuard],
+  exports: [AuthService, UserAuthService, SessionAuthService, AuthRepository, RolesGuard, OwnerMfaGuard, RecentOwnerReauthGuard, Auth01aService],
 })
 export class AuthModule {}

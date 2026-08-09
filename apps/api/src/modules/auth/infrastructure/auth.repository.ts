@@ -10,6 +10,7 @@ import {
   type AuthThrottleSubjectType,
 } from '../domain/auth-abuse.policy';
 import type { RequestUser } from '../domain/request-user.types';
+import { normalizeIdentityEmail } from '../domain/identity-normalizer';
 
 export type SessionRecord = {
   userId: string;
@@ -44,9 +45,10 @@ export class AuthRepository {
   }
 
   async findUserByEmail(email: string): Promise<{ id: string; email: string | null } | null> {
+    const normalizedEmail = normalizeIdentityEmail(email);
     const result = await this.db.query<{ id: string; email: string | null }>(
       'SELECT id, email FROM "User" WHERE lower(email) = lower($1)',
-      [email.trim()],
+      [normalizedEmail],
     );
     return result.rows[0] ?? null;
   }
@@ -807,12 +809,13 @@ export class AuthRepository {
     return Number(result.rowCount ?? 0) === 1;
   }
 
-  async updateSessionRecentReauth(rawToken: string, when = new Date()): Promise<void> {
+  async updateSessionRecentReauth(rawToken: string, when = new Date(), userId?: string): Promise<void> {
     await this.db.query(
       `UPDATE "Session"
        SET "recentOwnerReauthAt" = $2
-       WHERE "tokenHash" = $1 AND "revokedAt" IS NULL AND "expiresAt" > CURRENT_TIMESTAMP`,
-      [this.hashToken(rawToken), when.toISOString()],
+       WHERE "tokenHash" = $1 AND "revokedAt" IS NULL AND "expiresAt" > CURRENT_TIMESTAMP
+         AND ($3::uuid IS NULL OR "userId" = $3::uuid)`,
+      [this.hashToken(rawToken), when.toISOString(), userId ?? null],
     );
   }
 
