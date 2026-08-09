@@ -7577,7 +7577,7 @@
                                   {
                                       "path":  "scripts\\verify\\verify-all.mjs",
                                       "source_sha256":  "49E50338ECC26E342EA4E996F6312993076A25DC927E90A872A607A90844F542",
-                                      "export_sha256":  "0E52E12C19BA6C238F5715D87671C98CE14732F6815EE163D9B7B0993AA3F8FE",
+                                      "export_sha256":  "F35FE0C05D57E1D198D075DB2FF68550DDF8925E9F75962F0F4AF54B35705CA2",
                                       "match":  false
                                   },
                                   {
@@ -7937,7 +7937,7 @@
                                   {
                                       "path":  "scripts\\verify\\disposable-runtime.mjs",
                                       "source_sha256":  "0CE52048D03469BE32E52D8D5E2BA6385BD22AE595576C6F150423670587CEC8",
-                                      "export_sha256":  "CB610448DFFFE3382E42643422C0C351A43F5E42AE56958957BDBC7EF1C8613B",
+                                      "export_sha256":  "F2D7B5C24A80B5641B1F49EC1F1A05B61844D3950235B9A60CB8EC690BDED5C6",
                                       "match":  false
                                   },
                                   {

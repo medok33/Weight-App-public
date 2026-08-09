@@ -7,15 +7,15 @@ if (isTrue(process.env.WEIGHT_APP_DISPOSABLE_MODE)) {
 
 const runner = resolvePnpmInvocation(process.env);
 const publicNotApplicableTests = [
-  ['apps/api/test/database/owner-mfa.persistence.spec.ts', 'emergency reset invalidates sessions/credential/challenges, needs confirm, audits without secrets'],
-  ['apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts', 'prod-like compose has no app source mounts and orders migrate before api'],
-  ['apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts', 'staging and production require immutable images in compose files'],
-  ['apps/web/src/lib/__tests__/deploy-01c-environment-contract.spec.ts', 'documents separate compose project names'],
-  ['apps/web/src/lib/__tests__/deploy-01c-environment-contract.spec.ts', 'keeps INTERNAL_API_BASE_URL out of private env templates'],
-  ['apps/web/src/lib/__tests__/deploy-01d-workflow-contract.spec.ts', 'publishes only from release workflow with lowercase GHCR names'],
+  { file: 'apps/api/test/database/owner-mfa.persistence.spec.ts', test: 'emergency reset invalidates sessions/credential/challenges, needs confirm, audits without secrets', classification: 'PRIVATE_OPERATIONAL_TEST_NOT_APPLICABLE', reason: 'PRIVATE_OPERATIONAL_DEPENDENCY_EXCLUDED_FROM_PUBLIC_REPOSITORY' },
+  { file: 'apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts', test: 'prod-like compose has no app source mounts and orders migrate before api', classification: 'PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE', reason: 'PRIVATE_DEPLOYMENT_SURFACE_EXCLUDED_FROM_PUBLIC_REPOSITORY' },
+  { file: 'apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts', test: 'staging and production require immutable images in compose files', classification: 'PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE', reason: 'PRIVATE_DEPLOYMENT_SURFACE_EXCLUDED_FROM_PUBLIC_REPOSITORY' },
+  { file: 'apps/web/src/lib/__tests__/deploy-01c-environment-contract.spec.ts', test: 'documents separate compose project names', classification: 'PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE', reason: 'PRIVATE_DEPLOYMENT_SURFACE_EXCLUDED_FROM_PUBLIC_REPOSITORY' },
+  { file: 'apps/web/src/lib/__tests__/deploy-01c-environment-contract.spec.ts', test: 'keeps INTERNAL_API_BASE_URL out of private env templates', classification: 'PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE', reason: 'PRIVATE_DEPLOYMENT_SURFACE_EXCLUDED_FROM_PUBLIC_REPOSITORY' },
+  { file: 'apps/web/src/lib/__tests__/deploy-01d-workflow-contract.spec.ts', test: 'publishes only from release workflow with lowercase GHCR names', classification: 'PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE', reason: 'PRIVATE_DEPLOYMENT_SURFACE_EXCLUDED_FROM_PUBLIC_REPOSITORY' },
 ];
-for (const [file, test] of publicNotApplicableTests) {
-  process.stdout.write(`PUBLIC_CI_TEST_NOT_APPLICABLE ${JSON.stringify({ file, test, classification: 'PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE', reason: 'PRIVATE_DEPLOYMENT_SURFACE_EXCLUDED_FROM_PUBLIC_REPOSITORY' })}\n`);
+for (const test of publicNotApplicableTests) {
+  process.stdout.write(`PUBLIC_CI_TEST_NOT_APPLICABLE ${JSON.stringify(test)}\n`);
 }
 const commands = [
   { name: 'db:check-migrations', args: ['db:check-migrations'], timeoutMs: 120_000 },

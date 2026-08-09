@@ -396,7 +396,7 @@ async function runPersistenceSuite(env, inventory) {
     const reason = PUBLIC_NOT_APPLICABLE_PERSISTENCE_TESTS.get(relativeFile);
     if (!reason) return true;
     inventory.publicNotApplicableTests ??= [];
-    inventory.publicNotApplicableTests.push({ file: relativeFile, result: RESULT.NOT_APPLICABLE, reason });
+    inventory.publicNotApplicableTests.push({ file: relativeFile, result: RESULT.NOT_APPLICABLE, classification: 'PRIVATE_OPERATIONAL_TEST_NOT_APPLICABLE', reason });
     process.stdout.write(`PERSISTENCE_TEST_NOT_APPLICABLE ${JSON.stringify({ file: relativeFile, result: RESULT.NOT_APPLICABLE, reason })}\n`);
     return false;
   });
