@@ -7577,7 +7577,7 @@
                                   {
                                       "path":  "scripts\\verify\\verify-all.mjs",
                                       "source_sha256":  "49E50338ECC26E342EA4E996F6312993076A25DC927E90A872A607A90844F542",
-                                      "export_sha256":  "A15112C8B9C91CA8FCCF7653A8CD0756B6709B7C9740843A0F9E418D72022D90",
+                                      "export_sha256":  "0E52E12C19BA6C238F5715D87671C98CE14732F6815EE163D9B7B0993AA3F8FE",
                                       "match":  false
                                   },
                                   {
@@ -7601,8 +7601,8 @@
                                   {
                                       "path":  "apps\\api\\package.json",
                                       "source_sha256":  "1096825874FD40246F0EEA0073492485C3E397357CEBFC8931DB1527A710CD83",
-                                      "export_sha256":  "1096825874FD40246F0EEA0073492485C3E397357CEBFC8931DB1527A710CD83",
-                                      "match":  true
+                                      "export_sha256":  "A98C415F45B43FA1814950BDC348EA8A4792073E0A16AD7E2F4980487E39783A",
+                                      "match":  false
                                   },
                                   {
                                       "path":  "apps\\api\\prisma\\migrations\\172_product-alias-normalization\\migration.sql",
@@ -8145,6 +8145,7 @@
                                        "PUBLIC_EQUIVALENCE.md",
                                        "PUBLIC_EQUIVALENCE_MANIFEST.json",
                                        "compose.yaml",
+                                       "apps/api/package.json (exact public test exclusion)",
                                        "scripts/deploy/build-images.mjs (CI-only wrapper; no push/deploy/credentials)",
                                        "scripts/deploy/validate-compose-environments.mjs (local/disposable-only validator)",
                                        "apps/api/scripts/bootstrap-owner.mjs (non-operational public boundary stub)",
@@ -8165,6 +8166,7 @@
                                     "apps\\web\\src\\lib\\__tests__\\deploy-01c-environment-contract.spec.ts",
                                     "README.md",
                                     "scripts\\verify\\verify-all.mjs",
+                                    "apps\\api\\package.json",
                                     "scripts\\verify\\disposable-runtime.mjs"
                                 ],
     "added_public_paths":  [

@@ -7,7 +7,7 @@
     "dev": "tsx watch src/main.ts",
     "lint": "tsc --noEmit -p tsconfig.lint.json",
     "typecheck": "tsc --noEmit -p tsconfig.lint.json",
-    "test": "vitest run --passWithNoTests --pool=forks --fileParallelism=false",
+    "test": "vitest run --passWithNoTests --pool=forks --fileParallelism=false --exclude test/database/owner-mfa.persistence.spec.ts",
     "test:e2e": "vitest run --passWithNoTests --pool=forks --fileParallelism=false",
     "owner:bootstrap": "node scripts/bootstrap-owner.mjs",
     "db:migrate": "node scripts/migrate.mjs",

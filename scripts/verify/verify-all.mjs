@@ -7,6 +7,7 @@ if (isTrue(process.env.WEIGHT_APP_DISPOSABLE_MODE)) {
 
 const runner = resolvePnpmInvocation(process.env);
 const publicNotApplicableTests = [
+  ['apps/api/test/database/owner-mfa.persistence.spec.ts', 'emergency reset invalidates sessions/credential/challenges, needs confirm, audits without secrets'],
   ['apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts', 'prod-like compose has no app source mounts and orders migrate before api'],
   ['apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts', 'staging and production require immutable images in compose files'],
   ['apps/web/src/lib/__tests__/deploy-01c-environment-contract.spec.ts', 'documents separate compose project names'],
