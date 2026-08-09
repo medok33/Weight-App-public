@@ -9,6 +9,8 @@ model User {
   status String @default("ACTIVE")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  emailOwnershipProvenAt DateTime?
+  emailOwnershipProofType String?
   identities AuthIdentity[]
   sessions Session[]
   profile UserProfile?
@@ -58,6 +60,8 @@ model User {
   integrationConnections IntegrationConnection[]
   regeneratedFamilyShoppingLists FamilyShoppingList[]
   planRevisions PlanRevision[]
+  betaInvitesCreated BetaInvite[] @relation("BetaInviteCreator")
+  passwordRecoveryTokens PasswordRecoveryToken[]
 }
 model AuthIdentity {
   id String @id @default(uuid()) @db.Uuid
@@ -68,6 +72,37 @@ model AuthIdentity {
   createdAt DateTime @default(now())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([provider, providerSubject])
+  @@index([userId])
+}
+model BetaInvite {
+  id String @id @default(uuid()) @db.Uuid
+  emailNormalized String
+  tokenHash String @unique
+  expiresAt DateTime
+  redeemedAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  createdByUserId String @db.Uuid
+  replacedByInviteId String? @db.Uuid
+  deliveryProvenAt DateTime?
+  deliveryProofType String?
+  createdBy User @relation("BetaInviteCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  replacedBy BetaInvite? @relation("BetaInviteReplacement", fields: [replacedByInviteId], references: [id], onDelete: SetNull)
+  replaces BetaInvite[] @relation("BetaInviteReplacement")
+  @@index([emailNormalized])
+  @@index([expiresAt])
+}
+model PasswordRecoveryToken {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  tokenHash String @unique
+  expiresAt DateTime
+  redeemedAt DateTime?
+  replacedAt DateTime?
+  createdAt DateTime @default(now())
+  deliveryProvenAt DateTime?
+  deliveryProofType String?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
 }
 model UserSubscription {

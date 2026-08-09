@@ -27,6 +27,7 @@ import {
 } from '../domain/owner-mfa.crypto';
 import { hasAdminAuthority } from '../domain/account-role.policy';
 import type { RequestUser } from '../domain/request-user.types';
+import { normalizeIdentityEmail } from '../domain/identity-normalizer';
 
 @Injectable()
 export class UserAuthService {
@@ -38,17 +39,17 @@ export class UserAuthService {
   }
 
   async register(email: string, password: string, anonymousUserId?: string, ip?: string) {
-    if (!email?.trim()) throw new Error('EMAIL_REQUIRED');
-    const accountHash = authAbuseHash(`account:${normalizeAuthIdentifier(email)}`);
+    const normalizedEmail = normalizeIdentityEmail(email);
+    const accountHash = authAbuseHash(`account:${normalizedEmail}`);
     const ipHash = authAbuseHash(`ip:${normalizeClientAddress(ip)}`);
     const registrationBlock = await this.repository.recordRegistrationAttempt({ accountHash, ipHash });
     if (registrationBlock.blocked) {
       throw new AuthAbuseBlockedError(registrationBlock.reason ?? 'account_throttle', registrationBlock.retryAfterSeconds ?? 1);
     }
-    if (await this.repository.findUserByEmail(email)) throw new Error('EMAIL_ALREADY_EXISTS');
+    if (await this.repository.findUserByEmail(normalizedEmail)) throw new Error('EMAIL_ALREADY_EXISTS');
     // Clients cannot self-assign OWNER/ADMIN via register body — role is always USER.
     const passwordHash = this.auth.hashPassword(password);
-    const userId = await this.repository.createRegisteredUser(email, passwordHash);
+    const userId = await this.repository.createRegisteredUser(normalizedEmail, passwordHash);
     await this.maybeMigrate(anonymousUserId, userId);
 
     const session = await this.repository.createSession(userId, 'USER');
@@ -241,7 +242,7 @@ export class UserAuthService {
     if (!rawToken) throw new Error('REAUTH_FAILED');
     await this.assertPassword(user.id, password);
     const when = new Date();
-    await this.repository.updateSessionRecentReauth(rawToken, when);
+    await this.repository.updateSessionRecentReauth(rawToken, when, user.id);
     await this.repository.appendAuditEvent({
       actorUserId: user.id,
       action: 'auth.owner.reauthenticated',
