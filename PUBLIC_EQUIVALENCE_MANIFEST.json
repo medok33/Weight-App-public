@@ -2889,6 +2889,12 @@
                                       "match":  true
                                   },
                                   {
+                                      "path":  "apps\\web\\e2e\\artifacts\\80-assistant-auth.png",
+                                      "source_sha256":  "F5627D875D6035F52D65A6420A183364D8EA7C062A919EBA50274D5B64A11BDA",
+                                      "export_sha256":  "F5627D875D6035F52D65A6420A183364D8EA7C062A919EBA50274D5B64A11BDA",
+                                      "match":  true
+                                  },
+                                  {
                                       "path":  "apps\\api\\src\\modules\\auth\\decorators\\csrf-exempt.decorator.ts",
                                       "source_sha256":  "7754A0967AC13D9CA1D0035877EBF6B406E947A02C2C5742593E79C994D82452",
                                       "export_sha256":  "7754A0967AC13D9CA1D0035877EBF6B406E947A02C2C5742593E79C994D82452",
@@ -5271,9 +5277,9 @@
                                       "match":  true
                                   },
                                   {
-                                      "path":  "apps\\web\\e2e\\artifacts\\80-assistant-auth.png",
-                                      "source_sha256":  "F5627D875D6035F52D65A6420A183364D8EA7C062A919EBA50274D5B64A11BDA",
-                                      "export_sha256":  "F5627D875D6035F52D65A6420A183364D8EA7C062A919EBA50274D5B64A11BDA",
+                                      "path":  "apps\\api\\src\\modules\\workout-engine\\catalog\\catalog-v3-01c-b-content.ts",
+                                      "source_sha256":  "3A44EBEE94C7F5A9A2413B5BDA4CF08D4B1FE7485D1DC886D396F3F2E49B730D",
+                                      "export_sha256":  "3A44EBEE94C7F5A9A2413B5BDA4CF08D4B1FE7485D1DC886D396F3F2E49B730D",
                                       "match":  true
                                   },
                                   {
@@ -7017,9 +7023,9 @@
                                       "match":  true
                                   },
                                   {
-                                      "path":  "apps\\api\\src\\modules\\workout-engine\\catalog\\catalog-v3-01c-b-content.ts",
-                                      "source_sha256":  "3A44EBEE94C7F5A9A2413B5BDA4CF08D4B1FE7485D1DC886D396F3F2E49B730D",
-                                      "export_sha256":  "3A44EBEE94C7F5A9A2413B5BDA4CF08D4B1FE7485D1DC886D396F3F2E49B730D",
+                                      "path":  "apps\\api\\src\\modules\\auth\\guards\\recent-owner-reauth.guard.ts",
+                                      "source_sha256":  "D28FCC804135A158B998CEEC14F45B0B4251CCB64B1AE41DFA5C6ADF2DA38FC4",
+                                      "export_sha256":  "D28FCC804135A158B998CEEC14F45B0B4251CCB64B1AE41DFA5C6ADF2DA38FC4",
                                       "match":  true
                                   },
                                   {
@@ -7773,12 +7779,6 @@
                                       "match":  true
                                   },
                                   {
-                                      "path":  "apps\\api\\src\\modules\\auth\\guards\\recent-owner-reauth.guard.ts",
-                                      "source_sha256":  "D28FCC804135A158B998CEEC14F45B0B4251CCB64B1AE41DFA5C6ADF2DA38FC4",
-                                      "export_sha256":  "D28FCC804135A158B998CEEC14F45B0B4251CCB64B1AE41DFA5C6ADF2DA38FC4",
-                                      "match":  true
-                                  },
-                                  {
                                       "path":  "apps\\web\\e2e\\workout-v2-01a-initial-plan.spec.ts",
                                       "source_sha256":  "8834A05AB2FD9E1D6C3C9CB6481A8A5A73D9CA35175A8A41F20E7BEC2B8889C1",
                                       "export_sha256":  "8834A05AB2FD9E1D6C3C9CB6481A8A5A73D9CA35175A8A41F20E7BEC2B8889C1",
@@ -7937,8 +7937,8 @@
                                   {
                                       "path":  "scripts\\verify\\disposable-runtime.mjs",
                                       "source_sha256":  "0CE52048D03469BE32E52D8D5E2BA6385BD22AE595576C6F150423670587CEC8",
-                                      "export_sha256":  "0CE52048D03469BE32E52D8D5E2BA6385BD22AE595576C6F150423670587CEC8",
-                                      "match":  true
+                                      "export_sha256":  "617306FD08FC24D49D4F2C81F4C206C385460E99F7359356A9B384BA68D51146",
+                                      "match":  false
                                   },
                                   {
                                       "path":  "apps\\api\\src\\modules\\family-mode\\__tests__\\family-meals.spec.ts",
@@ -8148,15 +8148,19 @@
                                        "scripts/deploy/build-images.mjs (CI-only wrapper; no push/deploy/credentials)",
                                        "scripts/deploy/validate-compose-environments.mjs (local/disposable-only validator)",
                                        "apps/api/scripts/bootstrap-owner.mjs (non-operational public boundary stub)",
+                                       "scripts/verify/disposable-runtime.mjs (exact public N/A classification)",
+                                       "PUBLIC_CI_EXCEPTIONS.md (exact public N/A evidence)",
                                        "deployment/internal surfaces excluded"
                                    ],
     "public_only_delta_paths":  [
                                     "apps\\api\\scripts\\bootstrap-owner.mjs",
                                     "scripts\\deploy\\build-images.mjs",
                                     "scripts\\deploy\\validate-compose-environments.mjs",
-                                    "README.md"
+                                    "README.md",
+                                    "scripts\\verify\\disposable-runtime.mjs"
                                 ],
     "added_public_paths":  [
+                               "PUBLIC_CI_EXCEPTIONS.md",
                                "PUBLIC_EQUIVALENCE.md",
                                "PUBLIC_EQUIVALENCE_MANIFEST.json",
                                "PUBLIC_SOURCE_BASELINE.md"

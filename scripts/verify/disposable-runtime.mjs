@@ -375,12 +375,24 @@ async function persistenceDatabaseCommand(env, sql, timeoutMs, label) {
   ], { cwd: root, env, timeoutMs, label });
 }
 
-async function runPersistenceSuite(env) {
+const PUBLIC_NOT_APPLICABLE_PERSISTENCE_TESTS = new Map([
+  ['test/database/owner-mfa.persistence.spec.ts', 'PRIVATE_OPERATIONAL_DEPENDENCY_EXCLUDED_FROM_PUBLIC_REPOSITORY'],
+]);
+
+async function runPersistenceSuite(env, inventory) {
   const started = Date.now();
   const template = await preparePersistenceTemplate(env);
   if (template.timedOut || template.exitCode !== 0) return template;
   const apiRoot = resolve(root, 'apps/api');
-  const files = listTestFiles(resolve(apiRoot, 'test/database'));
+  const files = listTestFiles(resolve(apiRoot, 'test/database')).filter((file) => {
+    const relativeFile = relative(apiRoot, file).replaceAll('\\', '/');
+    const reason = PUBLIC_NOT_APPLICABLE_PERSISTENCE_TESTS.get(relativeFile);
+    if (!reason) return true;
+    inventory.publicNotApplicableTests ??= [];
+    inventory.publicNotApplicableTests.push({ file: relativeFile, result: RESULT.NOT_APPLICABLE, reason });
+    process.stdout.write(`PERSISTENCE_TEST_NOT_APPLICABLE ${JSON.stringify({ file: relativeFile, result: RESULT.NOT_APPLICABLE, reason })}\n`);
+    return false;
+  });
   const runtimeSuffix = env.DISPOSABLE_RUNTIME_ID.slice(3).replaceAll('-', '_');
   for (const [index, file] of files.entries()) {
     const relativeFile = relative(apiRoot, file).replaceAll('\\', '/');
@@ -569,6 +581,7 @@ function writeInventory(inventory) {
 export async function canonicalFullVerify(env = createRuntimeEnv()) {
   const gitSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   const inventory = createInventory({ gitSha, runtimeId: env.DISPOSABLE_RUNTIME_ID });
+  inventory.publicNotApplicableTests = [];
   const serviceState = [];
   let cleanupStage = null;
   let interrupted = false;
@@ -620,7 +633,7 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     {
       name: 'API persistence', timeoutMs: STAGE_BOUNDS.apiPersistence,
       command: 'one runtime migration template; every test/database file on an isolated clone (single canonical owner)',
-      action: () => runPersistenceSuite(env),
+      action: () => runPersistenceSuite(env, inventory),
     },
     {
       name: 'web verification', timeoutMs: STAGE_BOUNDS.web,
