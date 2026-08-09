@@ -613,8 +613,8 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     const result = await pnpmCommand(['db:migrate'], env, STAGE_BOUNDS.migration, `migration ${expected}`);
     if (result.exitCode === 0 && !result.timedOut) {
       const expectedPattern = expected === 'first'
-        ? /"applied"\s*:\s*106/
-        : /"applied"\s*:\s*0[\s\S]*"skipped"\s*:\s*106/;
+        ? /"applied"\s*:\s*107/
+        : /"applied"\s*:\s*0[\s\S]*"skipped"\s*:\s*107/;
       if (!expectedPattern.test(result.stdout)) return { ...result, exitCode: 1, reason: `migration ${expected} result did not match the required ledger counts` };
     }
     return result;
@@ -622,8 +622,8 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
   const stages = [
     { name: 'disposable topology startup', timeoutMs: STAGE_BOUNDS.topology, command: 'docker compose up -d --wait --wait-timeout 90 postgres redis', action: () => startTopology(env) },
     { name: 'PostgreSQL/Redis marker verification', timeoutMs: STAGE_BOUNDS.markers, command: 'owned marker probes', action: () => verifyRuntimeMarkers(env) },
-    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 106 applied)', action: migrationAction('first') },
-    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 0 applied / 106 skipped)', action: migrationAction('second') },
+    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 107 applied)', action: migrationAction('first') },
+    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 0 applied / 107 skipped)', action: migrationAction('second') },
     {
       name: 'static/lint/type validation', timeoutMs: STAGE_BOUNDS.static,
       command: 'root ESLint; migration/UI/workflow checks; direct API/Web/Worker typechecks; support package tests',
