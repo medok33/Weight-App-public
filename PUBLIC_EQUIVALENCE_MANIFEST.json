@@ -6,7 +6,7 @@
     "generated_on":  "2026-08-09",
     "confirmed_secret_count":  0,
     "likely_real_secret_count":  0,
-    "exported_source_file_count":  1353,
+    "exported_source_file_count":  1355,
     "exported_source_files":  [
                                   {
                                       "path":  "apps\\api\\src\\modules\\meal-plan\\domain\\meal-dish.ordering.ts",
@@ -153,10 +153,10 @@
                                       "match":  true
                                   },
                                   {
-                                      "path":  "apps\\web\\src\\lib\\__tests__\\owner-hierarchy.spec.ts",
-                                      "source_sha256":  "3EC3EB9E529737EE7439A0F440679805FC78B5C39D7A02B86E2024C171F5D0AD",
-                                      "export_sha256":  "3EC3EB9E529737EE7439A0F440679805FC78B5C39D7A02B86E2024C171F5D0AD",
-                                      "match":  true
+                                      "path":  "apps\\api\\scripts\\bootstrap-owner.mjs",
+                                      "source_sha256":  "DDCF6E3F4C3331CE276691694D0FDD3119059CE279B1CB2BD8BBFC2C889C4DB9",
+                                      "export_sha256":  "1BFB7E8C559F2C61115C6A373C2FD76F3183C153224A785B78B7C8E3951B2250",
+                                      "match":  false
                                   },
                                   {
                                       "path":  "apps\\api\\src\\modules\\recipe-platform\\application\\recipe-external-source.service.ts",
@@ -333,9 +333,9 @@
                                       "match":  true
                                   },
                                   {
-                                      "path":  "apps\\web\\e2e\\workout-v2-01c-session.spec.ts",
-                                      "source_sha256":  "FEEB724D01527845A5D1A9D47E5224031EB60C98A861DEDCD4F902BFEF3D0402",
-                                      "export_sha256":  "FEEB724D01527845A5D1A9D47E5224031EB60C98A861DEDCD4F902BFEF3D0402",
+                                      "path":  "apps\\web\\e2e\\ux-stab-01c-browser-review.spec.ts",
+                                      "source_sha256":  "9469A6FEA52C92FDB4B5A55E24132F08047F1DB00929C4F87380DB1E187CB8B3",
+                                      "export_sha256":  "9469A6FEA52C92FDB4B5A55E24132F08047F1DB00929C4F87380DB1E187CB8B3",
                                       "match":  true
                                   },
                                   {
@@ -747,6 +747,12 @@
                                       "match":  true
                                   },
                                   {
+                                      "path":  "apps\\web\\src\\lib\\__tests__\\owner-hierarchy.spec.ts",
+                                      "source_sha256":  "3EC3EB9E529737EE7439A0F440679805FC78B5C39D7A02B86E2024C171F5D0AD",
+                                      "export_sha256":  "3EC3EB9E529737EE7439A0F440679805FC78B5C39D7A02B86E2024C171F5D0AD",
+                                      "match":  true
+                                  },
+                                  {
                                       "path":  "apps\\web\\src\\features\\workout-engine\\model\\change-today-options.ts",
                                       "source_sha256":  "3BA8E229F3381797FBE8B76D0BEE2B56A18DB72624055AD80A908AD089A0C21E",
                                       "export_sha256":  "3BA8E229F3381797FBE8B76D0BEE2B56A18DB72624055AD80A908AD089A0C21E",
@@ -900,12 +906,6 @@
                                       "path":  "apps\\api\\src\\modules\\integrations\\__tests__\\integrations.security.spec.ts",
                                       "source_sha256":  "45C908FA2DE3393B6EABA926AC0CE43CB92A4506581551CCD2A9ED82054BECC1",
                                       "export_sha256":  "45C908FA2DE3393B6EABA926AC0CE43CB92A4506581551CCD2A9ED82054BECC1",
-                                      "match":  true
-                                  },
-                                  {
-                                      "path":  "apps\\api\\src\\modules\\retention\\__tests__\\retention.service.spec.ts",
-                                      "source_sha256":  "A6B13BAA9534522CB7EEC5020A9718235F0B08A82D66D31A8D413F34799A0633",
-                                      "export_sha256":  "A6B13BAA9534522CB7EEC5020A9718235F0B08A82D66D31A8D413F34799A0633",
                                       "match":  true
                                   },
                                   {
@@ -4383,9 +4383,9 @@
                                       "match":  true
                                   },
                                   {
-                                      "path":  "apps\\api\\prisma\\migrations\\157_threat-review\\migration.sql",
-                                      "source_sha256":  "DBE0D84FE04D8BD29B4232450A1BC3087A0A63D0DB18194B665AC60EE1586C84",
-                                      "export_sha256":  "DBE0D84FE04D8BD29B4232450A1BC3087A0A63D0DB18194B665AC60EE1586C84",
+                                      "path":  "apps\\api\\src\\modules\\retention\\__tests__\\retention.service.spec.ts",
+                                      "source_sha256":  "A6B13BAA9534522CB7EEC5020A9718235F0B08A82D66D31A8D413F34799A0633",
+                                      "export_sha256":  "A6B13BAA9534522CB7EEC5020A9718235F0B08A82D66D31A8D413F34799A0633",
                                       "match":  true
                                   },
                                   {
@@ -4399,6 +4399,12 @@
                                       "source_sha256":  "E538B19E236A1EAD622B633983FDABB77B45566FA8FC73ED91F98734C6E9E87F",
                                       "export_sha256":  "E538B19E236A1EAD622B633983FDABB77B45566FA8FC73ED91F98734C6E9E87F",
                                       "match":  true
+                                  },
+                                  {
+                                      "path":  "scripts\\deploy\\validate-compose-environments.mjs",
+                                      "source_sha256":  "E2F1D3392A10B69798C163119686FD387F730D7372FE63C36AB4930A9FA5903F",
+                                      "export_sha256":  "5C9E8AC671380BA6F5B3459B999C6841061B97289D94B423B38F5A462344EFD9",
+                                      "match":  false
                                   },
                                   {
                                       "path":  "apps\\api\\src\\modules\\platform\\controllers\\platform.controller.ts",
@@ -4521,9 +4527,9 @@
                                       "match":  true
                                   },
                                   {
-                                      "path":  "apps\\web\\e2e\\ux-stab-01c-browser-review.spec.ts",
-                                      "source_sha256":  "9469A6FEA52C92FDB4B5A55E24132F08047F1DB00929C4F87380DB1E187CB8B3",
-                                      "export_sha256":  "9469A6FEA52C92FDB4B5A55E24132F08047F1DB00929C4F87380DB1E187CB8B3",
+                                      "path":  "apps\\api\\prisma\\migrations\\157_threat-review\\migration.sql",
+                                      "source_sha256":  "DBE0D84FE04D8BD29B4232450A1BC3087A0A63D0DB18194B665AC60EE1586C84",
+                                      "export_sha256":  "DBE0D84FE04D8BD29B4232450A1BC3087A0A63D0DB18194B665AC60EE1586C84",
                                       "match":  true
                                   },
                                   {
@@ -4794,6 +4800,12 @@
                                       "path":  "apps\\api\\test\\database\\family-mode.migration.spec.ts",
                                       "source_sha256":  "AEEEEB3E639BEEC05233DE9B8A38005BE380F8BB2A70836E7A1552D500C2C9AC",
                                       "export_sha256":  "AEEEEB3E639BEEC05233DE9B8A38005BE380F8BB2A70836E7A1552D500C2C9AC",
+                                      "match":  true
+                                  },
+                                  {
+                                      "path":  "apps\\web\\e2e\\workout-v2-01c-session.spec.ts",
+                                      "source_sha256":  "FEEB724D01527845A5D1A9D47E5224031EB60C98A861DEDCD4F902BFEF3D0402",
+                                      "export_sha256":  "FEEB724D01527845A5D1A9D47E5224031EB60C98A861DEDCD4F902BFEF3D0402",
                                       "match":  true
                                   },
                                   {
@@ -8134,10 +8146,14 @@
                                        "PUBLIC_EQUIVALENCE_MANIFEST.json",
                                        "compose.yaml",
                                        "scripts/deploy/build-images.mjs (CI-only wrapper; no push/deploy/credentials)",
+                                       "scripts/deploy/validate-compose-environments.mjs (local/disposable-only validator)",
+                                       "apps/api/scripts/bootstrap-owner.mjs (non-operational public boundary stub)",
                                        "deployment/internal surfaces excluded"
                                    ],
     "public_only_delta_paths":  [
+                                    "apps\\api\\scripts\\bootstrap-owner.mjs",
                                     "scripts\\deploy\\build-images.mjs",
+                                    "scripts\\deploy\\validate-compose-environments.mjs",
                                     "README.md"
                                 ],
     "added_public_paths":  [
@@ -8145,7 +8161,7 @@
                                "PUBLIC_EQUIVALENCE_MANIFEST.json",
                                "PUBLIC_SOURCE_BASELINE.md"
                            ],
-    "excluded_source_file_count":  613,
+    "excluded_source_file_count":  611,
     "excluded_source_paths":  [
                                   ".github\\pull_request_template.md",
                                   ".github\\workflows\\release-images.yml",
@@ -8153,7 +8169,6 @@
                                   "apps\\api\\scripts\\apply-153-154-observability-backup.mjs",
                                   "apps\\api\\scripts\\apply-155-157-security-ops.mjs",
                                   "apps\\api\\scripts\\apply-158-beta-retention.mjs",
-                                  "apps\\api\\scripts\\bootstrap-owner.mjs",
                                   "apps\\api\\scripts\\clear-local-owner-login-abuse.mjs",
                                   "apps\\api\\scripts\\owner-mfa-emergency-reset.mjs",
                                   "apps\\api\\scripts\\recipe-data-classification.mjs",
@@ -8517,7 +8532,6 @@
                                   "scripts\\deploy\\staging-generate-env.sh",
                                   "scripts\\deploy\\staging-up.sh",
                                   "scripts\\deploy\\staging-validate.sh",
-                                  "scripts\\deploy\\validate-compose-environments.mjs",
                                   "scripts\\deploy\\validate-prod-like.mjs",
                                   "scripts\\deploy\\vps-bootstrap.sh",
                                   "scripts\\rp2-02b-backfill-report.mjs",
