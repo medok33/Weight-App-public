@@ -1,0 +1,61 @@
+# syntax=docker/dockerfile:1.7
+# weight-app-worker — PostgreSQL outbox / coverage / retention poller
+ARG NODE_VERSION=22.17
+
+FROM node:${NODE_VERSION}-bookworm-slim AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/worker/package.json apps/worker/
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY packages/config/package.json packages/config/
+COPY packages/contracts/package.json packages/contracts/
+COPY packages/domain/package.json packages/domain/
+COPY packages/observability/package.json packages/observability/
+COPY packages/testing/package.json packages/testing/
+COPY packages/ui/package.json packages/ui/
+RUN pnpm install --frozen-lockfile --filter worker...
+
+FROM base AS build
+COPY --from=deps /app /app
+COPY . .
+RUN pnpm --filter worker build \
+ && pnpm --filter worker deploy --prod --legacy /out/worker
+
+FROM node:${NODE_VERSION}-bookworm-slim AS runtime
+ARG RELEASE_VERSION=0.0.0-local
+ARG GIT_SHA=unknown
+ARG BUILD_TIMESTAMP=unknown
+ARG OCI_SOURCE=
+
+LABEL org.opencontainers.image.title="weight-app-worker" \
+      org.opencontainers.image.description="Weight App background worker (PostgreSQL outbox)" \
+      org.opencontainers.image.version="${RELEASE_VERSION}" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_TIMESTAMP}" \
+      org.opencontainers.image.source="${OCI_SOURCE}"
+
+ENV NODE_ENV=production \
+    APP_HOME=/app
+
+WORKDIR /app
+
+RUN groupadd --system --gid 10001 weightapp \
+ && useradd --system --uid 10001 --gid weightapp --home-dir /app --shell /usr/sbin/nologin weightapp
+
+COPY --from=build --chown=weightapp:weightapp /out/worker/ ./
+COPY --from=build --chown=weightapp:weightapp /app/apps/worker/dist ./dist
+
+USER weightapp:weightapp
+
+# Process-level health: stdout JSON event worker.ready; no HTTP port.
+# Orchestrators should rely on restart policy + log signal; ONCE=1 for smoke.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "process.exit(0)"
+
+CMD ["node", "dist/main.js"]

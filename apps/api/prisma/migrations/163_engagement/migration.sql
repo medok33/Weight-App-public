@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS "EngagementState" ("userId" uuid PRIMARY KEY REFERENCES "User"(id) ON DELETE CASCADE, "successfulDaysTotal" int NOT NULL DEFAULT 0, "bestStreakDays" int NOT NULL DEFAULT 0, "currentStreakDays" int NOT NULL DEFAULT 0, paused boolean NOT NULL DEFAULT false, "lastActiveOn" date, "remindersEnabled" boolean NOT NULL DEFAULT true);

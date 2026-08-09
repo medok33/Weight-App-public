@@ -1,0 +1,1 @@
+import { describe, expect, it } from 'vitest'; import { validateSupportAccess } from '../domain/audit-security.policy'; describe('support access', () => { it('rejects expired access', () => expect(() => validateSupportAccess({ actorId: 'a', userId: 'u', reason: 'support', expiresAt: '2020-01-01' })).toThrow('SUPPORT_ACCESS_INVALID')); });

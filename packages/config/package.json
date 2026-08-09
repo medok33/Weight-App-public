@@ -1,0 +1,20 @@
+{
+  "name": "@weight-app/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/load-env.ts",
+    "./browser-security": "./src/browser-security.ts",
+    "./env.schema": "./src/env.schema.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "zod": "4.1.12"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test src/browser-security.test.ts"
+  }
+}

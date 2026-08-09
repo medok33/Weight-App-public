@@ -1,0 +1,1 @@
+import { describe, expect, it } from 'vitest'; import { splitCosts } from '../domain/shopping-list.policy'; describe('shopping costs', () => { it('separates purchase and consumed cost', () => { expect(splitCosts(550, 500, 4, 300)).toEqual({ purchaseCost: 8, consumedCost: 2.4 }); }); });

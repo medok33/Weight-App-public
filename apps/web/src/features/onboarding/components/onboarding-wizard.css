@@ -1,0 +1,97 @@
+.wa-onboarding {
+  display: grid;
+  gap: 1rem;
+  max-width: 640px;
+}
+
+.wa-onboarding-progress-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.wa-onboarding-steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.wa-onboarding-steps li {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: #f4f8f5;
+  color: var(--muted);
+}
+
+.wa-onboarding-steps li[data-state='current'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.wa-onboarding-steps li[data-state='done'] {
+  background: #dcece2;
+  color: var(--text);
+}
+
+.wa-onboarding-fields {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.wa-onboarding-field-error {
+  margin: -6px 0 8px;
+  color: #8a1f1f;
+  font-size: 0.9rem;
+}
+
+.wa-onboarding-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 8px;
+}
+
+.wa-onboarding-summary {
+  margin: 12px 0;
+  padding-left: 1.2rem;
+}
+
+.wa-onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.wa-onboarding-actions-end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 430px) {
+  .wa-onboarding-actions,
+  .wa-onboarding-actions-end {
+    width: 100%;
+  }
+
+  .wa-onboarding-actions-end {
+    justify-content: stretch;
+  }
+
+  .wa-onboarding-actions button {
+    flex: 1 1 auto;
+  }
+}

@@ -1,0 +1,1936 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  email String? @unique
+  username String? @unique
+  accountRole String @default("USER")
+  status String @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  identities AuthIdentity[]
+  sessions Session[]
+  profile UserProfile?
+  workoutProfile WorkoutProfile?
+  workoutPlanDayOverrides WorkoutPlanDayOverride[]
+  workoutSessions WorkoutSession[]
+  workoutAdaptations WorkoutAdaptation[]
+  workoutAdaptationCommands WorkoutAdaptationCommand[]
+  eligibilityAssessments EligibilityAssessment[]
+  shoppingLists ShoppingList[]
+  aiConversations AIConversation[]
+  aiUsageLogs AIUsageLog[]
+  aiMessageFeedback AIMessageFeedback[]
+  userSubscription UserSubscription?
+  anonymousMigrations AnonymousMigration[] @relation("MigrationTarget")
+  ownerMfaCredentials OwnerMfaCredential[]
+  ownerMfaRecoveryCodes OwnerMfaRecoveryCode[]
+  mfaPreAuthChallenges MfaPreAuthChallenge[]
+  ownerMfaReplayStates OwnerMfaReplayState[]
+  ownerMfaEnrollmentDrafts OwnerMfaEnrollmentDraft[]
+  ownerAuditEvents OwnerAuditEvent[]
+  productOffers ProductOffer[]
+  payments Payment[]
+  entitlements Entitlement[]
+  exportJobs ExportJob[]
+  shareLinks ShareLink[]
+  aiControls AIControl[]
+  featureFlags FeatureFlag[]
+  mealCompletions MealCompletion[]
+  activitySyncClients ActivitySyncClient[]
+  activityDailySnapshots ActivityDailySnapshot[]
+  activitySyncOperations ActivitySyncOperation[]
+  activitySyncRateBuckets ActivitySyncRateBucket[]
+  activityProviderConnections ActivityProviderConnection[]
+  progressEntries ProgressEntry[]
+  pantries Pantry[]
+  ownedFamilies Family[] @relation("FamilyOwner")
+  familyMemberships FamilyMember[]
+  sentFamilyInvitations FamilyInvitation[] @relation("FamilyInviter")
+  acceptedFamilyInvitations FamilyInvitation[] @relation("FamilyInviteAcceptor")
+  sharedDishes SharedDish[]
+  sharedDishPortions SharedDishPortion[]
+  notificationPreference NotificationPreference?
+  notifications Notification[]
+  healthPlatformConsents HealthPlatformConsent[]
+  engagementState EngagementState?
+  integrationConnections IntegrationConnection[]
+  regeneratedFamilyShoppingLists FamilyShoppingList[]
+  planRevisions PlanRevision[]
+}
+model AuthIdentity {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  provider String
+  providerSubject String
+  credentialHash String?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerSubject])
+  @@index([userId])
+}
+model UserSubscription {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  tier String
+  status String @default("active")
+  startsAt DateTime @default(now())
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+model AnonymousMigration {
+  id String @id @default(uuid()) @db.Uuid
+  anonymousUserId String @unique @db.Uuid
+  targetUserId String @db.Uuid
+  migratedAt DateTime @default(now())
+  targetUser User @relation("MigrationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+}
+model Session {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  tokenHash String @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  mfaVerifiedAt DateTime?
+  recentOwnerReauthAt DateTime?
+  createdAt DateTime @default(now())
+  role String @default("USER")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, expiresAt])
+}
+
+model OwnerMfaCredential {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  method String @default("TOTP")
+  status String @default("ACTIVE")
+  encryptedSecret Json
+  confirmedAt DateTime
+  disabledAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recoveryCodes OwnerMfaRecoveryCode[]
+  @@index([userId, status])
+}
+
+model OwnerMfaEnrollmentDraft {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  encryptedSecret Json
+  expiresAt DateTime
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, expiresAt])
+}
+
+model OwnerMfaRecoveryCode {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  credentialId String @db.Uuid
+  codeHash String
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential OwnerMfaCredential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  @@unique([credentialId, codeHash])
+  @@index([userId, usedAt])
+}
+
+model MfaPreAuthChallenge {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  challengeHash String @unique
+  accountHash String
+  sourceIpHash String
+  accountIpHash String
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, expiresAt])
+  @@index([challengeHash, expiresAt])
+}
+
+model OwnerMfaReplayState {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  timeStep BigInt
+  acceptedAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, timeStep])
+  @@index([acceptedAt])
+}
+
+model UserProfile { id String @id @default(uuid()) @db.Uuid; userId String @unique @db.Uuid; displayName String?; ageYears Int?; ageBand String?; heightCm Int?; weightKg Decimal? @db.Decimal(8,2); activityLevel String?; locale String @default("ru"); timezone String?; trainingLevel String?; workoutsPerWeek Int?; dietaryPreferences String?; foodRestrictions String?; availableEquipment String?; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; user User @relation(fields: [userId], references: [id], onDelete: Cascade); goals UserGoal[] }
+model UserGoal { id String @id @default(uuid()) @db.Uuid; profileId String @db.Uuid; kind String; target Decimal? @db.Decimal(8,2); unit String?; targetDate DateTime? @db.Date; createdAt DateTime @default(now()); profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade); @@index([profileId]) }
+model PolicyVersion { id String @id @default(uuid()) @db.Uuid; kind String; version String; effectiveAt DateTime; checksum String; createdAt DateTime @default(now()); @@unique([kind, version]) }
+model AIConversation { id String @id @default(uuid()) @db.Uuid; userId String @db.Uuid; title String?; createdAt DateTime @default(now()); messages AIMessage[]; usageLogs AIUsageLog[]; user User @relation(fields: [userId], references: [id], onDelete: Cascade); @@index([userId, createdAt]) }
+model AIMessage { id String @id @default(uuid()) @db.Uuid; conversationId String @db.Uuid; role String; content String; createdAt DateTime @default(now()); conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade); feedback AIMessageFeedback[]; @@index([conversationId, createdAt]) }
+model AIMessageFeedback { id String @id @default(uuid()) @db.Uuid; userId String @db.Uuid; messageId String @db.Uuid; rating String; createdAt DateTime @default(now()); user User @relation(fields: [userId], references: [id], onDelete: Cascade); message AIMessage @relation(fields: [messageId], references: [id], onDelete: Cascade); @@unique([userId, messageId]); @@index([messageId]); @@index([createdAt]) }
+model AIUsageLog {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  conversationId String? @db.Uuid
+  providerId String
+  model String
+  promptTokens Int @default(0)
+  completionTokens Int @default(0)
+  topic String?
+  errorCode String?
+  tier String?
+  thinkingEnabled Boolean @default(false)
+  totalTokens Int @default(0)
+  estimatedCost Decimal @default(0) @db.Decimal(12, 6)
+  latencyMs Int @default(0)
+  success Boolean @default(true)
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation AIConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  @@index([userId, createdAt])
+}
+model Role { id String @id @default(uuid()) @db.Uuid; name String @unique; permissions Permission[] }
+model Permission { id String @id @default(uuid()) @db.Uuid; roleId String @db.Uuid; action String; role Role @relation(fields: [roleId], references: [id], onDelete: Cascade); @@unique([roleId, action]) }
+
+model OwnerAuditEvent {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  action String
+  metadata Json
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+}
+
+model AuditEvent {
+  id String @id @default(uuid()) @db.Uuid
+  actorUserId String? @db.Uuid
+  action String
+  entityType String?
+  entityId String?
+  requestId String?
+  metadata Json @default("{}")
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action])
+}
+
+model AuthThrottleBucket {
+  id String @id @default(uuid()) @db.Uuid
+  action String
+  subjectType String
+  subjectHash String
+  windowStartedAt DateTime @default(now())
+  failureCount Int @default(0)
+  blockedUntil DateTime?
+  lastFailureAt DateTime?
+  successClearedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([action, subjectType, subjectHash], map: "AuthThrottleBucket_action_subject_unique")
+  @@index([action, subjectType, subjectHash, blockedUntil])
+  @@index([blockedUntil, windowStartedAt])
+}
+
+model AuthAccountLockout {
+  id String @id @default(uuid()) @db.Uuid
+  accountHash String @unique
+  failureCount Int @default(0)
+  lockedUntil DateTime?
+  lastFailureAt DateTime?
+  recoveredAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([lockedUntil])
+  @@index([updatedAt])
+}
+
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+  ownerUserId String @db.Uuid
+  targetUserId String? @db.Uuid
+  action String
+  entityType String?
+  entityId String?
+  requestId String?
+  metadata Json @default("{}")
+  createdAt DateTime @default(now())
+  @@index([ownerUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([action])
+}
+
+model ProductOffer {
+  key String @id
+  name String
+  amountMinor Int
+  currency String
+  interval String
+  active Boolean @default(true)
+  metadata Json
+  updatedBy String? @db.Uuid
+  updatedAt DateTime @updatedAt
+  updater User? @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+  payments Payment[]
+  @@index([active])
+}
+
+model AIControl {
+  id Int @id @default(1)
+  enabled Boolean @default(true)
+  updatedBy String @db.Uuid
+  updatedAt DateTime @default(now())
+  updater User @relation(fields: [updatedBy], references: [id])
+}
+
+model FeatureFlag {
+  key String @id
+  enabled Boolean @default(false)
+  updatedBy String @db.Uuid
+  updatedAt DateTime @default(now())
+  updater User @relation(fields: [updatedBy], references: [id])
+  @@index([enabled])
+}
+
+model Payment {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  offerKey String?
+  provider String
+  providerPaymentId String?
+  status String
+  amountMinor Int
+  currency String
+  metadata Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offer ProductOffer? @relation(fields: [offerKey], references: [key], onDelete: SetNull)
+  events PaymentEvent[]
+  refunds Refund[]
+  entitlements Entitlement[]
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@unique([provider, providerPaymentId])
+}
+
+model Entitlement {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  key String
+  status String @default("active")
+  startsAt DateTime @default(now())
+  endsAt DateTime?
+  sourcePaymentId String? @db.Uuid
+  metadata Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourcePayment Payment? @relation(fields: [sourcePaymentId], references: [id], onDelete: SetNull)
+  @@unique([userId, key])
+  @@index([userId, status, endsAt])
+  @@index([sourcePaymentId])
+}
+
+model PaymentEvent {
+  id String @id @default(uuid()) @db.Uuid
+  paymentId String @db.Uuid
+  type String
+  providerEventId String?
+  payload Json
+  createdAt DateTime @default(now())
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  @@index([paymentId, createdAt])
+  @@unique([provider, providerEventId])
+  provider String
+}
+
+model Refund {
+  id String @id @default(uuid()) @db.Uuid
+  paymentId String @db.Uuid
+  amountMinor Int
+  currency String
+  status String
+  reason String?
+  providerRefundId String?
+  metadata Json
+  requestedByUserId String? @db.Uuid
+  decidedByUserId String? @db.Uuid
+  decidedAt DateTime?
+  decisionNote String?
+  idempotencyKey String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  @@index([paymentId, createdAt])
+  @@index([status, createdAt])
+  @@unique([providerRefundId])
+  @@unique([idempotencyKey])
+}
+
+model ExportJob {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  type String
+  status String
+  idempotencyKey String @unique
+  payload Json
+  result Json?
+  errorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shareLinks ShareLink[]
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model ShareLink {
+  id String @id @default(uuid()) @db.Uuid
+  token String @unique
+  exportJobId String @db.Uuid
+  userId String @db.Uuid
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  exportJob ExportJob @relation(fields: [exportJobId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([exportJobId])
+  @@index([expiresAt])
+}
+
+model EligibilityAssessment {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  answers Json
+  outcome String
+  policyVersion String
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+}
+
+model Product {
+  id                        String                    @id @default(uuid()) @db.Uuid
+  canonicalName             String                    @unique
+  productKey                String?                   @unique
+  name                      String?
+  category                  String?
+  categoryId                String?                   @db.Uuid
+  form                      String?
+  fatPercent                Decimal?                  @db.Decimal(8, 4)
+  ediblePartPercent         Decimal?                  @db.Decimal(8, 4)
+  density                   Decimal?                  @db.Decimal(12, 6)
+  averagePieceWeightGrams   Decimal?                  @db.Decimal(12, 4)
+  yieldCoefficient          Decimal?                  @db.Decimal(8, 4)
+  defaultUnit               String?
+  unit                      String
+  weight                    String?
+  caloriesPer100g           Decimal                   @db.Decimal(8, 2)
+  proteinPer100g            Decimal                   @db.Decimal(8, 2)
+  fatPer100g                Decimal?                  @db.Decimal(8, 2)
+  carbsPer100g              Decimal?                  @db.Decimal(8, 2)
+  packageSize               Decimal?                  @db.Decimal(10, 2)
+  packageUnit               String?
+  currentNutritionVersionId String?                   @db.Uuid
+  status                    String                    @default("ACTIVE")
+  canonicalProductId        String?                   @db.Uuid
+  mergedAt                  DateTime?
+  mergedBy                  String?                   @db.Uuid
+  reviewStatus              String                    @default("NONE")
+  reviewNote                String?
+  rowVersion                Int                       @default(1)
+  seedDatasetVersion        String?
+  seedProvenance            Json?
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @default(now())
+  categoryRef               ProductCategory?          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  currentNutritionVersion   ProductNutritionVersion?  @relation("ProductCurrentNutrition", fields: [currentNutritionVersionId], references: [id], onDelete: SetNull)
+  nutritionVersions         ProductNutritionVersion[] @relation("ProductNutritionHistory")
+  aliases                   ProductAlias[]
+  ingredients               RecipeIngredient[]
+  recipeFamilies            RecipeFamily[]
+  recipeProductDependencies RecipeProductDependency[]
+  recipeRevalidationTasks   RecipeRevalidationTask[]
+  coverageSlots             RecipeCoverageSlot[]
+  productAllergens          ProductAllergen[]
+  productDietaryTags        ProductDietaryTag[]
+  culinaryRoles             ProductCulinaryRole[]
+  substitutionsAsSource     ProductSubstitution[] @relation("SubstitutionSource")
+  substitutionsAsReplacement ProductSubstitution[] @relation("SubstitutionReplacement")
+  retailProducts            RetailProduct[]
+  mergeTarget               Product?                  @relation("ProductMergeLineage", fields: [canonicalProductId], references: [id], onDelete: Restrict)
+  mergedSources             Product[]                 @relation("ProductMergeLineage")
+  reviewDecisions           ProductReviewDecision[]
+  @@index([categoryId])
+  @@index([form])
+  @@index([status, updatedAt])
+  @@index([canonicalProductId])
+  @@index([reviewStatus])
+  @@index([seedDatasetVersion])
+}
+
+model ProductReviewDecision {
+  id          String   @id @default(uuid()) @db.Uuid
+  productId   String   @db.Uuid
+  queueCode    String
+  decision    String   @default("RESOLVED")
+  note        String?
+  actorUserId String?  @db.Uuid
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  @@index([productId, createdAt])
+  @@index([queueCode, createdAt])
+}
+
+model CulinaryRole {
+  id          String               @id @default(uuid()) @db.Uuid
+  code        String               @unique
+  name        String
+  description String?
+  status      String               @default("ACTIVE")
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @default(now())
+  products    ProductCulinaryRole[]
+  substitutions ProductSubstitution[]
+}
+
+model ProductCulinaryRole {
+  id             String       @id @default(uuid()) @db.Uuid
+  productId      String       @db.Uuid
+  culinaryRoleId String       @db.Uuid
+  isPrimary      Boolean      @default(false)
+  source         String       @default("HEURISTIC")
+  confidence     Decimal      @default(0.50) @db.Decimal(5, 4)
+  reviewedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  culinaryRole   CulinaryRole @relation(fields: [culinaryRoleId], references: [id], onDelete: Restrict)
+  @@unique([productId, culinaryRoleId])
+  @@index([culinaryRoleId])
+}
+
+model CookingMethod {
+  code      String   @id
+  name      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+}
+
+model ProductSubstitution {
+  id                   String        @id @default(uuid()) @db.Uuid
+  sourceProductId      String        @db.Uuid
+  replacementProductId String        @db.Uuid
+  culinaryRoleId       String?       @db.Uuid
+  replacementRatio     Decimal       @db.Decimal(12, 6)
+  replacementRatioMin  Decimal       @db.Decimal(12, 6)
+  replacementRatioMax  Decimal       @db.Decimal(12, 6)
+  nutritionImpact      String        @default("UNKNOWN")
+  textureImpact        String        @default("UNKNOWN")
+  supportedMethods     String[]      @default([])
+  status               String        @default("ACTIVE")
+  source               String        @default("MANUAL")
+  confidence           Decimal       @default(1.0) @db.Decimal(5, 4)
+  reviewedAt           DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @default(now())
+  sourceProduct        Product       @relation("SubstitutionSource", fields: [sourceProductId], references: [id], onDelete: Restrict)
+  replacementProduct   Product       @relation("SubstitutionReplacement", fields: [replacementProductId], references: [id], onDelete: Restrict)
+  culinaryRole         CulinaryRole? @relation(fields: [culinaryRoleId], references: [id], onDelete: Restrict)
+  @@index([sourceProductId, status])
+  @@index([replacementProductId])
+}
+
+model RetailProduct {
+  id                  String             @id @default(uuid()) @db.Uuid
+  retailerId          String             @db.Uuid
+  canonicalProductId  String?            @db.Uuid
+  externalSku         String?
+  title               String
+  brand               String?
+  packageWeight       Decimal?           @db.Decimal(12, 4)
+  packageUnit         String?
+  packageQuantity     Decimal?           @db.Decimal(12, 4)
+  barcode             String?
+  status              String             @default("ACTIVE")
+  mappingStatus       String             @default("NEEDS_PRODUCT_MAPPING")
+  source              String             @default("LEGACY_BACKFILL")
+  externalProductId   String?            @db.Uuid
+  lastMatchedAt       DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @default(now())
+  retailer            Retailer           @relation(fields: [retailerId], references: [id], onDelete: Restrict)
+  canonicalProduct    Product?           @relation(fields: [canonicalProductId], references: [id], onDelete: Restrict)
+  externalProduct     ExternalProduct?   @relation(fields: [externalProductId], references: [id], onDelete: SetNull)
+  observations        PriceObservation[]
+  @@index([canonicalProductId])
+  @@index([retailerId, status])
+}
+
+model ProductCategory {
+  id        String            @id @default(uuid()) @db.Uuid
+  code      String            @unique
+  name      String
+  parentId  String?           @db.Uuid
+  position  Int               @default(0)
+  status    String            @default("ACTIVE")
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @default(now())
+  parent    ProductCategory?  @relation("ProductCategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  ProductCategory[] @relation("ProductCategoryTree")
+  products  Product[]
+  @@index([parentId])
+  @@index([status, position, code])
+}
+
+model ProductAlias {
+  id              String   @id @default(uuid()) @db.Uuid
+  productId       String   @db.Uuid
+  alias           String
+  normalizedAlias String?
+  source          String   @default("LEGACY_BACKFILL")
+  confidence      Decimal  @default(1.0) @db.Decimal(5, 4)
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now())
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@index([productId])
+  @@index([normalizedAlias])
+}
+
+model ProductNutritionVersion {
+  id             String    @id @default(uuid()) @db.Uuid
+  productId      String    @db.Uuid
+  version        Int
+  calories       Decimal   @db.Decimal(10, 2)
+  protein        Decimal   @db.Decimal(10, 2)
+  fat            Decimal   @db.Decimal(10, 2)
+  carbohydrate   Decimal   @db.Decimal(10, 2)
+  fiber          Decimal?  @db.Decimal(10, 2)
+  sodium         Decimal?  @db.Decimal(10, 2)
+  source         String
+  validFrom      DateTime  @default(now())
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  createdBy      String?   @db.Uuid
+  product        Product   @relation("ProductNutritionHistory", fields: [productId], references: [id], onDelete: Restrict)
+  currentFor     Product[] @relation("ProductCurrentNutrition")
+  @@unique([productId, version])
+  @@index([productId, validFrom(sort: Desc)])
+}
+
+model Allergen {
+  id        String           @id @default(uuid()) @db.Uuid
+  code      String           @unique
+  name      String
+  status    String           @default("ACTIVE")
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @default(now())
+  products  ProductAllergen[]
+}
+
+model DietaryTag {
+  id        String              @id @default(uuid()) @db.Uuid
+  code      String              @unique
+  name      String
+  status    String              @default("ACTIVE")
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @default(now())
+  products  ProductDietaryTag[]
+}
+
+model ProductAllergen {
+  id         String   @id @default(uuid()) @db.Uuid
+  productId  String   @db.Uuid
+  allergenId String   @db.Uuid
+  presence   String   @default("CONTAINS")
+  source     String   @default("LEGACY_BACKFILL")
+  createdAt  DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  allergen   Allergen @relation(fields: [allergenId], references: [id], onDelete: Restrict)
+  @@unique([productId, allergenId])
+  @@index([allergenId])
+}
+
+model ProductDietaryTag {
+  id           String     @id @default(uuid()) @db.Uuid
+  productId    String     @db.Uuid
+  dietaryTagId String     @db.Uuid
+  source       String     @default("LEGACY_BACKFILL")
+  createdAt    DateTime   @default(now())
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  dietaryTag   DietaryTag @relation(fields: [dietaryTagId], references: [id], onDelete: Restrict)
+  @@unique([productId, dietaryTagId])
+  @@index([dietaryTagId])
+}
+
+model Recipe {
+  id                String             @id @default(uuid()) @db.Uuid
+  name              String
+  servings          Int
+  description       String?
+  prepMinutes       Int?
+  cookMinutes       Int?
+  difficulty        String?
+  portionGrams      Decimal?           @db.Decimal(10, 2)
+  allergens         Json               @default("[]")
+  dietaryTags       Json               @default("[]")
+  equipment         Json               @default("[]")
+  recipeKey         String?            @unique
+  recipeFamilyId    String?            @db.Uuid
+  currentVersionId  String?            @db.Uuid
+  contentRevision   Int                @default(1)
+  /** Editorial tier: PRODUCTION | TEST_ONLY | FIXTURE | HISTORICAL_ONLY | LEGACY | ARCHIVED_DATA */
+  dataClass         String             @default("PRODUCTION")
+  createdAt         DateTime           @default(now())
+  ingredients       RecipeIngredient[]
+  steps             RecipeStep[]
+  family            RecipeFamily?      @relation(fields: [recipeFamilyId], references: [id], onDelete: Restrict)
+  versions          RecipeVersion[]    @relation("RecipeVersions")
+  currentVersion    RecipeVersion?     @relation("RecipeCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+}
+
+model RecipeFamily {
+  id               String   @id @default(uuid()) @db.Uuid
+  canonicalName    String
+  slug             String   @unique
+  dishType         String   @default("UNCLASSIFIED")
+  primaryProductId String?  @db.Uuid
+  status           String   @default("ACTIVE")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now())
+  recipes          Recipe[]
+  primaryProduct   Product? @relation(fields: [primaryProductId], references: [id], onDelete: Restrict)
+}
+
+model RecipeVersion {
+  id                       String    @id @default(uuid()) @db.Uuid
+  recipeId                 String    @db.Uuid
+  versionNumber            Int
+  status                   String    @default("PUBLISHED")
+  contentSnapshotJson      Json
+  ingredientsSnapshotJson  Json
+  stepsSnapshotJson        Json
+  nutritionSnapshotJson    Json
+  costSnapshotJson         Json?
+  restrictionSnapshotJson  Json      @default("{}")
+  servings                 Int       @default(1)
+  servingWeightGrams       Decimal?  @db.Decimal(10, 2)
+  changeType               String
+  changeReason             String?
+  createdBy                String?   @db.Uuid
+  approvedBy               String?   @db.Uuid
+  createdAt                DateTime  @default(now())
+  approvedAt               DateTime?
+  publishedAt              DateTime?
+  checksum                 String
+  parentVersionId          String?   @db.Uuid
+  provenance               String    @default("SYSTEM")
+  recipe                   Recipe    @relation("RecipeVersions", fields: [recipeId], references: [id], onDelete: Restrict)
+  currentFor               Recipe[]  @relation("RecipeCurrentVersion")
+  mealItems                MealItem[]
+  lifecycle                RecipeVersionLifecycle?
+  lifecycleEvents          RecipeVersionLifecycleEvent[]
+  productDependencies      RecipeProductDependency[]
+  revalidationTasks        RecipeRevalidationTask[]
+  fingerprints             RecipeFingerprint[]
+  mediaLinks               RecipeVersionMedia[]
+  coverageAssignments      RecipeCoverageAssignment[]
+  @@unique([recipeId, versionNumber])
+  @@index([recipeId])
+}
+
+model RecipeCoverageSlot {
+  id                   String   @id @default(uuid()) @db.Uuid
+  slotKey              String
+  matrixVersion        String
+  name                 String
+  description          String   @default("")
+  mealType             String
+  primaryProductId     String?  @db.Uuid
+  dishType             String
+  cookingMethod        String?
+  calorieMin           Int?
+  calorieMax           Int?
+  proteinMin           Decimal? @db.Decimal(8, 2)
+  fatMax               Decimal? @db.Decimal(8, 2)
+  maximumTimeMinutes   Int?
+  maximumCost          Decimal? @db.Decimal(12, 2)
+  currency             String?
+  dietaryProfile       String
+  equipmentProfile     String
+  desiredRecipeCount   Int
+  publishedRecipeCount Int      @default(0)
+  priority             String
+  sortRank             Int      @default(0)
+  status               String   @default("EMPTY")
+  provenance           String
+  rationale            String
+  active               Boolean  @default(true)
+  lastAnalyzedAt       DateTime?
+  createdBy            String?  @db.Uuid
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @default(now())
+  primaryProduct       Product? @relation(fields: [primaryProductId], references: [id], onDelete: Restrict)
+  assignments          RecipeCoverageAssignment[]
+  @@unique([matrixVersion, slotKey])
+  @@index([mealType, priority])
+}
+
+model RecipeCoverageAssignment {
+  id              String   @id @default(uuid()) @db.Uuid
+  slotId          String   @db.Uuid
+  recipeVersionId String   @db.Uuid
+  assignmentType  String
+  matchStatus     String
+  matchScore      Decimal  @db.Decimal(6, 4)
+  reasonsJson     Json     @default("[]")
+  contentGroupId  String?
+  assignedBy      String?  @db.Uuid
+  assignedAt      DateTime @default(now())
+  analyzedAt      DateTime @default(now())
+  active          Boolean  @default(true)
+  slot            RecipeCoverageSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  recipeVersion   RecipeVersion @relation(fields: [recipeVersionId], references: [id], onDelete: Restrict)
+  @@index([slotId])
+  @@index([recipeVersionId])
+}
+  id                       String   @id @default(uuid()) @db.Uuid
+  recipeVersionId          String   @db.Uuid
+  fingerprintSchemaVersion String
+  exactContentHash         String
+  ingredientSetHash        String
+  ingredientQuantityHash   String
+  cookingStructureHash     String
+  titleNormalizationHash   String
+  familyFeatureHash        String?
+  normalizedFeaturesJson   Json     @default("{}")
+  checksum                 String
+  confidence               String   @default("HIGH")
+  createdAt                DateTime @default(now())
+  recipeVersion            RecipeVersion @relation(fields: [recipeVersionId], references: [id], onDelete: Restrict)
+  @@unique([recipeVersionId, fingerprintSchemaVersion])
+  @@index([fingerprintSchemaVersion, exactContentHash])
+  @@index([fingerprintSchemaVersion, ingredientSetHash])
+}
+
+model RecipeDuplicateCandidate {
+  id                       String    @id @default(uuid()) @db.Uuid
+  leftRecipeVersionId      String    @db.Uuid
+  rightRecipeVersionId     String    @db.Uuid
+  fingerprintSchemaVersion String
+  classification           String
+  score                    Decimal   @db.Decimal(6, 4)
+  reasonsJson              Json      @default("[]")
+  status                   String    @default("OPEN")
+  detectedAt               DateTime  @default(now())
+  lastEvaluatedAt          DateTime  @default(now())
+  reviewedAt               DateTime?
+  reviewedBy               String?   @db.Uuid
+  resolutionCode           String?
+  resolutionNote           String?
+  pairKey                  String
+  @@unique([pairKey, fingerprintSchemaVersion])
+  @@index([status, classification])
+}
+
+model MediaAsset {
+  id                     String    @id @default(uuid()) @db.Uuid
+  storageProvider        String    @default("LOCAL_TEST")
+  storageKey             String?
+  originalFilename       String?
+  mimeType               String?
+  sizeBytes              Int?
+  width                  Int?
+  height                 Int?
+  checksumSha256         String?
+  sourceType             String
+  sourceUrl              String?
+  sourceReference        String?
+  rightsHolder           String?
+  licenseType            String    @default("UNKNOWN")
+  licenseUrl             String?
+  attributionText        String?
+  acquiredAt             DateTime?
+  rightsValidFrom        DateTime?
+  rightsValidUntil       DateTime?
+  regionRestrictionsJson Json      @default("[]")
+  moderationStatus       String    @default("PENDING")
+  rightsStatus           String    @default("PENDING_REVIEW")
+  aiProvider             String?
+  aiModel                String?
+  aiGeneratedAt          DateTime?
+  aiPromptHash           String?
+  aiGenerationPolicyVersion String?
+  aiReviewer             String?   @db.Uuid
+  createdBy              String?   @db.Uuid
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @default(now())
+  recipeLinks            RecipeVersionMedia[]
+  exerciseMedia          ExerciseMedia[]
+  @@index([rightsStatus, moderationStatus])
+  @@index([sourceType])
+}
+
+model RecipeVersionMedia {
+  id              String   @id @default(uuid()) @db.Uuid
+  recipeVersionId String   @db.Uuid
+  mediaAssetId    String   @db.Uuid
+  role            String
+  position        Int      @default(0)
+  altText         String
+  caption         String?
+  stepIndex       Int?
+  cropMetadataJson Json    @default("{}")
+  createdAt       DateTime @default(now())
+  recipeVersion   RecipeVersion @relation(fields: [recipeVersionId], references: [id], onDelete: Restrict)
+  mediaAsset      MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+  @@unique([recipeVersionId, role, position])
+  @@index([mediaAssetId])
+}
+
+model RecipeVersionLifecycle {
+  recipeVersionId  String   @id @db.Uuid
+  lifecycleStatus  String
+  validationStatus String   @default("VALID")
+  revision         Int      @default(1)
+  changedAt        DateTime @default(now())
+  changedBy        String?  @db.Uuid
+  reasonCode       String?
+  reasonText       String?
+  recipeVersion    RecipeVersion @relation(fields: [recipeVersionId], references: [id], onDelete: Restrict)
+  @@index([lifecycleStatus])
+  @@index([validationStatus])
+}
+
+model RecipeVersionLifecycleEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  recipeVersionId String   @db.Uuid
+  fromStatus      String?
+  toStatus        String
+  validationFrom  String?
+  validationTo    String?
+  actorId         String?  @db.Uuid
+  reasonCode      String?
+  reasonText      String?
+  requestId       String?
+  createdAt       DateTime @default(now())
+  recipeVersion   RecipeVersion @relation(fields: [recipeVersionId], references: [id], onDelete: Restrict)
+  @@index([recipeVersionId, createdAt])
+}
+
+model RecipeProductDependency {
+  id                        String   @id @default(uuid()) @db.Uuid
+  recipeVersionId           String   @db.Uuid
+  productId                 String   @db.Uuid
+  productNutritionVersionId String?  @db.Uuid
+  ingredientIndex           Int
+  amount                    Decimal  @db.Decimal(12, 3)
+  unit                      String
+  dependencyRole            String   @default("INGREDIENT")
+  resolutionStatus          String   @default("RESOLVED")
+  source                    String   @default("INGREDIENTS_SNAPSHOT")
+  nutritionCalories         Decimal? @db.Decimal(12, 3)
+  nutritionProteinG         Decimal? @db.Decimal(12, 3)
+  nutritionFatG             Decimal? @db.Decimal(12, 3)
+  nutritionCarbsG           Decimal? @db.Decimal(12, 3)
+  createdAt                 DateTime @default(now())
+  recipeVersion             RecipeVersion @relation(fields: [recipeVersionId], references: [id], onDelete: Restrict)
+  product                   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  @@unique([recipeVersionId, ingredientIndex])
+  @@index([productId])
+  @@index([recipeVersionId])
+}
+
+model RecipeRevalidationTask {
+  id               String    @id @default(uuid()) @db.Uuid
+  recipeVersionId  String    @db.Uuid
+  productId        String    @db.Uuid
+  reasonCode       String
+  severity         String
+  status           String    @default("OPEN")
+  sourceEntityType String?
+  sourceEntityId   String?
+  dedupeKey        String    @unique
+  occurrenceCount  Int       @default(1)
+  firstDetectedAt  DateTime  @default(now())
+  lastDetectedAt   DateTime  @default(now())
+  resolvedAt       DateTime?
+  resolvedBy       String?   @db.Uuid
+  resolutionCode   String?
+  resolutionNote   String?
+  recipeVersion    RecipeVersion @relation(fields: [recipeVersionId], references: [id], onDelete: Restrict)
+  product          Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  @@index([status, severity])
+  @@index([productId])
+  @@index([recipeVersionId])
+}
+
+model RecipeStep {
+  id              String  @id @default(uuid()) @db.Uuid
+  recipeId        String  @db.Uuid
+  stepIndex       Int
+  instruction     String
+  durationMinutes Int?
+  temperatureC    Int?
+  equipment       String?
+  recipe          Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  @@unique([recipeId, stepIndex])
+  @@index([recipeId])
+}
+
+model RecipeIngredient { id String @id @default(uuid()) @db.Uuid; recipeId String @db.Uuid; productId String @db.Uuid; quantity Decimal @db.Decimal(10,2); unit String; recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade); product Product @relation(fields: [productId], references: [id]); @@index([recipeId]); @@index([productId]) }
+model Exercise {
+  id                  String   @id @default(uuid()) @db.Uuid
+  name                String
+  riskLevel           String   @default("low")
+  key                 String?
+  nameRu              String?
+  nameEn              String?
+  displayNameRu       String?
+  displayNameEn       String?
+  techniqueSummaryRu  String?
+  techniqueSummaryEn  String?
+  commonMistakeRu     String?
+  commonMistakeEn     String?
+  easierVariantKey    String?
+  estimatedMinutes    Int?
+  movementPattern     String?
+  difficulty          String?
+  equipmentCodesJson  Json     @default("[]")
+  muscleGroupsJson    Json     @default("[]")
+  isActive            Boolean  @default(true)
+  familyId            String?  @db.Uuid
+  family              ExerciseFamily? @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  workoutPlanDays      WorkoutPlanDay[]
+  media                ExerciseMedia[]
+  sessionExercises     WorkoutSessionExercise[]
+  revisions            ExerciseRevision[]
+  variantRelationsFrom ExerciseVariantRelation[] @relation("VariantFrom")
+  variantRelationsTo   ExerciseVariantRelation[] @relation("VariantTo")
+  releaseItems         WorkoutCatalogReleaseItem[]
+}
+model WorkoutProfile {
+  userId                     String   @id @db.Uuid
+  trainingLevel              String
+  trainingPlace              String   @default("HOME")
+  workoutsPerWeek            Int      @default(3)
+  preferredDuration          String   @default("STANDARD")
+  availableDaysJson          Json     @default("[0,2,4]")
+  workoutEquipmentJson       Json     @default("[\"NONE\",\"BODYWEIGHT\"]")
+  preferredActivityTypesJson Json     @default("[\"strength\",\"walking\",\"mobility\"]")
+  excludedExerciseKeysJson   Json     @default("[]")
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+model ExerciseMedia {
+  id                   String     @id @default(uuid()) @db.Uuid
+  exerciseId           String     @db.Uuid
+  mediaType            String
+  role                 String
+  storageKey           String?
+  mediaAssetId         String?    @db.Uuid
+  locale               String?
+  altText              String
+  sortOrder            Int        @default(0)
+  status               String     @default("DRAFT")
+  provenance           String?
+  revisionId           String?    @db.Uuid
+  reviewStatus         String?
+  reviewedAt           DateTime?
+  altTextRu            String?
+  altTextEn            String?
+  promptVersion        String?
+  provider             String?
+  model                String?
+  mimeType             String?
+  width                Int?
+  height               Int?
+  checksum             String?
+  promptHash           String?
+  characterProfileKey  String?
+  visualStyleKey       String?
+  outfitProfileKey     String?
+  backgroundProfileKey String?
+  approvedAt           DateTime?
+  retiredAt            DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  exercise             Exercise   @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  revision             ExerciseRevision? @relation(fields: [revisionId], references: [id], onDelete: SetNull)
+  mediaAsset           MediaAsset? @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  @@index([exerciseId])
+  @@index([revisionId])
+}
+model ExerciseFamily {
+  id              String   @id @default(uuid()) @db.Uuid
+  slug            String   @unique
+  nameRu          String
+  nameEn          String
+  movementPattern String
+  internalNote    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  exercises       Exercise[]
+  releaseItems    WorkoutCatalogReleaseItem[]
+}
+model ExerciseRevision {
+  id                       String   @id @default(uuid()) @db.Uuid
+  exerciseId               String   @db.Uuid
+  revisionNumber           Int
+  status                   String   @default("DRAFT")
+  nameRu                   String
+  nameEn                   String
+  techniqueRu              String?
+  techniqueEn              String?
+  commonMistakeRu          String?
+  commonMistakeEn          String?
+  easierVariantRu          String?
+  easierVariantEn          String?
+  harderVariantRu          String?
+  harderVariantEn          String?
+  breathingRu              String?
+  breathingEn              String?
+  stopConditionsRu         String?
+  stopConditionsEn         String?
+  defaultSets              Int?
+  defaultRepsMin           Int?
+  defaultRepsMax           Int?
+  defaultDurationSeconds   Int?
+  defaultRestSeconds       Int?
+  estimatedDurationSeconds Int?
+  /// Catalog authored mode: REPS | DURATION | REPS_OR_DURATION (nullable for pre-218 rows before restoration).
+  repetitionMode           String?
+  createdAt                DateTime @default(now())
+  createdBy                String   @default("system:workout-catalog-01a")
+  reviewedAt               DateTime?
+  approvedAt               DateTime?
+  exercise                 Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  safetyProfile            ExerciseSafetyProfile?
+  sourceReferences         ExerciseSourceReference[]
+  media                    ExerciseMedia[]
+  releaseItems             WorkoutCatalogReleaseItem[]
+  sessionExercises         WorkoutSessionExercise[]
+  energyProfiles           ExerciseEnergyProfile[]
+  energyTimingProfiles     ExerciseEnergyTimingProfile[]
+  /// V3 revision-semantic taxonomy lives in side tables; frozen after ever-approved.
+  taxonomy                 ExerciseRevisionTaxonomy?
+  muscleInvolvements       ExerciseRevisionMuscleInvolvement[]
+  equipmentGroups          ExerciseRevisionEquipmentGroup[]
+  /// OPERATIONAL_MUTABLE readiness gates (not revision-semantic freeze).
+  readiness                ExerciseRevisionReadiness?
+  @@unique([exerciseId, revisionNumber])
+  @@index([exerciseId])
+  @@index([status])
+}
+
+/// V3 muscle vocabulary (FK target for involvement rows).
+model WorkoutCatalogMuscleCode {
+  code          String   @id
+  displayNameEn String
+  displayNameRu String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  involvements  ExerciseRevisionMuscleInvolvement[]
+}
+
+/// V3 movement-pattern vocabulary (FK target for taxonomy patterns).
+model WorkoutCatalogMovementPatternCode {
+  code          String   @id
+  displayNameEn String
+  displayNameRu String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  primaryFor    ExerciseRevisionTaxonomy[] @relation("TaxonomyPrimaryPattern")
+  secondaryFor  ExerciseRevisionTaxonomy[] @relation("TaxonomySecondaryPattern")
+}
+
+/// WORKOUT-CATALOG-V3-01A — revision-semantic taxonomy (S2/S3/S11).
+/// Writable only while parent revision is not ever-approved (DB triggers).
+model ExerciseRevisionTaxonomy {
+  exerciseRevisionId       String   @id @db.Uuid
+  primaryMovementPattern   String?
+  secondaryMovementPattern String?
+  trainingRole             String?
+  progressionGroup         String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  revision                 ExerciseRevision @relation(fields: [exerciseRevisionId], references: [id], onDelete: Cascade)
+  primaryPattern           WorkoutCatalogMovementPatternCode? @relation("TaxonomyPrimaryPattern", fields: [primaryMovementPattern], references: [code], onDelete: Restrict)
+  secondaryPattern         WorkoutCatalogMovementPatternCode? @relation("TaxonomySecondaryPattern", fields: [secondaryMovementPattern], references: [code], onDelete: Restrict)
+  @@index([trainingRole])
+  @@index([progressionGroup])
+  @@index([primaryMovementPattern])
+}
+
+/// WORKOUT-CATALOG-V3-01A — revision-semantic muscle involvement (S1). Frozen after ever-approved.
+model ExerciseRevisionMuscleInvolvement {
+  id                 String   @id @default(uuid()) @db.Uuid
+  exerciseRevisionId String   @db.Uuid
+  muscleCode         String
+  involvement        String
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  revision           ExerciseRevision @relation(fields: [exerciseRevisionId], references: [id], onDelete: Cascade)
+  muscle             WorkoutCatalogMuscleCode @relation(fields: [muscleCode], references: [code], onDelete: Restrict)
+  @@unique([exerciseRevisionId, muscleCode])
+  @@index([exerciseRevisionId])
+  @@index([muscleCode])
+}
+
+/// WORKOUT-CATALOG-V3-01A — equipment vocabulary (S5), including legacy 01B codes.
+model WorkoutCatalogEquipmentCode {
+  code           String   @id
+  displayNameEn  String
+  displayNameRu  String?
+  legacyAliasOf  String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  items          ExerciseRevisionEquipmentItem[]
+}
+
+/// WORKOUT-CATALOG-V3-01A — equipment requirement group ALL_OF | ANY_OF | OPTIONAL (S4).
+/// Non-empty at COMMIT (deferred constraint trigger). Frozen after ever-approved.
+model ExerciseRevisionEquipmentGroup {
+  id                 String   @id @default(uuid()) @db.Uuid
+  exerciseRevisionId String   @db.Uuid
+  groupKind          String
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  revision           ExerciseRevision @relation(fields: [exerciseRevisionId], references: [id], onDelete: Cascade)
+  items              ExerciseRevisionEquipmentItem[]
+  @@unique([exerciseRevisionId, sortOrder])
+  @@index([exerciseRevisionId])
+}
+
+model ExerciseRevisionEquipmentItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  groupId       String   @db.Uuid
+  equipmentCode String
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  group         ExerciseRevisionEquipmentGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  equipment     WorkoutCatalogEquipmentCode @relation(fields: [equipmentCode], references: [code], onDelete: Restrict)
+  @@unique([groupId, equipmentCode])
+  @@index([groupId])
+  @@index([equipmentCode])
+}
+
+/// WORKOUT-CATALOG-V3-01A — OPERATIONAL_MUTABLE readiness stubs (S9).
+/// Null = unset. Mutable after APPROVED so content gates can complete without fake revisions.
+model ExerciseRevisionReadiness {
+  exerciseRevisionId String   @id @db.Uuid
+  catalogReady       Boolean?
+  generatorReady     Boolean?
+  energyReady        Boolean?
+  timingReady        Boolean?
+  mediaReady         Boolean?
+  notes              String?
+  updatedAt          DateTime @updatedAt
+  createdAt          DateTime @default(now())
+  revision           ExerciseRevision @relation(fields: [exerciseRevisionId], references: [id], onDelete: Cascade)
+}
+model ExerciseEnergyProfile {
+  id                     String   @id @default(uuid()) @db.Uuid
+  exerciseRevisionId     String   @db.Uuid
+  status                 String   @default("DRAFT")
+  calculationMethod      String
+  populationType         String
+  compendiumEdition      String
+  compendiumCode         String
+  metValue               Decimal  @db.Decimal(6, 3)
+  sourceType             String
+  sourceReference        String
+  sourceVersion          String
+  policyVersion          String
+  enabledForCalculation  Boolean  @default(false)
+  reviewedAt             DateTime?
+  reviewedBy             String?
+  approvedAt             DateTime?
+  retiredAt              DateTime?
+  retirementReason       String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  revision               ExerciseRevision @relation(fields: [exerciseRevisionId], references: [id], onDelete: Restrict)
+  sessionExerciseSnapshots WorkoutSessionExercise[] @relation("SessionExerciseEnergyProfile")
+  @@index([exerciseRevisionId])
+  @@index([status])
+}
+/// Internal seconds-per-rep timing (NOT Compendium). WORKOUT-ENERGY-01B.
+model ExerciseEnergyTimingProfile {
+  id                     String   @id @default(uuid()) @db.Uuid
+  exerciseRevisionId     String   @db.Uuid
+  status                 String   @default("DRAFT")
+  timingMethod           String
+  secondsPerRep          Decimal  @db.Decimal(8, 4)
+  sourceType             String
+  sourceReference        String
+  sourceVersion          String
+  policyVersion          String
+  enabledForCalculation  Boolean  @default(false)
+  reviewedAt             DateTime?
+  reviewedBy             String?
+  approvedAt             DateTime?
+  retiredAt              DateTime?
+  retirementReason       String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  revision               ExerciseRevision @relation(fields: [exerciseRevisionId], references: [id], onDelete: Restrict)
+  sessionExerciseSnapshots WorkoutSessionExercise[] @relation("SessionExerciseEnergyTimingProfile")
+  @@index([exerciseRevisionId])
+  @@index([status])
+}
+model ExerciseSafetyProfile {
+  exerciseRevisionId String  @id @db.Uuid
+  kneeLoad           String
+  shoulderLoad       String
+  spineLoad          String
+  impactLevel        String
+  balanceRequirement String
+  floorRequired      Boolean @default(false)
+  overheadMovement   Boolean @default(false)
+  deepKneeFlexion    Boolean @default(false)
+  singleLeg          Boolean @default(false)
+  beginnerAllowed    Boolean @default(true)
+  requiresSpotter    Boolean @default(false)
+  internalSafetyNote String?
+  revision           ExerciseRevision @relation(fields: [exerciseRevisionId], references: [id], onDelete: Cascade)
+}
+model ExerciseCatalogSource {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  displayName String
+  sourceType  String
+  baseUrl     String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  references  ExerciseSourceReference[]
+}
+model ExerciseSourceReference {
+  id                 String   @id @default(uuid()) @db.Uuid
+  exerciseRevisionId String   @db.Uuid
+  sourceId           String   @db.Uuid
+  externalReference  String?
+  factualNotes       String?
+  accessedAt         DateTime?
+  createdAt          DateTime @default(now())
+  revision           ExerciseRevision @relation(fields: [exerciseRevisionId], references: [id], onDelete: Cascade)
+  source             ExerciseCatalogSource @relation(fields: [sourceId], references: [id])
+  @@index([exerciseRevisionId])
+}
+model ExerciseVariantRelation {
+  id               String   @id @default(uuid()) @db.Uuid
+  fromExerciseId   String   @db.Uuid
+  toExerciseId     String   @db.Uuid
+  relationType     String
+  priority         Int      @default(100)
+  equipmentContext String   @default("")
+  placeContext     String   @default("")
+  levelDelta       Int      @default(0)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  fromExercise     Exercise @relation("VariantFrom", fields: [fromExerciseId], references: [id], onDelete: Cascade)
+  toExercise       Exercise @relation("VariantTo", fields: [toExerciseId], references: [id], onDelete: Cascade)
+  @@unique([fromExerciseId, toExerciseId, relationType, equipmentContext, placeContext])
+  // Active-variant lookups use partial indexes from migration 210
+  // (WHERE active = true); Prisma cannot express partial indexes here.
+}
+model WorkoutCatalogRelease {
+  id             String   @id @default(uuid()) @db.Uuid
+  code           String   @unique
+  status         String   @default("DRAFT")
+  manifestVersion String
+  publishedAt    DateTime?
+  retiredAt      DateTime?
+  createdAt      DateTime @default(now())
+  createdBy      String   @default("system:workout-catalog-01a")
+  notes          String?
+  items          WorkoutCatalogReleaseItem[]
+  plans          WorkoutPlan[]
+  adaptations    WorkoutAdaptation[]
+}
+model WorkoutCatalogReleaseItem {
+  id                  String   @id @default(uuid()) @db.Uuid
+  releaseId           String   @db.Uuid
+  exerciseId          String   @db.Uuid
+  exerciseRevisionId  String   @db.Uuid
+  familyId            String   @db.Uuid
+  ordinal             Int
+  enabledForGenerator Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  release             WorkoutCatalogRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  exercise            Exercise @relation(fields: [exerciseId], references: [id])
+  revision            ExerciseRevision @relation(fields: [exerciseRevisionId], references: [id])
+  family              ExerciseFamily @relation(fields: [familyId], references: [id])
+  @@unique([releaseId, exerciseId])
+  @@unique([releaseId, ordinal])
+  @@index([releaseId])
+}
+model WorkoutTemplate { id String @id @default(uuid()) @db.Uuid; name String; createdAt DateTime @default(now()) }
+model WorkoutPlan {
+  id                        String          @id @default(uuid()) @db.Uuid
+  userId                    String          @db.Uuid
+  version                   Int
+  createdAt                 DateTime        @default(now())
+  status                    String          @default("active")
+  algorithmVersion          String          @default("legacy")
+  inputSnapshotJson         Json?
+  generatedAt               DateTime        @default(now())
+  workoutCatalogReleaseId   String?         @db.Uuid
+  workoutCatalogReleaseCode String?
+  timeZone                  String?
+  days                      WorkoutPlanDay[]
+  overrides                 WorkoutPlanDayOverride[]
+  sessions                  WorkoutSession[]
+  adaptations               WorkoutAdaptation[]
+  catalogRelease            WorkoutCatalogRelease? @relation(fields: [workoutCatalogReleaseId], references: [id], onDelete: SetNull)
+  @@unique([userId, version])
+  @@index([workoutCatalogReleaseId])
+}
+model WorkoutPlanDay {
+  id             String      @id @default(uuid()) @db.Uuid
+  workoutPlanId  String      @db.Uuid
+  dayIndex       Int
+  exerciseOrder  Int         @default(0)
+  exerciseName   String
+  riskLevel      String      @default("low")
+  dayTitle       String?
+  isRestDay      Boolean     @default(false)
+  sets           Int?
+  repsMin        Int?
+  repsMax        Int?
+  restSeconds    Int?
+  /// Explicit plan choice: REPS | DURATION. Null = historical / unsupported REPS_OR_DURATION.
+  prescriptionMode String?
+  /// Canonical duration per set when prescriptionMode = DURATION.
+  durationSecondsPerSet Int?
+  exerciseId     String?     @db.Uuid
+  workoutPlan    WorkoutPlan @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  exercise       Exercise?   @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+  sessionExercises WorkoutSessionExercise[]
+  @@unique([workoutPlanId, dayIndex, exerciseOrder])
+}
+model WorkoutSession {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  userId             String                   @db.Uuid
+  workoutPlanId      String?                  @db.Uuid
+  sourceDayIndex     Int
+  effectiveDayIndex  Int
+  effectiveDate      DateTime                 @db.Date
+  dayTitle           String?
+  estimatedMinutes   Int?
+  status             String                   @default("ACTIVE")
+  startedAt          DateTime                 @default(now())
+  lastActivityAt     DateTime                 @default(now())
+  completedAt        DateTime?
+  abandonedAt        DateTime?
+  durationSeconds    Int?
+  totalExercises     Int                      @default(0)
+  completedExercises Int                      @default(0)
+  version            Int                      @default(1)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutPlan        WorkoutPlan?             @relation(fields: [workoutPlanId], references: [id], onDelete: SetNull)
+  exercises          WorkoutSessionExercise[]
+  adaptations        WorkoutAdaptation[]
+  adaptationCommands WorkoutAdaptationCommand[]
+  @@index([userId])
+  @@index([userId, status])
+  @@index([workoutPlanId])
+}
+model WorkoutSessionExercise {
+  id                     String              @id @default(uuid()) @db.Uuid
+  sessionId              String              @db.Uuid
+  sourceExerciseId       String?             @db.Uuid
+  exerciseRevisionId     String?             @db.Uuid
+  catalogReleaseId       String?             @db.Uuid
+  sourcePlanDayRowId     String?             @db.Uuid
+  exerciseKey            String?
+  orderIndex             Int
+  displayNameRu          String
+  displayNameEn          String
+  targetSets             Int                 @default(1)
+  targetRepsMin          Int?
+  targetRepsMax          Int?
+  targetDurationSeconds  Int?
+  restSeconds            Int?
+  techniqueSummaryRu     String?
+  techniqueSummaryEn     String?
+  commonMistakeRu        String?
+  commonMistakeEn        String?
+  easierVariantRu        String?
+  easierVariantEn        String?
+  breathingRu            String?
+  breathingEn            String?
+  stopConditionsRu       String?
+  stopConditionsEn       String?
+  mediaSnapshotJson      Json                @default("[]")
+  status                 String              @default("PENDING")
+  skippedAt              DateTime?
+  completedAt            DateTime?
+  /// Planned energy snapshot (01B). Null status = legacy session not snapshotted.
+  energyEstimateStatus              String?
+  plannedGrossEstimatedKcal         Decimal?  @db.Decimal(12, 4)
+  plannedRestingEstimatedKcal       Decimal?  @db.Decimal(12, 4)
+  plannedIncrementalEstimatedKcal   Decimal?  @db.Decimal(12, 4)
+  energyWeightKgUsed                Decimal?  @db.Decimal(8, 3)
+  energyWeightSource                String?
+  energyWeightSourceRecordedAt      DateTime?
+  energyActiveSecondsUsed           Decimal?  @db.Decimal(12, 4)
+  exerciseEnergyProfileId           String?   @db.Uuid
+  exerciseEnergyTimingProfileId     String?   @db.Uuid
+  energyCalculationMethod           String?
+  energyPopulationType              String?
+  energyPolicyVersion               String?
+  energySourceVersion               String?
+  energyCalculatedAt                DateTime?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  session                WorkoutSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sourceExercise         Exercise?           @relation(fields: [sourceExerciseId], references: [id], onDelete: SetNull)
+  exerciseRevision       ExerciseRevision?   @relation(fields: [exerciseRevisionId], references: [id], onDelete: SetNull)
+  catalogRelease         WorkoutCatalogRelease? @relation(fields: [catalogReleaseId], references: [id], onDelete: SetNull)
+  sourcePlanDayRow       WorkoutPlanDay?     @relation(fields: [sourcePlanDayRowId], references: [id], onDelete: SetNull)
+  exerciseEnergyProfile  ExerciseEnergyProfile? @relation("SessionExerciseEnergyProfile", fields: [exerciseEnergyProfileId], references: [id], onDelete: Restrict)
+  exerciseEnergyTimingProfile ExerciseEnergyTimingProfile? @relation("SessionExerciseEnergyTimingProfile", fields: [exerciseEnergyTimingProfileId], references: [id], onDelete: Restrict)
+  sets                   WorkoutSessionSet[]
+  @@unique([sessionId, orderIndex])
+  @@index([sessionId])
+  @@index([exerciseRevisionId])
+  @@index([catalogReleaseId])
+  @@index([exerciseEnergyProfileId])
+  @@index([exerciseEnergyTimingProfileId])
+  @@index([energyEstimateStatus])
+}
+model WorkoutAdaptation {
+  id                   String                @id @default(uuid()) @db.Uuid
+  userId               String                @db.Uuid
+  workoutPlanId        String?               @db.Uuid
+  workoutSessionId     String                @db.Uuid
+  intent               String
+  selectedOptionCode   String
+  policyVersion        String
+  catalogReleaseId     String?               @db.Uuid
+  sessionVersionBefore Int
+  sessionVersionAfter  Int
+  beforeSnapshot       Json
+  afterSnapshot        Json
+  goalImpactSnapshot   Json
+  status               String                @default("APPLIED")
+  idempotencyKey       String?
+  createdAt            DateTime              @default(now())
+  undoneAt             DateTime?
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutPlan          WorkoutPlan?          @relation(fields: [workoutPlanId], references: [id], onDelete: SetNull)
+  workoutSession       WorkoutSession        @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  catalogRelease       WorkoutCatalogRelease? @relation(fields: [catalogReleaseId], references: [id], onDelete: SetNull)
+  commands             WorkoutAdaptationCommand[]
+  @@index([workoutSessionId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model WorkoutAdaptationCommand {
+  id               String             @id @default(uuid()) @db.Uuid
+  userId           String             @db.Uuid
+  workoutSessionId String             @db.Uuid
+  action           String
+  idempotencyKey   String
+  requestHash      String
+  adaptationId     String?            @db.Uuid
+  responseSnapshot Json
+  createdAt        DateTime           @default(now())
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutSession   WorkoutSession     @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  adaptation       WorkoutAdaptation? @relation(fields: [adaptationId], references: [id], onDelete: SetNull)
+  @@index([workoutSessionId, createdAt(sort: Desc)])
+}
+model WorkoutSessionSet {
+  id                     String                 @id @default(uuid()) @db.Uuid
+  sessionExerciseId      String                 @db.Uuid
+  setIndex               Int
+  targetReps             Int?
+  targetDurationSeconds  Int?
+  actualReps             Int?
+  actualDurationSeconds  Int?
+  weightKg               Decimal?               @db.Decimal(8, 2)
+  completedAt            DateTime?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  sessionExercise        WorkoutSessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
+  @@unique([sessionExerciseId, setIndex])
+  @@index([sessionExerciseId])
+}
+model WorkoutPlanDayOverride {
+  id                      String      @id @default(uuid()) @db.Uuid
+  userId                  String      @db.Uuid
+  workoutPlanId           String      @db.Uuid
+  dayIndex                Int
+  replacementType         String
+  replacementDayTitle     String?
+  replacementSnapshotJson Json
+  moveTargetDayIndex      Int?
+  reason                  String?
+  source                  String      @default("user")
+  status                  String      @default("active")
+  createdAt               DateTime    @default(now())
+  revertedAt              DateTime?
+  user                    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutPlan             WorkoutPlan @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([workoutPlanId])
+}
+model Plan { id String @id @default(uuid()) @db.Uuid; userId String @db.Uuid; version Int; immutable Boolean @default(true); createdAt DateTime @default(now()); days PlanDay[]; @@unique([userId, version]) }
+model PlanRevision {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  planId String @db.Uuid
+  planKind String
+  version Int
+  reason String
+  status String
+  snapshot Json
+  idempotencyKey String?
+  requestHash String?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([planId, planKind, version])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([planId, planKind])
+}
+model PlanDay { id String @id @default(uuid()) @db.Uuid; planId String @db.Uuid; dayIndex Int; plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade); meals Meal[]; @@unique([planId, dayIndex]) }
+model Meal { id String @id @default(uuid()) @db.Uuid; planDayId String @db.Uuid; name String; planDay PlanDay @relation(fields: [planDayId], references: [id], onDelete: Cascade); items MealItem[]; completions MealCompletion[] }
+model MealItem {
+  id                          String         @id @default(uuid()) @db.Uuid
+  mealId                      String         @db.Uuid
+  recipeId                    String?        @db.Uuid
+  recipeVersionId             String?        @db.Uuid
+  servings                    Decimal        @db.Decimal(8, 2)
+  portionGrams                Decimal?       @db.Decimal(10, 2)
+  customizationSnapshotJson   Json?
+  contentProvenance           String?
+  meal                        Meal           @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  recipeVersion               RecipeVersion? @relation(fields: [recipeVersionId], references: [id], onDelete: Restrict)
+  @@index([mealId])
+  @@index([recipeVersionId])
+}
+model MealCompletion {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  mealId String @db.Uuid
+  planId String @db.Uuid
+  dayIndex Int
+  calories Decimal @db.Decimal(8,2)
+  proteinG Decimal @db.Decimal(8,2)
+  localDate DateTime @db.Date
+  completedAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meal Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  @@unique([userId, mealId, localDate])
+  @@index([userId, localDate])
+  @@index([mealId])
+}
+model ProgressEntry {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  weightKg Decimal @db.Decimal(8,2)
+  measuredAt DateTime
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, measuredAt])
+}
+model ShoppingList {
+  id                 String         @id @default(uuid()) @db.Uuid
+  userId             String         @db.Uuid
+  createdAt          DateTime       @default(now())
+  sourcePlanId       String?        @db.Uuid
+  sourcePlanVersion  Int?
+  generationStatus   String         @default("CURRENT")
+  generatedAt        DateTime       @default(now())
+  items              ShoppingItem[]
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([userId, generationStatus])
+}
+model ShoppingItem {
+  id String @id @default(uuid()) @db.Uuid
+  shoppingListId String @db.Uuid
+  productId String? @db.Uuid
+  name String @default("")
+  category String @default("other")
+  quantity Decimal @db.Decimal(10,2)
+  unit String
+  purchased Boolean @default(false)
+  estimatedUnitPrice Decimal? @db.Decimal(10,2)
+  estimatedCost Decimal? @db.Decimal(10,2)
+  updatedAt DateTime @default(now()) @updatedAt
+  shoppingList ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  @@index([shoppingListId])
+  @@index([productId])
+}
+model Retailer {
+  id               String             @id @default(uuid()) @db.Uuid
+  key              String             @unique
+  code             String             @unique
+  name             String
+  type             String             @default("CHAIN")
+  region           String             @default("RU")
+  active           Boolean            @default(true)
+  stores           RetailStore[]
+  externalProducts ExternalProduct[]
+  retailProducts   RetailProduct[]
+  observations     PriceObservation[]
+}
+
+model Region { id String @id @default(uuid()) @db.Uuid; code String @unique; stores RetailStore[]; snapshots PriceSnapshot[] }
+model RetailStore { id String @id @default(uuid()) @db.Uuid; retailerId String @db.Uuid; regionId String @db.Uuid; name String; retailer Retailer @relation(fields: [retailerId], references: [id]); region Region @relation(fields: [regionId], references: [id]); observations PriceObservation[]; @@index([retailerId]); @@index([regionId]) }
+model ExternalProduct {
+  id             String          @id @default(uuid()) @db.Uuid
+  retailerId     String          @db.Uuid
+  externalId     String
+  name           String
+  retailer       Retailer        @relation(fields: [retailerId], references: [id])
+  matches        ProductMatch[]
+  retailProducts RetailProduct[]
+  @@unique([retailerId, externalId])
+}
+model ProductMatch {
+  id                String          @id @default(uuid()) @db.Uuid
+  productId         String          @db.Uuid
+  externalProductId String          @db.Uuid
+  confidence        Decimal         @db.Decimal(5, 4)
+  externalProduct   ExternalProduct @relation(fields: [externalProductId], references: [id], onDelete: Cascade)
+  @@unique([productId, externalProductId])
+}
+model PriceObservation {
+  id                     String         @id @default(uuid()) @db.Uuid
+  productId              String         @db.Uuid
+  storeId                String         @db.Uuid
+  retailerId             String?        @db.Uuid
+  retailProductId        String?        @db.Uuid
+  observedPackageWeight  Decimal?       @db.Decimal(12, 4)
+  observedPackageUnit    String?
+  availability           String?
+  confidence             Decimal?       @db.Decimal(5, 4)
+  price                  Decimal        @db.Decimal(10, 2)
+  currency               String         @default("RUB")
+  sourceType             String         @default("MANUAL")
+  sourceName             String         @default("unknown")
+  collectedAt            DateTime?
+  observedAt             DateTime
+  source                 String
+  store                  RetailStore    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  retailer               Retailer?      @relation(fields: [retailerId], references: [id], onDelete: SetNull)
+  retailProduct          RetailProduct? @relation(fields: [retailProductId], references: [id], onDelete: Restrict)
+  @@index([productId, observedAt])
+  @@index([storeId, observedAt])
+  @@index([productId, collectedAt])
+  @@index([sourceType, collectedAt])
+  @@index([retailProductId, collectedAt])
+}
+
+model PriceSnapshot { id String @id @default(uuid()) @db.Uuid; productId String @db.Uuid; regionId String @db.Uuid; price Decimal @db.Decimal(10,2); confidence Decimal @db.Decimal(5,4); observedAt DateTime; region Region @relation(fields: [regionId], references: [id]); @@unique([productId, regionId]); @@index([regionId, observedAt]) }
+
+/// STEP_175 — pantry inventory (migration 159_pantry)
+model Pantry {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @unique @db.Uuid
+  name      String       @default("Home")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     PantryItem[]
+  @@index([userId])
+}
+
+model PantryItem {
+  id        String    @id @default(uuid()) @db.Uuid
+  pantryId  String    @db.Uuid
+  name      String
+  quantity  Decimal   @db.Decimal(12, 3)
+  unit      String    @default("pcs")
+  expiresOn DateTime? @db.Date
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  pantry    Pantry    @relation(fields: [pantryId], references: [id], onDelete: Cascade)
+  @@unique([pantryId, name, unit])
+  @@index([pantryId])
+  @@index([expiresOn])
+}
+
+model Family {
+  id String @id @default(uuid()) @db.Uuid
+  ownerUserId String @db.Uuid
+  name String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  owner User @relation("FamilyOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  members FamilyMember[]
+  invitations FamilyInvitation[]
+  sharedDishes SharedDish[]
+  shoppingList FamilyShoppingList?
+  @@index([ownerUserId])
+}
+model FamilyMember {
+  id String @id @default(uuid()) @db.Uuid
+  familyId String @db.Uuid
+  userId String @db.Uuid
+  role String
+  status String @default("ACTIVE")
+  healthShareConsent Boolean @default(false)
+  joinedAt DateTime @default(now())
+  leftAt DateTime?
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([familyId, userId])
+  @@index([userId, status])
+}
+model FamilyInvitation {
+  id String @id @default(uuid()) @db.Uuid
+  familyId String @db.Uuid
+  invitedByUserId String @db.Uuid
+  emailOrUsername String?
+  tokenHash String @unique
+  status String @default("PENDING")
+  expiresAt DateTime
+  acceptedByUserId String? @db.Uuid
+  createdAt DateTime @default(now())
+  usedAt DateTime?
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  invitedBy User @relation("FamilyInviter", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+  acceptedBy User? @relation("FamilyInviteAcceptor", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  @@index([familyId, status])
+}
+
+model SharedDish { id String @id @default(uuid()) @db.Uuid; familyId String @db.Uuid; recipeKey String; createdByUserId String @db.Uuid; createdAt DateTime @default(now()); version Int @default(1); family Family @relation(fields:[familyId],references:[id],onDelete:Cascade); createdBy User @relation(fields:[createdByUserId],references:[id],onDelete:Cascade); portions SharedDishPortion[] }
+model SharedDishPortion { id String @id @default(uuid()) @db.Uuid; sharedDishId String @db.Uuid; userId String @db.Uuid; servings Decimal @db.Decimal(10,2); calories Decimal @db.Decimal(10,2); proteinG Decimal @db.Decimal(10,2); fatG Decimal @db.Decimal(10,2); carbsG Decimal @db.Decimal(10,2); dish SharedDish @relation(fields:[sharedDishId],references:[id],onDelete:Cascade); user User @relation(fields:[userId],references:[id],onDelete:Cascade); @@unique([sharedDishId,userId]) }
+model FamilyShoppingList { id String @id @default(uuid()) @db.Uuid; familyId String @unique @db.Uuid; version Int @default(1); regeneratedAt DateTime @default(now()); regeneratedByUserId String @db.Uuid; family Family @relation(fields:[familyId],references:[id],onDelete:Cascade); regeneratedBy User @relation(fields:[regeneratedByUserId],references:[id],onDelete:Cascade); items FamilyShoppingItem[] }
+model FamilyShoppingItem { id String @id @default(uuid()) @db.Uuid; listId String @db.Uuid; productKey String; name String; unit String; quantity Decimal @db.Decimal(12,3); purchased Boolean @default(false); forDishes Json @default("[]"); list FamilyShoppingList @relation(fields:[listId],references:[id],onDelete:Cascade) }
+model NotificationPreference { userId String @id @db.Uuid; channels Json; quietHoursStart String?; quietHoursEnd String?; timezone String?; categoryOpts Json; updatedAt DateTime @updatedAt; user User @relation(fields:[userId],references:[id],onDelete:Cascade) }
+model Notification { id String @id @default(uuid()) @db.Uuid; userId String @db.Uuid; category String; title String; body String; dedupeKey String @unique; status String @default("QUEUED"); scheduledFor DateTime?; createdAt DateTime @default(now()); user User @relation(fields:[userId],references:[id],onDelete:Cascade); attempts DeliveryAttempt[]; outbox NotificationOutbox? }
+model NotificationOutbox { id String @id @default(uuid()) @db.Uuid; notificationId String @unique @db.Uuid; channel String; status String @default("PENDING"); availableAt DateTime @default(now()); attempts Int @default(0); lastError String?; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; notification Notification @relation(fields:[notificationId],references:[id],onDelete:Cascade); @@index([status,availableAt]) }
+model DeliveryAttempt { id String @id @default(uuid()) @db.Uuid; notificationId String @db.Uuid; channel String; status String; attempt Int; errorCode String?; createdAt DateTime @default(now()); notification Notification @relation(fields:[notificationId],references:[id],onDelete:Cascade) }
+model EngagementState { userId String @id @db.Uuid; successfulDaysTotal Int @default(0); bestStreakDays Int @default(0); currentStreakDays Int @default(0); paused Boolean @default(false); lastActiveOn DateTime? @db.Date; remindersEnabled Boolean @default(true); user User @relation(fields:[userId],references:[id],onDelete:Cascade) }
+model IntegrationConnection { id String @id @default(uuid()) @db.Uuid; userId String @db.Uuid; providerId String; status String; encryptedTokenCipher String?; scopes Json; consentVersion String; lastSyncAt DateTime?; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; user User @relation(fields:[userId],references:[id],onDelete:Cascade); @@unique([userId,providerId]) }
+model IntegrationWebhookEvent { id String @id @default(uuid()) @db.Uuid; providerId String; externalEventId String @unique; signatureValid Boolean; processedAt DateTime? }
+model HealthPlatformConsent { id String @id @default(uuid()) @db.Uuid; userId String @db.Uuid; providerId String; dataCategory String; direction String; purpose String; consentVersion String; status String @default("GRANTED"); grantedAt DateTime @default(now()); revokedAt DateTime?; source String; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; user User @relation(fields:[userId],references:[id],onDelete:Cascade); @@index([userId]); @@index([providerId]) }
+
+model ActivityProviderConnection {
+  id                   String    @id @default(uuid()) @db.Uuid
+  userId               String    @db.Uuid
+  sourceType           String
+  status               String
+  connectedAt          DateTime?
+  disconnectedAt       DateTime?
+  lastSuccessfulSyncAt DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, sourceType])
+  @@index([userId])
+  @@index([userId, status])
+}
+
+model ActivitySyncClient {
+  id                   String   @id @default(uuid()) @db.Uuid
+  userId               String   @db.Uuid
+  sourceType           String
+  clientInstanceId     String
+  lastAcceptedSequence BigInt   @default(0)
+  lastSuccessfulSyncAt DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshots            ActivityDailySnapshot[]
+  operations           ActivitySyncOperation[]
+  @@unique([userId, sourceType, clientInstanceId])
+  @@index([userId])
+}
+
+model ActivityDailySnapshot {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @db.Uuid
+  sourceType         String
+  syncClientId       String    @db.Uuid
+  metricType         String
+  localDate          DateTime  @db.Date
+  timeZone           String
+  value              Int
+  version            Int
+  status             String
+  sourceCalculatedAt DateTime
+  receivedAt         DateTime  @default(now())
+  supersedesId       String?   @db.Uuid
+  supersededAt       DateTime?
+  syncOperationId    String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncClient         ActivitySyncClient @relation(fields: [syncClientId], references: [id], onDelete: Cascade)
+  @@index([userId, localDate])
+  @@index([syncClientId, receivedAt])
+}
+
+model ActivitySyncOperation {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
+  sourceType       String
+  syncClientId     String   @db.Uuid
+  operationId      String
+  sequence         BigInt
+  payloadChecksum  String
+  status           String
+  responseSnapshot Json
+  receivedAt       DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncClient       ActivitySyncClient @relation(fields: [syncClientId], references: [id], onDelete: Cascade)
+  @@unique([userId, sourceType, syncClientId, operationId])
+  @@index([userId, receivedAt])
+}
+
+model ActivitySyncRateBucket {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @unique @db.Uuid
+  windowStartedAt DateTime  @default(now())
+  requestCount    Int       @default(0)
+  blockedUntil    DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([blockedUntil, windowStartedAt])
+}
+
+/// Durable exactly-once ledger for the canonical custom SQL migration runner (Package A).
+model SchemaMigrationLedger {
+  id             String   @id @default(uuid()) @db.Uuid
+  migrationName  String   @unique
+  checksum       String
+  appliedAt      DateTime @default(now())
+  durationMs     Int
+  result         String
+  runnerVersion  String   @default("1")
+
+  @@index([appliedAt])
+  @@map("SchemaMigrationLedger")
+}
+
+/// Content catalog seed ledger (not schema migrations). RP2-01C2A STEP_201.
+model CatalogSeedBatch {
+  id             String   @id @default(uuid()) @db.Uuid
+  datasetVersion String   @unique
+  checksum       String
+  productCount   Int
+  status         String
+  appliedAt      DateTime @default(now())
+  durationMs     Int      @default(0)
+  resultJson     Json     @default("{}")
+
+  @@index([appliedAt])
+}

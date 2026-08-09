@@ -1,0 +1,2 @@
+-- STEP_032 rollback notes: deploy only after 031_auth; rollback by disabling auth writes, preserving data, and restoring the previous application version.
+-- No destructive operation is included in this migration.

@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@weight-app/config/*": ["packages/config/src/*"],
+      "@weight-app/contracts/*": ["packages/contracts/src/*"],
+      "@weight-app/domain/*": ["packages/domain/src/*"],
+      "@weight-app/testing/*": ["packages/testing/src/*"],
+      "@weight-app/ui/*": ["packages/ui/src/*"]
+    }
+  }
+}

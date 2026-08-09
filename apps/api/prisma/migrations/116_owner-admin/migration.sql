@@ -1,0 +1,2 @@
+CREATE TABLE "Role" ("id" UUID NOT NULL DEFAULT gen_random_uuid(), "name" TEXT NOT NULL, CONSTRAINT "Role_pkey" PRIMARY KEY ("id")); CREATE UNIQUE INDEX "Role_name_key" ON "Role"("name");
+CREATE TABLE "Permission" ("id" UUID NOT NULL DEFAULT gen_random_uuid(), "roleId" UUID NOT NULL, "action" TEXT NOT NULL, CONSTRAINT "Permission_pkey" PRIMARY KEY ("id")); CREATE UNIQUE INDEX "Permission_roleId_action_key" ON "Permission"("roleId","action"); ALTER TABLE "Permission" ADD CONSTRAINT "Permission_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE CASCADE;

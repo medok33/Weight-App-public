@@ -1,0 +1,1 @@
+export type ProductOffer = { key: string; name: string; amountMinor: number; currency: string; interval: 'month' | 'year' | 'one_time'; active: boolean; metadata: Record<string, unknown>; updatedAt: string };

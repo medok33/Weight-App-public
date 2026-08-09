@@ -1,0 +1,17 @@
+# Deprecated: PR quality gates live in Weight App CI (.github/workflows/ci.yml).
+# Kept as a no-op pointer so old required-check names do not silently reappear.
+name: PR checks (retired)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pr-checks-retired:
+    name: PR Checks Retired
+    runs-on: ubuntu-latest
+    steps:
+      - name: Point to Weight App CI
+        run: echo "Use workflow Weight App CI / job CI Quality Gates"

@@ -1,0 +1,1 @@
+import { describe, expect, it } from 'vitest'; import { toggleAI } from '../domain/owner-admin.policy'; describe('AI kill switch', () => { it('is owner-only', () => { expect(toggleAI({ enabled: true, updatedBy: 'o' }, false, 'OWNER').enabled).toBe(false); expect(() => toggleAI({ enabled: true, updatedBy: 'u' }, false, 'USER')).toThrow('OWNER_REQUIRED'); }); });

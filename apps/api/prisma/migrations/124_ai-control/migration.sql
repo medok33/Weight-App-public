@@ -1,0 +1,1 @@
+CREATE TABLE "AIControl" ("id" INTEGER PRIMARY KEY DEFAULT 1, "enabled" BOOLEAN NOT NULL DEFAULT TRUE, "updatedBy" UUID NOT NULL, "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(), CONSTRAINT "AIControl_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "User"("id"));

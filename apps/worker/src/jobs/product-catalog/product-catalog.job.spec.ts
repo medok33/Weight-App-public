@@ -1,0 +1,2 @@
+import { strict as assert } from 'node:assert'; import { test } from 'node:test'; import { createProductCatalogJob } from './product-catalog.job'; import { processProductCatalogJob } from './product-catalog.processor';
+test('product import job is idempotent and reports count', () => assert.deepEqual(processProductCatalogJob(createProductCatalogJob([1,2], 'import-1')), { idempotencyKey: 'import-1', imported: 2, status: 'completed' }));

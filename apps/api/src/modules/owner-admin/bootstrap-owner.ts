@@ -1,0 +1,1 @@
+export function bootstrapOwner(email: string) { if (!email.includes('@')) throw new Error('OWNER_EMAIL_INVALID'); return { email, role: 'OWNER' as const, permissions: ['manage_catalog', 'toggle_ai', 'review_prices'] }; }

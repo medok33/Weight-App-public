@@ -1,0 +1,4 @@
+apps/api/src/modules/workout-engine/catalog/canonical-content-01b.json text eol=lf
+apps/api/scripts/generate-workout-catalog-01b.mjs text eol=lf
+apps/api/scripts/lib/canonical-content-bodies-01b.mjs text eol=lf
+apps/api/prisma/migrations/211_workout_catalog_canonical_content/migration.sql text eol=lf

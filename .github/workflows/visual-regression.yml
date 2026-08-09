@@ -1,0 +1,16 @@
+name: Visual regression
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  visual-regression-placeholder:
+    name: Visual Regression Placeholder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: echo 'Storybook visual regression runs after the Storybook workspace is installed.'

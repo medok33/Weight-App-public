@@ -1,0 +1,4 @@
+CREATE TABLE "Plan" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid(), "userId" uuid NOT NULL, "version" integer NOT NULL, "immutable" boolean NOT NULL DEFAULT true, "createdAt" timestamptz NOT NULL DEFAULT now(), UNIQUE("userId", "version"));
+CREATE TABLE "PlanDay" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid(), "planId" uuid NOT NULL, "dayIndex" integer NOT NULL, UNIQUE("planId", "dayIndex"), FOREIGN KEY ("planId") REFERENCES "Plan"("id") ON DELETE CASCADE);
+CREATE TABLE "Meal" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid(), "planDayId" uuid NOT NULL, "name" text NOT NULL, FOREIGN KEY ("planDayId") REFERENCES "PlanDay"("id") ON DELETE CASCADE);
+CREATE TABLE "MealItem" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid(), "mealId" uuid NOT NULL, "recipeId" uuid, "servings" numeric(8,2) NOT NULL, FOREIGN KEY ("mealId") REFERENCES "Meal"("id") ON DELETE CASCADE);

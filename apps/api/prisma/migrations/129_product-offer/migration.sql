@@ -1,0 +1,2 @@
+CREATE TABLE "ProductOffer" ("key" TEXT PRIMARY KEY, "name" TEXT NOT NULL, "amountMinor" INTEGER NOT NULL, "currency" TEXT NOT NULL, "interval" TEXT NOT NULL, "active" BOOLEAN NOT NULL DEFAULT TRUE, "metadata" JSONB NOT NULL DEFAULT '{}'::jsonb, "updatedBy" UUID, "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(), CONSTRAINT "ProductOffer_updatedBy_fkey" FOREIGN KEY ("updatedBy") REFERENCES "User"("id"));
+CREATE INDEX "ProductOffer_active_idx" ON "ProductOffer"("active");

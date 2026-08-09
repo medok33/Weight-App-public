@@ -1,0 +1,10 @@
+{
+  "name": "@weight-app/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [],
+  "scripts": {
+    "test": "node --test"
+  }
+}

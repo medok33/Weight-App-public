@@ -1,0 +1,61 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "REDIS_URL",
+    "WEIGHT_APP_DISPOSABLE_TEST_DB",
+    "WEIGHT_APP_DISPOSABLE_MODE",
+    "WEIGHT_APP_RUNTIME_ID",
+    "DISPOSABLE_POSTGRES_MARKER",
+    "DISPOSABLE_REDIS_MARKER",
+    "DATABASE_URL_MIGRATE_TEST",
+    "INTERNAL_API_BASE_URL",
+    "NEXT_PUBLIC_API_BASE_URL",
+    "WEB_BASE_URL",
+    "E2E_WEB_ORIGIN",
+    "PORT",
+    "NODE_ENV",
+    "APP_ENV",
+    "CI",
+    "GITHUB_ACTIONS"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "test": {
+      "dependsOn": ["^test"],
+      "outputs": ["coverage/**"],
+      "passThroughEnv": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "WEIGHT_APP_DISPOSABLE_TEST_DB",
+        "WEIGHT_APP_DISPOSABLE_MODE",
+        "WEIGHT_APP_RUNTIME_ID",
+        "DISPOSABLE_POSTGRES_MARKER",
+        "DISPOSABLE_REDIS_MARKER",
+        "DATABASE_URL_MIGRATE_TEST",
+        "INTERNAL_API_BASE_URL",
+        "NEXT_PUBLIC_API_BASE_URL",
+        "WEB_BASE_URL",
+        "E2E_WEB_ORIGIN",
+        "PORT",
+        "NODE_ENV",
+        "APP_ENV",
+        "CI",
+        "GITHUB_ACTIONS"
+      ]
+    }
+  }
+}

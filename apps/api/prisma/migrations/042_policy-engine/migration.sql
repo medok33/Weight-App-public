@@ -1,0 +1,1 @@
+CREATE TABLE "PolicyVersion" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid(), "kind" text NOT NULL, "version" text NOT NULL, "effectiveAt" timestamptz NOT NULL, "checksum" text NOT NULL, "createdAt" timestamptz NOT NULL DEFAULT now(), UNIQUE("kind","version"));

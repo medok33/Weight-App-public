@@ -1,0 +1,4 @@
+CREATE TABLE "AIConversation" ("id" UUID NOT NULL DEFAULT gen_random_uuid(), "userId" UUID NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "AIConversation_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "AIMessage" ("id" UUID NOT NULL DEFAULT gen_random_uuid(), "conversationId" UUID NOT NULL, "role" TEXT NOT NULL, "content" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "AIMessage_pkey" PRIMARY KEY ("id"));
+CREATE INDEX "AIConversation_userId_createdAt_idx" ON "AIConversation"("userId", "createdAt"); CREATE INDEX "AIMessage_conversationId_createdAt_idx" ON "AIMessage"("conversationId", "createdAt");
+ALTER TABLE "AIConversation" ADD CONSTRAINT "AIConversation_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE; ALTER TABLE "AIMessage" ADD CONSTRAINT "AIMessage_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "AIConversation"("id") ON DELETE CASCADE;

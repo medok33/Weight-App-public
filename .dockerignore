@@ -1,0 +1,73 @@
+# Weight App — Docker build context exclusions (repository root).
+.git
+.git/**
+**/.git
+**/.gitignore
+
+# Dependencies and build outputs
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
+**/blob-report
+**/.turbo
+**/.cache
+**/*.tsbuildinfo
+
+# Local env and secrets (never bake into images)
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env*.example
+!**/.env.prod-like.example
+
+# Editor / OS
+**/.idea
+**/.vscode
+**/*.swp
+**/.DS_Store
+**/Thumbs.db
+
+# Logs and temp
+**/logs
+**/*.log
+**/tmp
+**/temp
+**/.tmp
+
+# Nested worktrees / local tooling
+.wt-*/
+wt-*/
+**/.wt-*
+
+# Documents and archives (not runtime)
+**/*.docx
+**/*.pdf
+**/*.zip
+**/*.7z
+**/*.rar
+# Archive-style backup dumps only (do not exclude source like backup-object-storage.ts)
+**/*.backup
+**/*.bak
+**/backups/**
+**/db-backup/**
+**/postgres-backup/**
+
+# Test artifacts / media captures
+**/test-results/**
+**/playwright-report/**
+**/screenshots
+**/videos
+**/*.webm
+**/*.png.snapshot
+
+# Local data dirs
+**/.data
+apps/api/.data
+
+# Optional heavy docs packages not required for image builds
+WEIGHT_APP_CODEX_READY_PACKAGE_V2/
+PROJECT_EXECUTION_PLAN_STATUS*
+WEIGHT_APP_PROJECT_DNA*

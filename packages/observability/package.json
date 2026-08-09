@@ -1,0 +1,10 @@
+{
+  "name": "@weight-app/observability",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": ["src"],
+  "scripts": {
+    "test": "node --test"
+  }
+}

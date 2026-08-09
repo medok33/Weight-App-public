@@ -1,0 +1,40 @@
+{
+  "name": "web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node ./scripts/run-next-build.mjs",
+    "dev": "next dev",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "test:e2e": "playwright test",
+    "test:e2e:runtime-smoke": "playwright test e2e/runtime-smoke-01-user-routes.spec.ts",
+    "test:e2e:responsive": "playwright test e2e/ux-stab-01d-responsive.spec.ts",
+    "test:e2e:a11y": "playwright test e2e/ux-stab-01e-accessibility.spec.ts",
+    "test:e2e:onboarding": "playwright test e2e/ux-stab-01f-onboarding.spec.ts",
+    "test:e2e:dashboard": "playwright test e2e/ux-stab-01g-dashboard.spec.ts",
+    "test:e2e:settings": "playwright test e2e/ux-stab-01h-account-settings.spec.ts",
+    "test:e2e:workout-v2": "playwright test e2e/workout-v2-01a-initial-plan.spec.ts",
+    "test:e2e:workout-v2-01b": "playwright test e2e/workout-v2-01b-hub.spec.ts",
+    "test:e2e:workout-v2-01c": "playwright test e2e/workout-v2-01c-session.spec.ts e2e/workout-v2-01c-http.spec.ts",
+    "test:e2e:workout-v2-01d": "playwright test e2e/workout-v2-01d-adaptations.spec.ts",
+    "test:e2e:workout-v2-01e": "playwright test e2e/workout-v2-01e-hub-ux.spec.ts",
+    "test:e2e:workout-energy-01b": "playwright test e2e/workout-energy-01b-session-snapshot.spec.ts",
+    "test:e2e:activity": "playwright test e2e/activity-01a-automatic-steps.spec.ts e2e/activity-01a-http.spec.ts e2e/activity-01b-connection-lifecycle.spec.ts"
+  },
+  "dependencies": {
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.1",
+    "@playwright/test": "1.54.2",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

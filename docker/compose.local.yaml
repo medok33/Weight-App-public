@@ -1,0 +1,129 @@
+﻿# LOCAL developer infrastructure (PostgreSQL + Redis). App processes run via pnpm dev.
+x-weight-app-nonroot: &weight-app-nonroot
+  user: "10001:10001"
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+x-weight-app-readonly-runtime: &weight-app-readonly-runtime
+  <<: *weight-app-nonroot
+  read_only: true
+  tmpfs:
+    - /tmp
+
+x-weight-app-migrate: &weight-app-migrate
+  <<: *weight-app-readonly-runtime
+  restart: "no"
+  networks:
+    - app
+
+x-weight-app-api-runtime: &weight-app-api-runtime
+  <<: *weight-app-readonly-runtime
+  tmpfs:
+    - /tmp
+    - /app/data:uid=10001,gid=10001
+  environment:
+    PORT: "3001"
+    EXPORT_STORAGE_ROOT: /app/data/exports
+  healthcheck:
+    test:
+      [
+        "CMD",
+        "node",
+        "-e",
+        "fetch('http://127.0.0.1:3001/api/v1/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+      ]
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 40s
+  networks:
+    - app
+
+x-weight-app-web-runtime: &weight-app-web-runtime
+  <<: *weight-app-readonly-runtime
+  environment:
+    PORT: "3000"
+    HOSTNAME: "0.0.0.0"
+    INTERNAL_API_BASE_URL: http://api:3001/api/v1
+    API_BASE_URL: http://api:3001/api/v1
+  healthcheck:
+    test:
+      [
+        "CMD",
+        "node",
+        "-e",
+        "fetch('http://127.0.0.1:3000/api/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+      ]
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 40s
+  networks:
+    - app
+
+x-weight-app-worker-runtime: &weight-app-worker-runtime
+  <<: *weight-app-readonly-runtime
+  environment:
+    NOTIFICATION_POLL_MS: "5000"
+    COVERAGE_ANALYZER_POLL_MS: "60000"
+    RESEARCH_RETENTION_POLL_MS: "60000"
+  networks:
+    - app
+
+x-postgres-health: &postgres-health
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+    interval: 5s
+    timeout: 5s
+    retries: 20
+
+x-redis-health: &redis-health
+  healthcheck:
+    test: ["CMD", "redis-cli", "ping"]
+    interval: 5s
+    timeout: 3s
+    retries: 20
+
+# Run: docker compose -f docker/compose.local.yaml up -d
+name: weight-app-local
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-weight_app}
+      POSTGRES_USER: ${POSTGRES_USER:-weight_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weight_app_local}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - local_postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    <<: *postgres-health
+    networks:
+      - backend
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - local_redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    <<: *redis-health
+    networks:
+      - backend
+
+volumes:
+  local_postgres_data:
+  local_redis_data:
+
+networks:
+  backend:
+    driver: bridge

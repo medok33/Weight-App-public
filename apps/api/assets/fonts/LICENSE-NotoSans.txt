@@ -1,0 +1,10 @@
+SIL Open Font License 1.1 — Noto Sans
+
+Font file: apps/api/assets/fonts/NotoSans-Regular.ttf
+Source: Google Noto Fonts (https://github.com/googlefonts/noto-fonts)
+License: SIL Open Font License 1.1
+  https://scripts.sil.org/OFL
+
+This font is embedded into generated meal-plan PDF files by pdfkit.
+The Weight App redistributes the font binary under the OFL terms.
+Helvetica / standard PDF fonts are not used for Russian body text.

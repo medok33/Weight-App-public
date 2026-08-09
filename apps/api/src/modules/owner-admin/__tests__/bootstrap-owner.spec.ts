@@ -1,0 +1,1 @@
+import { describe, expect, it } from 'vitest'; import { bootstrapOwner } from '../bootstrap-owner'; describe('owner bootstrap', () => { it('creates owner permissions', () => expect(bootstrapOwner('owner@example.com').role).toBe('OWNER')); });

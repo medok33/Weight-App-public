@@ -1,0 +1,1 @@
+import type { MealPlanGenerationJob } from './meal-plan.job'; export function processMealPlanGenerationJob(job: MealPlanGenerationJob) { return { idempotencyKey: job.idempotencyKey, userId: job.userId, days: Math.min(job.recipes.length, 7), status: 'completed' as const }; }

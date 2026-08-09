@@ -1,0 +1,2 @@
+import { scalePortions, validateRecipe } from '../domain/recipe-catalog.policy'; import type { Recipe } from '../domain/recipe-catalog.types'; import { RecipeCatalogRepository } from '../infrastructure/recipe-catalog.repository';
+export class RecipeCatalogService { constructor(private readonly repository = new RecipeCatalogRepository()) {} create(recipe: Recipe) { return this.repository.save(validateRecipe(recipe)); } scale(recipe: Recipe, servings: number) { return scalePortions(recipe, servings); } }

@@ -1,0 +1,635 @@
+# Weight App CI — quality gates + Docker build validation (no GHCR publish)
+name: Weight App CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: weight-app-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "11.9.0"
+  DISPOSABLE_POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}
+  DISPOSABLE_POSTGRES_USER: weight_app_disposable
+  DISPOSABLE_POSTGRES_PASSWORD: ci-disposable-postgres-password
+  DATABASE_URL: postgresql://weight_app_disposable:ci-disposable-postgres-password@localhost:5432/weight_app_disposable_ci_${{ github.run_id }}
+  WEIGHT_APP_DISPOSABLE_MODE: "1"
+  WEIGHT_APP_RUNTIME_ID: wa-ci-${{ github.run_id }}
+  DISPOSABLE_POSTGRES_MARKER: wa-ci-${{ github.run_id }}
+  DISPOSABLE_REDIS_MARKER: wa-ci-${{ github.run_id }}
+  REDIS_URL: redis://localhost:6379
+  APP_ENV: LOCAL
+  WEB_ALLOWED_ORIGINS: http://localhost:3000
+  AUTH_SESSION_SECRET: ci-only-session-secret-min-32-chars-xx
+  AUTH_REFRESH_SECRET: ci-only-refresh-secret-min-32-chars-xx
+  AUTH_ABUSE_HASH_SECRET: ci-only-abuse-hash-secret-min-32-ch
+  PLAN_REVISION_CONFIRMATION_SECRET: ci-only-plan-revision-secret-32ch
+  EXPORT_SIGNING_SECRET: ci-only-export-signing-secret-32ch
+  AUTH_MFA_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  AI_PROVIDER: local
+  OWNER_BOOTSTRAP_ENABLED: "false"
+  POSTGRES_PASSWORD: ci-disposable-postgres-password
+
+jobs:
+  ci-quality-gates:
+    name: CI Quality Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}
+          POSTGRES_USER: weight_app_disposable
+          POSTGRES_PASSWORD: ci-disposable-postgres-password
+          TZ: UTC
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Enable PostgreSQL extensions
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client redis-tools
+          PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$DISPOSABLE_POSTGRES_USER" -d "$DISPOSABLE_POSTGRES_DB" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE SCHEMA IF NOT EXISTS weight_app_runtime_metadata; CREATE TABLE IF NOT EXISTS weight_app_runtime_metadata.runtime_identity (marker_name text PRIMARY KEY, runtime_id text NOT NULL, created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP, marker_version integer NOT NULL DEFAULT 1); INSERT INTO weight_app_runtime_metadata.runtime_identity(marker_name, runtime_id) VALUES ('postgres-disposable-runtime', '$WEIGHT_APP_RUNTIME_ID') ON CONFLICT (marker_name) DO NOTHING;"
+          redis-cli -h localhost SET weight-app:disposable:runtime-id "$WEIGHT_APP_RUNTIME_ID"
+
+      - name: Apply migrations (first run)
+        run: pnpm db:migrate
+
+      - name: Apply migrations (second run must be no-op)
+        run: |
+          set -euo pipefail
+          OUT="$(pnpm db:migrate)"
+          echo "$OUT"
+          echo "$OUT" | grep -E '"applied"[[:space:]]*:[[:space:]]*0' >/dev/null
+
+      - name: Migration contract checks
+        run: |
+          pnpm db:check-migrations
+          pnpm db:migrate:status
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Application build
+        run: pnpm build
+
+      - name: Compose environment validation
+        run: pnpm docker:validate:compose
+
+      - name: Full repository verify
+        run: pnpm verify
+
+  ci-platform-01-disposable-verification:
+    name: CI PLATFORM-01 Disposable Verification
+    runs-on: ubuntu-latest
+    # Sum of finite canonical stage bounds is 91.5 minutes; keep only cleanup/job grace outside them.
+    timeout-minutes: 100
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium
+        run: pnpm --dir apps/web exec playwright install --with-deps chromium
+      - name: Run canonical disposable verification
+        run: pnpm verify:disposable
+
+  ci-docker-build-validation:
+    name: CI Docker Build Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: []
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Build immutable images (no push)
+        env:
+          RELEASE_VERSION: 0.0.0-ci
+          GIT_SHA: ${{ github.sha }}
+          OCI_SOURCE: https://github.com/medok33/Weight-App
+        run: pnpm docker:build
+
+      - name: Validate image contracts (non-root, OCI labels, no .env)
+        run: |
+          set -euo pipefail
+          for img in weight-app-web:local weight-app-api:local weight-app-migrate:local weight-app-worker:local; do
+            user="$(docker image inspect --format '{{.Config.User}}' "$img")"
+            if [ -z "$user" ] || [ "$user" = "root" ] || [ "$user" = "0" ] || [ "$user" = "0:0" ]; then
+              echo "FAIL: $img must be non-root (got '$user')"
+              exit 1
+            fi
+            labels="$(docker image inspect --format '{{json .Config.Labels}}' "$img")"
+            echo "$labels" | grep -q 'org.opencontainers.image.title'
+            echo "$labels" | grep -q 'org.opencontainers.image.revision'
+            probe="$(docker run --rm --entrypoint sh "$img" -c 'if [ -f /app/.env ] || [ -f /app/apps/api/.env ]; then echo HAS_ENV; else echo NO_ENV; fi')"
+            test "$probe" = "NO_ENV"
+          done
+          mig_n="$(docker run --rm --entrypoint sh weight-app-migrate:local -c 'ls -1 /app/prisma/migrations | wc -l')"
+          disk_n="$(ls -1 apps/api/prisma/migrations | wc -l)"
+          test "$mig_n" -eq "$disk_n"
+          api_cmd="$(docker image inspect --format '{{json .Config.Cmd}}' weight-app-api:local)"
+          echo "$api_cmd" | grep -q 'dist/main.js'
+          echo "$api_cmd" | grep -vq 'migrate'
+
+  # One useful USER route/browser smoke: pageerror, MISSING_I18N*, Next overlay,
+  # console.error (non-benign), API 5xx, and direct Nest :3001 from the browser.
+  # HTTP 200 alone is not success.
+  ci-user-runtime-smoke:
+    name: CI USER Runtime Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}
+          POSTGRES_USER: weight_app_disposable
+          POSTGRES_PASSWORD: ci-disposable-postgres-password
+          TZ: UTC
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Enable PostgreSQL extensions
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client redis-tools
+          PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$DISPOSABLE_POSTGRES_USER" -d "$DISPOSABLE_POSTGRES_DB" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE SCHEMA IF NOT EXISTS weight_app_runtime_metadata; CREATE TABLE IF NOT EXISTS weight_app_runtime_metadata.runtime_identity (marker_name text PRIMARY KEY, runtime_id text NOT NULL, created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP, marker_version integer NOT NULL DEFAULT 1); INSERT INTO weight_app_runtime_metadata.runtime_identity(marker_name, runtime_id) VALUES ('postgres-disposable-runtime', '$WEIGHT_APP_RUNTIME_ID') ON CONFLICT (marker_name) DO NOTHING;"
+          redis-cli -h localhost SET weight-app:disposable:runtime-id "$WEIGHT_APP_RUNTIME_ID"
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      - name: Build API and Web
+        run: pnpm --filter api build && pnpm --filter web build
+
+      - name: Install Playwright Chromium
+        run: pnpm --dir apps/web exec playwright install --with-deps chromium
+
+      - name: Start API + Web and run USER runtime smoke
+        env:
+          INTERNAL_API_BASE_URL: http://127.0.0.1:3001/api/v1
+          WEB_BASE_URL: http://localhost:3000
+          E2E_WEB_ORIGIN: http://localhost:3000
+          PORT: "3001"
+          NODE_ENV: production
+        run: |
+          set -euo pipefail
+          node apps/api/dist/main.js > /tmp/weight-api.log 2>&1 &
+          echo $! > /tmp/weight-api.pid
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:3001/api/v1/health/live >/dev/null; then
+              echo "API live after ${i}s"
+              break
+            fi
+            if ! kill -0 "$(cat /tmp/weight-api.pid)" 2>/dev/null; then
+              echo "API process died; log:"
+              cat /tmp/weight-api.log
+              exit 1
+            fi
+            sleep 1
+            if [ "$i" -eq 90 ]; then
+              echo "API did not become live; log:"
+              cat /tmp/weight-api.log
+              exit 1
+            fi
+          done
+
+          pnpm --dir apps/web exec next start -H 0.0.0.0 -p 3000 > /tmp/weight-web.log 2>&1 &
+          echo $! > /tmp/weight-web.pid
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:3000/ >/dev/null; then
+              echo "Web live after ${i}s"
+              break
+            fi
+            if ! kill -0 "$(cat /tmp/weight-web.pid)" 2>/dev/null; then
+              echo "Web process died; log:"
+              cat /tmp/weight-web.log
+              exit 1
+            fi
+            sleep 1
+            if [ "$i" -eq 90 ]; then
+              echo "Web did not become live; log:"
+              cat /tmp/weight-web.log
+              exit 1
+            fi
+          done
+
+          set +e
+          pnpm --dir apps/web test:e2e:runtime-smoke
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo "==== API log (tail) ===="
+            tail -n 200 /tmp/weight-api.log || true
+            echo "==== Web log (tail) ===="
+            tail -n 200 /tmp/weight-web.log || true
+          fi
+          kill "$(cat /tmp/weight-web.pid)" 2>/dev/null || true
+          kill "$(cat /tmp/weight-api.pid)" 2>/dev/null || true
+          exit "$status"
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: user-runtime-smoke-${{ github.run_id }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore
+
+  ci-workout-session-e2e:
+    name: Workout Session E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}
+          POSTGRES_USER: weight_app_disposable
+          POSTGRES_PASSWORD: ci-disposable-postgres-password
+          TZ: UTC
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Enable PostgreSQL extensions
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client redis-tools
+          PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$DISPOSABLE_POSTGRES_USER" -d "$DISPOSABLE_POSTGRES_DB" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE SCHEMA IF NOT EXISTS weight_app_runtime_metadata; CREATE TABLE IF NOT EXISTS weight_app_runtime_metadata.runtime_identity (marker_name text PRIMARY KEY, runtime_id text NOT NULL, created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP, marker_version integer NOT NULL DEFAULT 1); INSERT INTO weight_app_runtime_metadata.runtime_identity(marker_name, runtime_id) VALUES ('postgres-disposable-runtime', '$WEIGHT_APP_RUNTIME_ID') ON CONFLICT (marker_name) DO NOTHING;"
+          redis-cli -h localhost SET weight-app:disposable:runtime-id "$WEIGHT_APP_RUNTIME_ID"
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      - name: Build API and Web
+        run: pnpm --filter api build && pnpm --filter web build
+
+      - name: Install Playwright Chromium
+        run: pnpm --dir apps/web exec playwright install --with-deps chromium
+
+      - name: Start API + Web and run Workout Session E2E
+        env:
+          INTERNAL_API_BASE_URL: http://127.0.0.1:3001/api/v1
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/api/v1
+          WEB_BASE_URL: http://localhost:3000
+          E2E_WEB_ORIGIN: http://localhost:3000
+          PORT: "3001"
+          NODE_ENV: production
+        run: |
+          set -euo pipefail
+          node apps/api/dist/main.js > /tmp/weight-api.log 2>&1 &
+          echo $! > /tmp/weight-api.pid
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:3001/api/v1/health/live >/dev/null; then
+              echo "API live after ${i}s"
+              break
+            fi
+            if ! kill -0 "$(cat /tmp/weight-api.pid)" 2>/dev/null; then
+              echo "API process died; log:"
+              cat /tmp/weight-api.log
+              exit 1
+            fi
+            sleep 1
+            if [ "$i" -eq 90 ]; then
+              echo "API did not become live; log:"
+              cat /tmp/weight-api.log
+              exit 1
+            fi
+          done
+
+          pnpm --dir apps/web exec next start -H 0.0.0.0 -p 3000 > /tmp/weight-web.log 2>&1 &
+          echo $! > /tmp/weight-web.pid
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:3000/ >/dev/null; then
+              echo "Web live after ${i}s"
+              break
+            fi
+            if ! kill -0 "$(cat /tmp/weight-web.pid)" 2>/dev/null; then
+              echo "Web process died; log:"
+              cat /tmp/weight-web.log
+              exit 1
+            fi
+            sleep 1
+            if [ "$i" -eq 90 ]; then
+              echo "Web did not become live; log:"
+              cat /tmp/weight-web.log
+              exit 1
+            fi
+          done
+
+          set +e
+          pnpm --dir apps/web test:e2e:workout-v2-01c
+          status_01c=$?
+          pnpm --dir apps/web test:e2e:workout-v2-01d
+          status_01d=$?
+          pnpm --dir apps/web test:e2e:workout-v2-01e
+          status_01e=$?
+          pnpm --dir apps/web test:e2e:workout-energy-01b
+          status_energy_01b=$?
+          set -e
+          if [ "$status_01c" -ne 0 ] || [ "$status_01d" -ne 0 ] || [ "$status_01e" -ne 0 ] || [ "$status_energy_01b" -ne 0 ]; then
+            echo "==== API log (tail) ===="
+            tail -n 200 /tmp/weight-api.log || true
+            echo "==== Web log (tail) ===="
+            tail -n 200 /tmp/weight-web.log || true
+          fi
+          kill "$(cat /tmp/weight-web.pid)" 2>/dev/null || true
+          kill "$(cat /tmp/weight-api.pid)" 2>/dev/null || true
+          if [ "$status_01c" -ne 0 ]; then exit "$status_01c"; fi
+          if [ "$status_01d" -ne 0 ]; then exit "$status_01d"; fi
+          if [ "$status_01e" -ne 0 ]; then exit "$status_01e"; fi
+          exit "$status_energy_01b"
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: workout-session-e2e-${{ github.run_id }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore
+
+  ci-activity-e2e:
+    name: Activity E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}
+          POSTGRES_USER: weight_app_disposable
+          POSTGRES_PASSWORD: ci-disposable-postgres-password
+          TZ: UTC
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Enable PostgreSQL extensions
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client redis-tools
+          PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U "$DISPOSABLE_POSTGRES_USER" -d "$DISPOSABLE_POSTGRES_DB" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE SCHEMA IF NOT EXISTS weight_app_runtime_metadata; CREATE TABLE IF NOT EXISTS weight_app_runtime_metadata.runtime_identity (marker_name text PRIMARY KEY, runtime_id text NOT NULL, created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP, marker_version integer NOT NULL DEFAULT 1); INSERT INTO weight_app_runtime_metadata.runtime_identity(marker_name, runtime_id) VALUES ('postgres-disposable-runtime', '$WEIGHT_APP_RUNTIME_ID') ON CONFLICT (marker_name) DO NOTHING;"
+          redis-cli -h localhost SET weight-app:disposable:runtime-id "$WEIGHT_APP_RUNTIME_ID"
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      - name: Build API and Web
+        run: pnpm --filter api build && pnpm --filter web build
+
+      - name: Install Playwright Chromium
+        run: pnpm --dir apps/web exec playwright install --with-deps chromium
+
+      - name: Start API + Web and run Activity E2E
+        env:
+          INTERNAL_API_BASE_URL: http://127.0.0.1:3001/api/v1
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/api/v1
+          WEB_BASE_URL: http://localhost:3000
+          E2E_WEB_ORIGIN: http://localhost:3000
+          PORT: "3001"
+          NODE_ENV: production
+        run: |
+          set -euo pipefail
+          node apps/api/dist/main.js > /tmp/weight-api.log 2>&1 &
+          echo $! > /tmp/weight-api.pid
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:3001/api/v1/health/live >/dev/null; then
+              echo "API live after ${i}s"
+              break
+            fi
+            if ! kill -0 "$(cat /tmp/weight-api.pid)" 2>/dev/null; then
+              echo "API process died; log:"
+              cat /tmp/weight-api.log
+              exit 1
+            fi
+            sleep 1
+            if [ "$i" -eq 90 ]; then
+              echo "API did not become live; log:"
+              cat /tmp/weight-api.log
+              exit 1
+            fi
+          done
+
+          pnpm --dir apps/web exec next start -H 0.0.0.0 -p 3000 > /tmp/weight-web.log 2>&1 &
+          echo $! > /tmp/weight-web.pid
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:3000/ >/dev/null; then
+              echo "Web live after ${i}s"
+              break
+            fi
+            if ! kill -0 "$(cat /tmp/weight-web.pid)" 2>/dev/null; then
+              echo "Web process died; log:"
+              cat /tmp/weight-web.log
+              exit 1
+            fi
+            sleep 1
+            if [ "$i" -eq 90 ]; then
+              echo "Web did not become live; log:"
+              cat /tmp/weight-web.log
+              exit 1
+            fi
+          done
+
+          echo "==== Running Activity E2E (test:e2e:activity) ===="
+          set +e
+          pnpm --dir apps/web test:e2e:activity
+          status_activity=$?
+          set -e
+          if [ "$status_activity" -ne 0 ]; then
+            echo "==== API log (tail) ===="
+            tail -n 200 /tmp/weight-api.log || true
+            echo "==== Web log (tail) ===="
+            tail -n 200 /tmp/weight-web.log || true
+          fi
+          kill "$(cat /tmp/weight-web.pid)" 2>/dev/null || true
+          kill "$(cat /tmp/weight-api.pid)" 2>/dev/null || true
+          exit "$status_activity"
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: activity-e2e-${{ github.run_id }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore

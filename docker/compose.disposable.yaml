@@ -1,0 +1,47 @@
+name: ${DISPOSABLE_COMPOSE_PROJECT}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DISPOSABLE_POSTGRES_DB}
+      POSTGRES_USER: ${DISPOSABLE_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${DISPOSABLE_POSTGRES_PASSWORD}
+      DISPOSABLE_RUNTIME_ID: ${DISPOSABLE_RUNTIME_ID}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${DISPOSABLE_POSTGRES_PORT}:5432"
+    volumes:
+      - disposable_postgres:/var/lib/postgresql/data
+      - ./postgres/disposable-init.sh:/docker-entrypoint-initdb.d/001-disposable-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    labels:
+      com.weight-app.disposable: "true"
+      com.weight-app.runtime-id: "${DISPOSABLE_RUNTIME_ID}"
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "127.0.0.1:${DISPOSABLE_REDIS_PORT}:6379"
+    volumes:
+      - disposable_redis:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    labels:
+      com.weight-app.disposable: "true"
+      com.weight-app.runtime-id: "${DISPOSABLE_RUNTIME_ID}"
+
+volumes:
+  disposable_postgres:
+    name: weight-app-disposable-${DISPOSABLE_RUNTIME_ID}-postgres
+  disposable_redis:
+    name: weight-app-disposable-${DISPOSABLE_RUNTIME_ID}-redis

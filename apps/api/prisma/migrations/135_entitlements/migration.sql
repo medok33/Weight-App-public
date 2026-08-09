@@ -1,0 +1,3 @@
+CREATE TABLE "Entitlement" ("id" UUID PRIMARY KEY DEFAULT gen_random_uuid(), "userId" UUID NOT NULL REFERENCES "User"("id") ON DELETE CASCADE, "key" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT 'active', "startsAt" TIMESTAMPTZ NOT NULL DEFAULT now(), "endsAt" TIMESTAMPTZ, "sourcePaymentId" UUID REFERENCES "Payment"("id") ON DELETE SET NULL, "metadata" JSONB NOT NULL DEFAULT '{}'::jsonb, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(), "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(), CONSTRAINT "Entitlement_userId_key_key" UNIQUE ("userId", "key"));
+CREATE INDEX "Entitlement_userId_status_endsAt_idx" ON "Entitlement"("userId", "status", "endsAt");
+CREATE INDEX "Entitlement_sourcePaymentId_idx" ON "Entitlement"("sourcePaymentId");

@@ -1,0 +1,1 @@
+import { describe, expect, it } from 'vitest'; import { validatePartnerFeed } from '../domain/integrations.policy'; describe('integrations', () => { it('accepts official adapter contract', () => { expect(validatePartnerFeed({ partnerId: 'p', fetchPrices: async () => [] }).partnerId).toBe('p'); }); });

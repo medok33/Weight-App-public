@@ -1,0 +1,2 @@
+CREATE TABLE "UserProfile" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid(), "userId" uuid UNIQUE NOT NULL REFERENCES "User"("id") ON DELETE CASCADE, "ageBand" text, "heightCm" integer, "timezone" text, "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now());
+CREATE TABLE "UserGoal" ("id" uuid PRIMARY KEY DEFAULT gen_random_uuid(), "profileId" uuid NOT NULL REFERENCES "UserProfile"("id") ON DELETE CASCADE, "kind" text NOT NULL, "target" numeric(8,2), "unit" text, "createdAt" timestamptz NOT NULL DEFAULT now());
