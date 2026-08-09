@@ -378,6 +378,13 @@ async function persistenceDatabaseCommand(env, sql, timeoutMs, label) {
 const PUBLIC_NOT_APPLICABLE_PERSISTENCE_TESTS = new Map([
   ['test/database/owner-mfa.persistence.spec.ts', 'PRIVATE_OPERATIONAL_DEPENDENCY_EXCLUDED_FROM_PUBLIC_REPOSITORY'],
 ]);
+const PUBLIC_NOT_APPLICABLE_DEPLOYMENT_TESTS = [
+  { file: 'apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts', test: 'prod-like compose has no app source mounts and orders migrate before api' },
+  { file: 'apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts', test: 'staging and production require immutable images in compose files' },
+  { file: 'apps/web/src/lib/__tests__/deploy-01c-environment-contract.spec.ts', test: 'documents separate compose project names' },
+  { file: 'apps/web/src/lib/__tests__/deploy-01c-environment-contract.spec.ts', test: 'keeps INTERNAL_API_BASE_URL out of private env templates' },
+  { file: 'apps/web/src/lib/__tests__/deploy-01d-workflow-contract.spec.ts', test: 'publishes only from release workflow with lowercase GHCR names' },
+].map((item) => ({ ...item, result: RESULT.NOT_APPLICABLE, classification: 'PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE', reason: 'PRIVATE_DEPLOYMENT_SURFACE_EXCLUDED_FROM_PUBLIC_REPOSITORY' }));
 
 async function runPersistenceSuite(env, inventory) {
   const started = Date.now();
@@ -581,7 +588,7 @@ function writeInventory(inventory) {
 export async function canonicalFullVerify(env = createRuntimeEnv()) {
   const gitSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   const inventory = createInventory({ gitSha, runtimeId: env.DISPOSABLE_RUNTIME_ID });
-  inventory.publicNotApplicableTests = [];
+  inventory.publicNotApplicableTests = [...PUBLIC_NOT_APPLICABLE_DEPLOYMENT_TESTS];
   const serviceState = [];
   let cleanupStage = null;
   let interrupted = false;

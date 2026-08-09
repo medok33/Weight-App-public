@@ -1901,7 +1901,7 @@
                                   {
                                       "path":  "scripts\\deploy\\build-images.mjs",
                                       "source_sha256":  "DA32805459EF4F840C878294CDE0161957AB8F8182EA8D3587043DCB3C707CD8",
-                                      "export_sha256":  "1961263C6368D4FC890879446D1A22FB72A3FE9C67DCFC6678E5399AA1180F81",
+                                      "export_sha256":  "6F92DF2C35E068E519B2D9E6BC893BCE6C862E99DCFEB38F898B78F2A1ACE095",
                                       "match":  false
                                   },
                                   {
@@ -2303,8 +2303,8 @@
                                   {
                                       "path":  "apps\\web\\src\\lib\\__tests__\\deploy-01b-docker-contract.spec.ts",
                                       "source_sha256":  "E80F90B3391EE87446437CC1FC7AB632751C583CF3C1CB2900B9924C87EBCDCA",
-                                      "export_sha256":  "E80F90B3391EE87446437CC1FC7AB632751C583CF3C1CB2900B9924C87EBCDCA",
-                                      "match":  true
+                                      "export_sha256":  "BF5DC36368B4755FD4A182ED39ECDB78CC86EE34D735BC961D30488058B5BCC5",
+                                      "match":  false
                                   },
                                   {
                                       "path":  "apps\\api\\src\\modules\\price-intelligence\\price-intelligence.controller.ts",
@@ -3347,8 +3347,8 @@
                                   {
                                       "path":  "apps\\web\\src\\lib\\__tests__\\deploy-01d-workflow-contract.spec.ts",
                                       "source_sha256":  "9DA0BD782623D6B3185BCC61B14220522C2078B953C5B28FB6DB373EDA32DBE3",
-                                      "export_sha256":  "9DA0BD782623D6B3185BCC61B14220522C2078B953C5B28FB6DB373EDA32DBE3",
-                                      "match":  true
+                                      "export_sha256":  "24165BFCF78AA57EAB545E92EB6D78792434B3C113EC6F08C66102047AF41F46",
+                                      "match":  false
                                   },
                                   {
                                       "path":  "apps\\api\\test\\database\\workout-catalog-01b.reactivation-adversarial.spec.ts",
@@ -4727,8 +4727,8 @@
                                   {
                                       "path":  "apps\\web\\src\\lib\\__tests__\\deploy-01c-environment-contract.spec.ts",
                                       "source_sha256":  "9F57B6F1DA9F8D13D2A083465B3746E946B1FB64E97A575870DE97B6459D1B95",
-                                      "export_sha256":  "9F57B6F1DA9F8D13D2A083465B3746E946B1FB64E97A575870DE97B6459D1B95",
-                                      "match":  true
+                                      "export_sha256":  "31DC71E39E8BC7C02DBD312F226A33A0B4E849DBB9923BB9161B6CAC60C0D084",
+                                      "match":  false
                                   },
                                   {
                                       "path":  "docs\\adr\\ADR-001-modular-monolith-and-stack.md",
@@ -7577,8 +7577,8 @@
                                   {
                                       "path":  "scripts\\verify\\verify-all.mjs",
                                       "source_sha256":  "49E50338ECC26E342EA4E996F6312993076A25DC927E90A872A607A90844F542",
-                                      "export_sha256":  "49E50338ECC26E342EA4E996F6312993076A25DC927E90A872A607A90844F542",
-                                      "match":  true
+                                      "export_sha256":  "A15112C8B9C91CA8FCCF7653A8CD0756B6709B7C9740843A0F9E418D72022D90",
+                                      "match":  false
                                   },
                                   {
                                       "path":  "apps\\api\\test\\database\\workout-adaptation-01d-fix2.gaps.spec.ts",
@@ -7937,7 +7937,7 @@
                                   {
                                       "path":  "scripts\\verify\\disposable-runtime.mjs",
                                       "source_sha256":  "0CE52048D03469BE32E52D8D5E2BA6385BD22AE595576C6F150423670587CEC8",
-                                      "export_sha256":  "617306FD08FC24D49D4F2C81F4C206C385460E99F7359356A9B384BA68D51146",
+                                      "export_sha256":  "CB610448DFFFE3382E42643422C0C351A43F5E42AE56958957BDBC7EF1C8613B",
                                       "match":  false
                                   },
                                   {
@@ -8148,15 +8148,23 @@
                                        "scripts/deploy/build-images.mjs (CI-only wrapper; no push/deploy/credentials)",
                                        "scripts/deploy/validate-compose-environments.mjs (local/disposable-only validator)",
                                        "apps/api/scripts/bootstrap-owner.mjs (non-operational public boundary stub)",
-                                       "scripts/verify/disposable-runtime.mjs (exact public N/A classification)",
-                                       "PUBLIC_CI_EXCEPTIONS.md (exact public N/A evidence)",
+                                       "scripts/verify/disposable-runtime.mjs (exact public N/A inventory)",
+                                       "scripts/verify/verify-all.mjs (public profile inventory)",
+                                       "apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts (exact case N/A markers)",
+                                       "apps/web/src/lib/__tests__/deploy-01c-environment-contract.spec.ts (exact case N/A markers)",
+                                       "apps/web/src/lib/__tests__/deploy-01d-workflow-contract.spec.ts (exact case N/A marker)",
+                                       "PUBLIC_CI_EXCEPTIONS.md",
                                        "deployment/internal surfaces excluded"
                                    ],
     "public_only_delta_paths":  [
                                     "apps\\api\\scripts\\bootstrap-owner.mjs",
                                     "scripts\\deploy\\build-images.mjs",
+                                    "apps\\web\\src\\lib\\__tests__\\deploy-01b-docker-contract.spec.ts",
+                                    "apps\\web\\src\\lib\\__tests__\\deploy-01d-workflow-contract.spec.ts",
                                     "scripts\\deploy\\validate-compose-environments.mjs",
+                                    "apps\\web\\src\\lib\\__tests__\\deploy-01c-environment-contract.spec.ts",
                                     "README.md",
+                                    "scripts\\verify\\verify-all.mjs",
                                     "scripts\\verify\\disposable-runtime.mjs"
                                 ],
     "added_public_paths":  [

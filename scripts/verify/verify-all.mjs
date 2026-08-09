@@ -6,6 +6,16 @@ if (isTrue(process.env.WEIGHT_APP_DISPOSABLE_MODE)) {
 }
 
 const runner = resolvePnpmInvocation(process.env);
+const publicNotApplicableTests = [
+  ['apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts', 'prod-like compose has no app source mounts and orders migrate before api'],
+  ['apps/web/src/lib/__tests__/deploy-01b-docker-contract.spec.ts', 'staging and production require immutable images in compose files'],
+  ['apps/web/src/lib/__tests__/deploy-01c-environment-contract.spec.ts', 'documents separate compose project names'],
+  ['apps/web/src/lib/__tests__/deploy-01c-environment-contract.spec.ts', 'keeps INTERNAL_API_BASE_URL out of private env templates'],
+  ['apps/web/src/lib/__tests__/deploy-01d-workflow-contract.spec.ts', 'publishes only from release workflow with lowercase GHCR names'],
+];
+for (const [file, test] of publicNotApplicableTests) {
+  process.stdout.write(`PUBLIC_CI_TEST_NOT_APPLICABLE ${JSON.stringify({ file, test, classification: 'PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE', reason: 'PRIVATE_DEPLOYMENT_SURFACE_EXCLUDED_FROM_PUBLIC_REPOSITORY' })}\n`);
+}
 const commands = [
   { name: 'db:check-migrations', args: ['db:check-migrations'], timeoutMs: 120_000 },
   { name: 'workout-energy:content:check', args: ['workout-energy:content:check'], timeoutMs: 120_000 },
@@ -38,3 +48,4 @@ for (const command of commands) {
 }
 
 process.stdout.write('verify-all: passed\n');
+process.stdout.write(`PUBLIC_CODE_BASELINE_READY ${JSON.stringify({ ready: true, privateDeploymentValidation: 'NOT_APPLICABLE_TO_PUBLIC_REPOSITORY', publicNotApplicableTests })}\n`);

@@ -13,6 +13,12 @@ const buildTimestamp = (process.env.BUILD_TIMESTAMP || new Date().toISOString())
 const ociSource = (process.env.OCI_SOURCE || 'https://github.com/medok33/Weight-App-public').trim();
 const shortSha = gitSha === 'unknown' ? 'unknown' : gitSha.slice(0, 7);
 const common = ['--build-arg', `RELEASE_VERSION=${release}`, '--build-arg', `GIT_SHA=${gitSha}`, '--build-arg', `BUILD_TIMESTAMP=${buildTimestamp}`, '--build-arg', `OCI_SOURCE=${ociSource}`];
+const tags = {
+  web: `weight-app-web:${release}-${shortSha}`,
+  api: `weight-app-api:${release}-${shortSha}`,
+  migrate: `weight-app-migrate:${release}-${shortSha}`,
+  worker: `weight-app-worker:${release}-${shortSha}`,
+};
 
 function run(args) {
   const result = spawnSync('docker', args, { cwd: root, stdio: 'inherit', shell: false });
@@ -20,14 +26,14 @@ function run(args) {
 }
 
 const builds = [
-  ['docker/Dockerfile.web', [], 'weight-app-web'],
-  ['docker/Dockerfile.api', ['--target', 'api'], 'weight-app-api'],
-  ['docker/Dockerfile.api', ['--target', 'migrate'], 'weight-app-migrate'],
-  ['docker/Dockerfile.worker', [], 'weight-app-worker'],
+  ['docker/Dockerfile.web', [], tags.web, 'weight-app-web'],
+  ['docker/Dockerfile.api', ['--target', 'api'], tags.api, 'weight-app-api'],
+  ['docker/Dockerfile.api', ['--target', 'migrate'], tags.migrate, 'weight-app-migrate'],
+  ['docker/Dockerfile.worker', [], tags.worker, 'weight-app-worker'],
 ];
 
-for (const [file, extra, image] of builds) {
-  run(['build', ...common, ...extra, '-f', file, '-t', `${image}:${release}-${shortSha}`, '-t', `${image}:local`, '.']);
+for (const [file, extra, tag, image] of builds) {
+  run(['build', ...common, ...extra, '-f', file, '-t', tag, '-t', `${image}:local`, '.']);
 }
 
-console.info(JSON.stringify({ event: 'public-ci-build.done', release, gitSha, buildTimestamp, images: builds.map(([, , image]) => `${image}:local`) }, null, 2));
+console.info(JSON.stringify({ event: 'public-ci-build.done', release, gitSha, buildTimestamp, images: builds.map(([, , , image]) => `${image}:local`) }, null, 2));
