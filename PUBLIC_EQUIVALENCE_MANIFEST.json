@@ -6,7 +6,7 @@
     "generated_on":  "2026-08-09",
     "confirmed_secret_count":  0,
     "likely_real_secret_count":  0,
-    "exported_source_file_count":  1352,
+    "exported_source_file_count":  1353,
     "exported_source_files":  [
                                   {
                                       "path":  "apps\\api\\src\\modules\\meal-plan\\domain\\meal-dish.ordering.ts",
@@ -1897,6 +1897,12 @@
                                       "source_sha256":  "A13D11B607B07968E49F0FABD8F1F85948FFA6176438D457E9A435AF7203B564",
                                       "export_sha256":  "A13D11B607B07968E49F0FABD8F1F85948FFA6176438D457E9A435AF7203B564",
                                       "match":  true
+                                  },
+                                  {
+                                      "path":  "scripts\\deploy\\build-images.mjs",
+                                      "source_sha256":  "DA32805459EF4F840C878294CDE0161957AB8F8182EA8D3587043DCB3C707CD8",
+                                      "export_sha256":  "1961263C6368D4FC890879446D1A22FB72A3FE9C67DCFC6678E5399AA1180F81",
+                                      "match":  false
                                   },
                                   {
                                       "path":  "apps\\api\\src\\modules\\recipe-platform\\application\\recipe-admin-workspace.service.ts",
@@ -8127,9 +8133,11 @@
                                        "PUBLIC_EQUIVALENCE.md",
                                        "PUBLIC_EQUIVALENCE_MANIFEST.json",
                                        "compose.yaml",
+                                       "scripts/deploy/build-images.mjs (CI-only wrapper; no push/deploy/credentials)",
                                        "deployment/internal surfaces excluded"
                                    ],
     "public_only_delta_paths":  [
+                                    "scripts\\deploy\\build-images.mjs",
                                     "README.md"
                                 ],
     "added_public_paths":  [
@@ -8137,7 +8145,7 @@
                                "PUBLIC_EQUIVALENCE_MANIFEST.json",
                                "PUBLIC_SOURCE_BASELINE.md"
                            ],
-    "excluded_source_file_count":  614,
+    "excluded_source_file_count":  613,
     "excluded_source_paths":  [
                                   ".github\\pull_request_template.md",
                                   ".github\\workflows\\release-images.yml",
@@ -8503,7 +8511,6 @@
                                   "run-api-dev.cmd",
                                   "run-web-dev.cmd",
                                   "scripts\\deploy\\baseline-verify.sh",
-                                  "scripts\\deploy\\build-images.mjs",
                                   "scripts\\deploy\\ghcr-login.sh",
                                   "scripts\\deploy\\staging-backup-test.sh",
                                   "scripts\\deploy\\staging-down.sh",
