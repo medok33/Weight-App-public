@@ -1901,7 +1901,7 @@
                                   {
                                       "path":  "scripts\\deploy\\build-images.mjs",
                                       "source_sha256":  "DA32805459EF4F840C878294CDE0161957AB8F8182EA8D3587043DCB3C707CD8",
-                                      "export_sha256":  "6F92DF2C35E068E519B2D9E6BC893BCE6C862E99DCFEB38F898B78F2A1ACE095",
+                                      "export_sha256":  "CABCE1CD45A748EE94BD5AF5653045464BC3807D818B8C62212A9FCAB6E82F11",
                                       "match":  false
                                   },
                                   {

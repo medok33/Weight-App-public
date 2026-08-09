@@ -7,7 +7,8 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '../..');
-const release = (process.env.RELEASE_VERSION || '0.0.0-ci').trim();
+const localDefaultRelease = '0.0.0-local';
+const release = (process.env.RELEASE_VERSION || localDefaultRelease).trim();
 const gitSha = (process.env.GIT_SHA || 'unknown').trim();
 const buildTimestamp = (process.env.BUILD_TIMESTAMP || new Date().toISOString()).trim();
 const ociSource = (process.env.OCI_SOURCE || 'https://github.com/medok33/Weight-App-public').trim();
