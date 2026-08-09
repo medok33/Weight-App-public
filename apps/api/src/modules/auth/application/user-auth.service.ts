@@ -28,12 +28,14 @@ import {
 import { hasAdminAuthority } from '../domain/account-role.policy';
 import type { RequestUser } from '../domain/request-user.types';
 import { normalizeIdentityEmail } from '../domain/identity-normalizer';
+import { RedisAuthAbuseService } from './redis-auth-abuse.service';
 
 @Injectable()
 export class UserAuthService {
   constructor(
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(AuthRepository) private readonly repository: AuthRepository,
+    @Inject(RedisAuthAbuseService) private readonly redisAbuse: RedisAuthAbuseService,
   ) {
     loadMfaEncryptionKey();
   }
@@ -42,6 +44,7 @@ export class UserAuthService {
     const normalizedEmail = normalizeIdentityEmail(email);
     const accountHash = authAbuseHash(`account:${normalizedEmail}`);
     const ipHash = authAbuseHash(`ip:${normalizeClientAddress(ip)}`);
+    await this.redisAbuse.assertAvailableFor('register', accountHash);
     const registrationBlock = await this.repository.recordRegistrationAttempt({ accountHash, ipHash });
     if (registrationBlock.blocked) {
       throw new AuthAbuseBlockedError(registrationBlock.reason ?? 'account_throttle', registrationBlock.retryAfterSeconds ?? 1);
@@ -65,6 +68,7 @@ export class UserAuthService {
     const accountHash = authAbuseHash(`account:${normalizedIdentifier}`);
     const ipHash = authAbuseHash(`ip:${normalizedIp}`);
     const accountIpHash = authAbuseHash(`account_ip:${normalizedIdentifier}:${normalizedIp}`);
+    await this.redisAbuse.assertAvailableFor('login', accountIpHash);
 
     const existingBlock = await this.repository.evaluateAuthBlock({ accountHash, ipHash, accountIpHash });
     if (existingBlock.blocked) {

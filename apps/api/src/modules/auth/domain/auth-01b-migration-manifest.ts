@@ -1,0 +1,177 @@
+export type Auth01bMigrationManifestEntry = {
+  table: string;
+  column: string;
+  oldNullability: 'NOT NULL' | 'NULLABLE' | 'N/A';
+  newNullability: 'NOT NULL' | 'NULLABLE';
+  oldOnDelete: 'CASCADE' | 'RESTRICT' | 'NO ACTION' | 'SET NULL' | 'N/A';
+  newOnDelete: 'CASCADE' | 'SET NULL' | 'N/A';
+  ownershipClassification:
+    | 'USER_PERSONAL_ANONYMIZE'
+    | 'SECURITY_AUDIT_MINIMAL'
+    | 'GLOBAL_NON_USER_DATA'
+    | 'RETAINED_SHARED_FAMILY_STATE'
+    | 'SESSION_LIFECYCLE'
+    | 'ACCOUNT_DELETION_LIFECYCLE';
+  preserveRowAfterUserDeletion: 'YES' | 'NO';
+  fkIsNotPersonalRowOwnership: 'YES' | 'NO' | 'N/A';
+  reason: string;
+};
+
+export const AUTH_01B_MIGRATION_MANIFEST: readonly Auth01bMigrationManifestEntry[] = [
+  {
+    table: 'User',
+    column: 'deletionRequestedAt',
+    oldNullability: 'N/A',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'N/A',
+    newOnDelete: 'N/A',
+    ownershipClassification: 'ACCOUNT_DELETION_LIFECYCLE',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'N/A',
+    reason: 'Explicit deletion lifecycle state; avoids using email/nullability as implicit deletion state.',
+  },
+  {
+    table: 'User',
+    column: 'deletedAt',
+    oldNullability: 'N/A',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'N/A',
+    newOnDelete: 'N/A',
+    ownershipClassification: 'ACCOUNT_DELETION_LIFECYCLE',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'N/A',
+    reason: 'Tombstone timestamp for deterministic identity reuse and inactive-account cutoff.',
+  },
+  {
+    table: 'Session',
+    column: 'lastSeenAt/deviceLabel/userAgentHash',
+    oldNullability: 'N/A',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'N/A',
+    newOnDelete: 'N/A',
+    ownershipClassification: 'SESSION_LIFECYCLE',
+    preserveRowAfterUserDeletion: 'NO',
+    fkIsNotPersonalRowOwnership: 'N/A',
+    reason: 'Additive durable session metadata; session rows remain user-owned and purged/revoked with the account.',
+  },
+  {
+    table: 'AccountDeletionRequest',
+    column: 'userId',
+    oldNullability: 'N/A',
+    newNullability: 'NOT NULL',
+    oldOnDelete: 'N/A',
+    newOnDelete: 'CASCADE',
+    ownershipClassification: 'ACCOUNT_DELETION_LIFECYCLE',
+    preserveRowAfterUserDeletion: 'NO',
+    fkIsNotPersonalRowOwnership: 'NO',
+    reason: 'Deletion request is user-owned lifecycle state and must not become an orphan.',
+  },
+  {
+    table: 'BetaInvite',
+    column: 'createdByUserId',
+    oldNullability: 'NOT NULL',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'RESTRICT',
+    newOnDelete: 'SET NULL',
+    ownershipClassification: 'SECURITY_AUDIT_MINIMAL',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'YES',
+    reason: 'Creator is actor/provenance metadata; the invite lifecycle may survive creator deletion without retaining creator identity.',
+  },
+  {
+    table: 'OwnerAuditEvent',
+    column: 'userId',
+    oldNullability: 'NOT NULL',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'CASCADE',
+    newOnDelete: 'SET NULL',
+    ownershipClassification: 'SECURITY_AUDIT_MINIMAL',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'YES',
+    reason: 'Minimal security evidence may survive while actor identity is detached.',
+  },
+  {
+    table: 'AIControl',
+    column: 'updatedBy',
+    oldNullability: 'NOT NULL',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'NO ACTION',
+    newOnDelete: 'SET NULL',
+    ownershipClassification: 'GLOBAL_NON_USER_DATA',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'YES',
+    reason: 'Global control row must not be deleted with the updater account.',
+  },
+  {
+    table: 'FeatureFlag',
+    column: 'updatedBy',
+    oldNullability: 'NOT NULL',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'NO ACTION',
+    newOnDelete: 'SET NULL',
+    ownershipClassification: 'GLOBAL_NON_USER_DATA',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'YES',
+    reason: 'Global feature flag must survive deletion of the updater account.',
+  },
+  {
+    table: 'Payment',
+    column: 'userId',
+    oldNullability: 'NOT NULL',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'CASCADE',
+    newOnDelete: 'SET NULL',
+    ownershipClassification: 'USER_PERSONAL_ANONYMIZE',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'YES',
+    reason: 'Retained financial reconciliation record keeps amount/currency/status/timestamps while detaching account identity.',
+  },
+  {
+    table: 'Entitlement',
+    column: 'userId',
+    oldNullability: 'NOT NULL',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'CASCADE',
+    newOnDelete: 'SET NULL',
+    ownershipClassification: 'USER_PERSONAL_ANONYMIZE',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'YES',
+    reason: 'Historical entitlement record may be retained only after active authorization is terminated.',
+  },
+  {
+    table: 'FamilyInvitation',
+    column: 'invitedByUserId',
+    oldNullability: 'NOT NULL',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'CASCADE',
+    newOnDelete: 'SET NULL',
+    ownershipClassification: 'RETAINED_SHARED_FAMILY_STATE',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'YES',
+    reason: 'Inviter is actor/provenance metadata for retained family lifecycle state.',
+  },
+  {
+    table: 'SharedDish',
+    column: 'createdByUserId',
+    oldNullability: 'NOT NULL',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'CASCADE',
+    newOnDelete: 'SET NULL',
+    ownershipClassification: 'RETAINED_SHARED_FAMILY_STATE',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'YES',
+    reason: 'Creator is actor metadata; shared dish itself may remain for other active family members.',
+  },
+  {
+    table: 'FamilyShoppingList',
+    column: 'regeneratedByUserId',
+    oldNullability: 'NOT NULL',
+    newNullability: 'NULLABLE',
+    oldOnDelete: 'CASCADE',
+    newOnDelete: 'SET NULL',
+    ownershipClassification: 'RETAINED_SHARED_FAMILY_STATE',
+    preserveRowAfterUserDeletion: 'YES',
+    fkIsNotPersonalRowOwnership: 'YES',
+    reason: 'Regenerator is actor metadata; shared shopping list may remain for other active family members.',
+  },
+];

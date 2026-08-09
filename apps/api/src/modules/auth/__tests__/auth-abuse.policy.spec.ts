@@ -5,6 +5,7 @@ import {
   blockedUntilToRetryAfterSeconds,
   normalizeAuthIdentifier,
   normalizeClientAddress,
+  redisAuthAbuseKey,
 } from '../domain/auth-abuse.policy';
 
 describe('auth abuse policy', () => {
@@ -28,5 +29,12 @@ describe('auth abuse policy', () => {
     const now = new Date('2026-07-27T10:00:00.000Z');
     expect(blockedUntilToRetryAfterSeconds('2026-07-27T10:00:30.100Z', now)).toBe(31);
     expect(blockedUntilToRetryAfterSeconds('2026-07-27T09:59:00.000Z', now)).toBe(1);
+  });
+
+  it('builds Redis abuse keys from hashed subjects only', () => {
+    const subjectHash = authAbuseHash('account:user@example.com', 'secret-a');
+    const key = redisAuthAbuseKey('login', subjectHash);
+    expect(key).toBe(`auth01b:abuse:login:${subjectHash}`);
+    expect(key).not.toContain('user@example.com');
   });
 });
