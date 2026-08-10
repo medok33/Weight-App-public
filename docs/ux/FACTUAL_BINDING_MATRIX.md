@@ -9,6 +9,8 @@
 | Weight/trend/steps/activity source/sync | Progress/activity value, source, observed time, sufficiency | Timestamped unavailable; never live/current implication |
 | Energy estimate | Workout energy value plus estimate status/version | “Estimate unavailable”; never fabricate kcal |
 | At-home product/nothing to buy/quantity | Pantry/shopping owner state | “Check list”; never infer inventory |
-| Reference price/store/freshness/confidence | Price snapshot provenance, observed time, confidence, store scope | “Reference/unknown”; never live availability |
-| Basket total/estimated total/budget remaining/fits/over | Basket estimate and budget feasibility state | Pending/insufficient evidence; never reuse plan estimate as payable total |
+| Reference price/store/price freshness/price confidence | Price snapshot provenance, observed time, price-confidence state, store scope | “Reference/unknown”; never live availability |
+| Product/package match confidence | Product/package/variant match owner state | Uncertain match; never promote a numeric observation to reliable price evidence |
+| `PlanReferenceCostEstimate` | Plan-level reference estimate with provenance and freshness | Planning/comparison only; never reuse as Basket payable amount |
+| `BasketPurchaseEstimate` / reliable whole-basket total | Current basket quantities plus applicable price evidence; full required-line coverage for reliable total | Partial/estimated/unavailable; known-line subtotal never masquerades as complete total |
 | Recalculation pending | Explicit rebuild/status state | Pending label; never silently retain old result |
