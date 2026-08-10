@@ -8,4 +8,5 @@
 | Accessibility/motion/mobile/desktop rules | YES | main contract + matrices |
 | No fake factual claims / no backend scope | YES | binding matrix and scope section |
 | Generated media non-blocking | YES | main contract |
-| Runtime responsive/a11y proof | TBD by existing tests | validation report required before merge |
+| Current frontend compatibility audit | YES | linked audit; gaps have future implementation owners and no unresolved product decision |
+| Runtime responsive/a11y proof | PARTIAL | static foundation is present; V10 runtime proof awaits future implementation and browser environment |
