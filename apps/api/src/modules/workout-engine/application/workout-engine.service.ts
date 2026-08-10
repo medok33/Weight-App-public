@@ -7,7 +7,6 @@ import { DEFAULT_EXERCISES, toWorkoutPlanSummary } from '../domain/workout-engin
 import {
   ALGORITHM_VERSION,
   WORKOUT_EQUIPMENT_CODES,
-  filterCatalog,
 } from '../domain/workout-plan-generator';
 import {
   GENERATOR_CONTRACT_VERSION,
