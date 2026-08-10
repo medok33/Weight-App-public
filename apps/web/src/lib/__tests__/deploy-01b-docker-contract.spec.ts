@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { posix, resolve } from 'node:path';
 
 describe('DEPLOY-01B docker packaging contracts', () => {
   const root = resolve(__dirname, '../../../../..');
@@ -23,6 +23,25 @@ describe('DEPLOY-01B docker packaging contracts', () => {
     expect(dockerfile).toMatch(/AS migrate[\s\S]*CMD \["node", "scripts\/migrate\.mjs"\]/);
     expect(dockerfile).not.toContain('prisma migrate');
     expect(dockerfile).not.toContain('_prisma_migrations');
+  });
+
+  it('places disposable-runtime guard at migrate.mjs resolved import path', () => {
+    const dockerfile = readFileSync(resolve(root, 'docker/Dockerfile.api'), 'utf8');
+    const migrate = readFileSync(resolve(root, 'apps/api/scripts/migrate.mjs'), 'utf8');
+    expect(migrate).toContain("from '../../../scripts/verify/disposable-runtime.mjs'");
+    // Image layout: /app/scripts/migrate.mjs + ../../../scripts/verify => /scripts/verify
+    expect(dockerfile).toContain(
+      'COPY --from=build --chown=weightapp:weightapp /app/scripts/verify/disposable-runtime.mjs /scripts/verify/disposable-runtime.mjs',
+    );
+    expect(dockerfile).toContain(
+      'COPY --from=build --chown=weightapp:weightapp /app/scripts/verify/orchestration.mjs /scripts/verify/orchestration.mjs',
+    );
+    expect(dockerfile).not.toMatch(
+      /COPY --from=build[^\n]*\.\/scripts\/verify\/disposable-runtime\.mjs/,
+    );
+    expect(posix.resolve('/app/scripts', '../../../scripts/verify/disposable-runtime.mjs')).toBe(
+      '/scripts/verify/disposable-runtime.mjs',
+    );
   });
 
   it.skip('PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE: prod-like compose has no app source mounts and orders migrate before api', () => {
