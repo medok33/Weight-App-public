@@ -207,6 +207,18 @@ jobs:
           api_cmd="$(docker image inspect --format '{{json .Config.Cmd}}' weight-app-api:local)"
           echo "$api_cmd" | grep -q 'dist/main.js'
           echo "$api_cmd" | grep -vq 'migrate'
+          # ENV-01: prove migrate.mjs module graph loads (no ERR_MODULE_NOT_FOUND).
+          # Path must match ../../../scripts/verify from /app/scripts/migrate.mjs.
+          docker run --rm --entrypoint sh weight-app-migrate:local -c \
+            'test -f /scripts/verify/disposable-runtime.mjs && test -f /scripts/verify/orchestration.mjs'
+          set +e
+          mig_load="$(docker run --rm --entrypoint node weight-app-migrate:local scripts/migrate.mjs --status 2>&1)"
+          mig_code=$?
+          set -e
+          echo "$mig_load"
+          echo "$mig_load" | grep -q 'ERR_MODULE_NOT_FOUND' && { echo 'FAIL: migrate image module load'; exit 1; }
+          echo "$mig_load" | grep -q 'DATABASE_URL is required'
+          test "$mig_code" -eq 1
 
   # One useful USER route/browser smoke: pageerror, MISSING_I18N*, Next overlay,
   # console.error (non-benign), API 5xx, and direct Nest :3001 from the browser.
