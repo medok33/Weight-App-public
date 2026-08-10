@@ -257,6 +257,16 @@ describe('WorkoutEngineService', () => {
     );
   });
 
+  it('generatePlan returns a typed no-viable result instead of manufacturing a plan', async () => {
+    const result = await service().generatePlan('no-viable-user', {
+      excludedKeys: ['bodyweight_squats', 'glute_bridge', 'push_ups', 'dead_bug', 'morning_walk', 'stretching', 'core_plank'],
+    });
+    expect(result.status).toBe('NO_VIABLE_CANDIDATE');
+    if (result.status !== 'NO_VIABLE_CANDIDATE') throw new Error('expected typed no-viable result');
+    expect(result.plan).toBeNull();
+    expect(result.trace.reasonCodes).toEqual(['NO_ELIGIBLE_EXERCISES']);
+  });
+
   it('getSetupStatus reports missing fields', async () => {
     const profile = new MemoryProfileService();
     profile.goal = null as never;

@@ -8,8 +8,11 @@ import {
   ALGORITHM_VERSION,
   WORKOUT_EQUIPMENT_CODES,
   filterCatalog,
-  generateWeeklyPlan,
 } from '../domain/workout-plan-generator';
+import {
+  GENERATOR_CONTRACT_VERSION,
+  generateWeeklyPlanForPilot,
+} from '../domain/workout-generator-pilot-contract';
 import type {
   Exercise,
   WorkoutPlanDayDetail,
@@ -206,7 +209,21 @@ export class WorkoutEngineService {
           ...new Set([...workoutProfile.excludedExerciseKeys, ...(options?.excludedKeys ?? [])]),
         ],
       };
-      const plan = generateWeeklyPlan(catalog, input);
+      const generated = generateWeeklyPlanForPilot(catalog, input, {
+        id: release.id,
+        code: release.code,
+        manifestVersion: release.manifestVersion,
+      });
+      if (generated.status === 'INSUFFICIENT_INPUT') {
+        throw new Error('WORKOUT_SETUP_INCOMPLETE');
+      }
+      if (generated.status === 'NO_VIABLE_CANDIDATE' || !generated.plan) {
+        // This is a contract result, not an exception-string-only failure. It
+        // deliberately contains no user data and can be rendered by future V10
+        // surfaces without fabricating a workout.
+        return generated;
+      }
+      const plan = generated.plan;
       let timeZone = 'UTC';
       try {
         const profile = await this.userProfile?.getProfile(userId);
@@ -224,8 +241,10 @@ export class WorkoutEngineService {
             inputSnapshotJson: {
               ...input,
               algorithmVersion: ALGORITHM_VERSION,
+              generatorContractVersion: GENERATOR_CONTRACT_VERSION,
               workoutCatalogReleaseId: release.id,
               workoutCatalogReleaseCode: release.code,
+              decisionTrace: generated.trace,
               timeZone,
             },
             generatedAt: new Date(),
@@ -236,6 +255,9 @@ export class WorkoutEngineService {
           return toWorkoutPlanSummary(userId, saved.version, plan, saved.id, {
             algorithmVersion: ALGORITHM_VERSION,
             status: 'active',
+            generatorContractVersion: GENERATOR_CONTRACT_VERSION,
+            catalogReleaseId: release.id,
+            decisionTraceId: generated.trace.traceId,
           });
         } catch (err) {
           if (!isUniqueViolation(err) || attempt === 3) throw err;
