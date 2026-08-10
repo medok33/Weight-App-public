@@ -12,6 +12,8 @@ import {
 import {
   GENERATOR_CONTRACT_VERSION,
   generateWeeklyPlanForPilot,
+  selectHomeShortReplacementForPilot,
+  type WorkoutGeneratorDecisionTrace,
 } from '../domain/workout-generator-pilot-contract';
 import type {
   Exercise,
@@ -353,22 +355,32 @@ export class WorkoutEngineService {
       assertMoveTargetAllowed(effective.days, input.dayIndex, input.moveTargetDayIndex, original);
     }
     let homeExercises: WorkoutPlanDayDetail['exercises'] | undefined;
+    let replacementTrace: WorkoutGeneratorDecisionTrace | undefined;
     if (input.replacementType === 'HOME_SHORT') {
       const profile = await this.getOrCreateWorkoutProfile(userId);
       if (!this.catalogReleases) {
         throw new Error('WORKOUT_CATALOG_RELEASE_SERVICE_UNAVAILABLE');
       }
-      const { exercises: releaseCatalog } =
+      const { release, exercises: releaseCatalog } =
         await this.catalogReleases.listGeneratorEligibleExercises();
-      const catalog = filterCatalog(releaseCatalog, {
+      const selection = selectHomeShortReplacementForPilot(releaseCatalog, {
         trainingLevel: profile.trainingLevel,
         trainingPlace: 'HOME',
         equipmentCodes: profile.workoutEquipment,
         excludedKeys: profile.excludedExerciseKeys,
-      }).slice(0, 3);
-      if (catalog.length < 3) throw new Error('WORKOUT_CATALOG_INSUFFICIENT');
+        goalKind: 'replacement',
+        workoutsPerWeek: profile.workoutsPerWeek,
+      }, {
+        id: release.id, code: release.code, manifestVersion: release.manifestVersion,
+      }, {
+        sourceWorkoutPlanId: active.id,
+        sourcePlanVersion: active.version,
+        originalExerciseKeys: original.exercises.map((exercise) => exercise.exerciseKey ?? exercise.exerciseName),
+      });
+      if (selection.status === 'NO_VIABLE_CANDIDATE') return selection;
+      replacementTrace = selection.trace;
       const prescription = original.exercises[0];
-      homeExercises = catalog.map((exercise, exerciseOrder) => ({
+      homeExercises = selection.exercises.map((exercise, exerciseOrder) => ({
         exerciseOrder,
         exerciseName: exercise.key,
         exerciseKey: exercise.key,
@@ -381,6 +393,7 @@ export class WorkoutEngineService {
       }));
     }
     const snapshot = replacementSnapshot(original, input.replacementType, homeExercises);
+    if (replacementTrace) snapshot.decisionTrace = replacementTrace;
     return this.workoutProfiles.replaceActiveOverride({
       userId,
       workoutPlanId: active.id,

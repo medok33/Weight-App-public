@@ -17,7 +17,7 @@ import type {
  */
 export const GENERATOR_CONTRACT_VERSION = 'workout-generator-pilot-01a.1';
 
-export type GeneratorRequestKind = 'NEW_WEEKLY';
+export type GeneratorRequestKind = 'NEW_WEEKLY' | 'HOME_SHORT_REPLACEMENT';
 export type GeneratorResultStatus = 'SUCCESS' | 'NO_VIABLE_CANDIDATE' | 'INSUFFICIENT_INPUT';
 export type GeneratorReasonCode =
   | 'WORKOUT_SETUP_INCOMPLETE'
@@ -32,6 +32,12 @@ export type GeneratorCatalogReleaseRef = {
 
 export type WorkoutGeneratorPilotInput = WorkoutPlanGenerateInput & {
   requestKind?: GeneratorRequestKind;
+};
+
+export type HomeShortReplacementContext = {
+  sourceWorkoutPlanId: string;
+  sourcePlanVersion: number;
+  originalExerciseKeys: string[];
 };
 
 export type GeneratorFilterSummary = {
@@ -71,6 +77,7 @@ export type WorkoutGeneratorDecisionTrace = {
     equipmentCodes: string[];
     excludedKeys: string[];
   };
+  replacement?: HomeShortReplacementContext;
   filterSummary: GeneratorFilterSummary;
   selectedExercises: SelectedExerciseEvidence[];
   resultStatus: GeneratorResultStatus;
@@ -133,6 +140,9 @@ function traceFor(input: {
   status: GeneratorResultStatus;
   reasonCodes: GeneratorReasonCode[];
   plan: WorkoutPlanDetail | null;
+  requestKind?: GeneratorRequestKind;
+  replacement?: HomeShortReplacementContext;
+  selectedCatalogExercises?: CatalogExercise[];
 }): WorkoutGeneratorDecisionTrace {
   const normalized = normalizeInput(input.request);
   const summary = filterSummary(input.catalog, normalized);
@@ -142,7 +152,7 @@ function traceFor(input: {
     catalogReleaseId: input.release.id,
     request: normalized,
   });
-  const selectedExercises = (input.plan?.days ?? [])
+  const selectedExercises = (input.selectedCatalogExercises ?? (input.plan?.days ?? [])
     .flatMap((day) => day.exercises)
     .filter((exercise) => exercise.exerciseKey && exercise.exerciseKey !== 'rest')
     .map((exercise) => {
@@ -159,12 +169,23 @@ function traceFor(input: {
           'NOT_HARD_EXCLUDED',
         ],
       } as SelectedExerciseEvidence;
+    }))
+    .map((exercise) => {
+      if ('exerciseKey' in exercise && 'evidence' in exercise) return exercise as SelectedExerciseEvidence;
+      const catalogExercise = exercise as CatalogExercise;
+      return {
+        exerciseKey: catalogExercise.key,
+        exerciseId: catalogExercise.id ?? null,
+        exerciseRevisionId: catalogExercise.exerciseRevisionId ?? null,
+        movementPattern: catalogExercise.movementPattern,
+        evidence: ['PUBLISHED_IN_RELEASE', 'EQUIPMENT_COMPATIBLE', 'LEVEL_COMPATIBLE', 'NOT_HARD_EXCLUDED'],
+      } as SelectedExerciseEvidence;
     });
   const decision = {
     generatorContractVersion: GENERATOR_CONTRACT_VERSION as typeof GENERATOR_CONTRACT_VERSION,
     generatorVersion: ALGORITHM_VERSION,
     catalogRelease: input.release,
-    requestKind: 'NEW_WEEKLY' as const,
+    requestKind: input.requestKind ?? 'NEW_WEEKLY',
     inputFingerprint,
     appliedHardConstraints: {
       trainingPlace: normalized.trainingPlace ?? 'HOME',
@@ -173,6 +194,7 @@ function traceFor(input: {
       excludedKeys: normalized.excludedKeys,
     },
     filterSummary: summary,
+    replacement: input.replacement,
     selectedExercises,
     resultStatus: input.status,
     reasonCodes: [...input.reasonCodes].sort(),
@@ -182,6 +204,38 @@ function traceFor(input: {
     traceId: `wgt_${decisionFingerprint}`,
     decisionFingerprint,
     ...decision,
+  };
+}
+
+/** Shared, bounded selector for the existing HOME_SHORT replacement rule. */
+export function selectHomeShortReplacementForPilot(
+  catalog: CatalogExercise[],
+  input: WorkoutGeneratorPilotInput,
+  release: GeneratorCatalogReleaseRef,
+  replacement: HomeShortReplacementContext,
+): { status: 'SUCCESS'; exercises: CatalogExercise[]; trace: WorkoutGeneratorDecisionTrace } | {
+  status: 'NO_VIABLE_CANDIDATE'; exercises: []; trace: WorkoutGeneratorDecisionTrace;
+} {
+  const request = normalizeInput({ ...input, trainingPlace: 'HOME' });
+  const exercises = filterCatalog(catalog, request).slice(0, 3);
+  if (exercises.length < 3) {
+    return {
+      status: 'NO_VIABLE_CANDIDATE',
+      exercises: [],
+      trace: traceFor({
+        catalog, request, release, replacement, requestKind: 'HOME_SHORT_REPLACEMENT',
+        status: 'NO_VIABLE_CANDIDATE',
+        reasonCodes: [exercises.length === 0 ? 'NO_ELIGIBLE_EXERCISES' : 'INSUFFICIENT_ELIGIBLE_EXERCISES'],
+        plan: null,
+      }),
+    };
+  }
+  return {
+    status: 'SUCCESS', exercises,
+    trace: traceFor({
+      catalog, request, release, replacement, requestKind: 'HOME_SHORT_REPLACEMENT',
+      status: 'SUCCESS', reasonCodes: [], plan: null, selectedCatalogExercises: exercises,
+    }),
   };
 }
 

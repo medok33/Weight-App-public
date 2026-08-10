@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   GENERATOR_CONTRACT_VERSION,
   generateWeeklyPlanForPilot,
+  selectHomeShortReplacementForPilot,
 } from '../domain/workout-generator-pilot-contract';
 import type { CatalogExercise, WorkoutPlanGenerateInput } from '../domain/workout-engine.types';
 
@@ -113,5 +114,28 @@ describe('WORKOUT-01A generator pilot golden contract', () => {
     const result = generateWeeklyPlanForPilot(catalog, { ...base, goalKind: '' }, release);
     expect(result.status).toBe('INSUFFICIENT_INPUT');
     expect(result.trace.reasonCodes).toEqual(['WORKOUT_SETUP_INCOMPLETE']);
+  });
+
+  it('replacement golden: HOME_SHORT selection is pinned, traceable, and deterministic', () => {
+    const replacement = { sourceWorkoutPlanId: 'plan-7', sourcePlanVersion: 7, originalExerciseKeys: ['push'] };
+    const first = selectHomeShortReplacementForPilot(catalog, base, release, replacement);
+    const second = selectHomeShortReplacementForPilot(catalog, { ...base, excludedKeys: [] }, release, replacement);
+    expect(first.status).toBe('SUCCESS');
+    expect(second).toEqual(first);
+    if (first.status !== 'SUCCESS') throw new Error('expected viable replacement');
+    expect(first.trace.requestKind).toBe('HOME_SHORT_REPLACEMENT');
+    expect(first.trace.replacement).toEqual(replacement);
+    expect(first.trace.selectedExercises).toHaveLength(3);
+    expect(first.trace.selectedExercises.map((item) => item.exerciseKey)).not.toContain('machine_press');
+  });
+
+  it('replacement no-viable golden: constraints remain fail-closed with source evidence', () => {
+    const result = selectHomeShortReplacementForPilot(catalog, {
+      ...base, excludedKeys: ['squat', 'hinge', 'push', 'pull', 'core', 'cardio'],
+    }, release, { sourceWorkoutPlanId: 'plan-8', sourcePlanVersion: 8, originalExerciseKeys: ['push'] });
+    expect(result.status).toBe('NO_VIABLE_CANDIDATE');
+    expect(result.exercises).toEqual([]);
+    expect(result.trace.replacement?.originalExerciseKeys).toEqual(['push']);
+    expect(result.trace.reasonCodes).toEqual(['NO_ELIGIBLE_EXERCISES']);
   });
 });
