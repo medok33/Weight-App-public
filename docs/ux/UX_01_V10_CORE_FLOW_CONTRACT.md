@@ -64,3 +64,7 @@ Keyboard contract: Tab/Shift+Tab, Enter/Space, Escape, appropriate arrows; visib
 - One information architecture and Today hierarchy across responsive modes.
 - Explicit state, factual-binding, mobile, accessibility, motion and no-image rules.
 - Assistant/provider, generated media, backend/domain and OWNER redesign remain out of scope.
+
+## Matrix index
+
+Implementation must use the inspectable [component matrix](COMPONENT_MATRIX.md), [state matrix](STATE_MATRIX.md), [responsive matrix](RESPONSIVE_MATRIX.md), [factual binding matrix](FACTUAL_BINDING_MATRIX.md), and [acceptance checklist](ACCEPTANCE_CHECKLIST.md). Those matrices are normative supplements to this contract.
