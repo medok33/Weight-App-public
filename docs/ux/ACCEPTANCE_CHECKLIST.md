@@ -3,9 +3,9 @@
 | Item | Result | Evidence |
 |---|---|---|
 | Authoritative V10 / V8.5 superseded | YES | V10 handoff; main contract |
-| Tokens, IA, core surface contracts | YES | main contract |
-| Component, state, responsive, factual matrices | YES | linked matrices |
-| Accessibility/motion/mobile/desktop rules | YES | main contract + matrices |
+| Tokens, IA, Today, meal/recipe, workout, shopping, basket, budget, progress, profile contracts | YES | main contract |
+| Component, state, responsive, factual matrices | YES | linked matrices define semantic behavior and owner claims |
+| Accessibility/motion/mobile/desktop rules | YES | main contract + linked accessibility checklist and responsive matrix |
 | No fake factual claims / no backend scope | YES | binding matrix and scope section |
 | Generated media non-blocking | YES | main contract |
 | Current frontend compatibility audit | YES | linked audit; gaps have future implementation owners and no unresolved product decision |

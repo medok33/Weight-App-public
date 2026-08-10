@@ -19,4 +19,3 @@ This is an audit of the accepted frontend at `55db37f`, not a V10 implementation
 ## Static foundation observed
 
 `apps/web/src/styles/globals.css` already has visible focus, a skip link, 44px mobile controls, small-screen overflow protection, and `prefers-reduced-motion`. These are partial runtime evidence for the current UI foundation only. They do not prove V10 screens, which remain future implementation work.
-
