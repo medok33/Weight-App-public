@@ -61,4 +61,19 @@ describe("workout engine HTTP catalog error mapping", () => {
     const body = caught.getResponse() as { message?: string };
     expect(body.message).toBe("WORKOUT_CATALOG_RELEASE_EMPTY");
   });
+
+  it("replacement endpoint maps an asynchronously rejected domain error", async () => {
+    const controller = new WorkoutEngineController(
+      {
+        applyReplacement: async () => { throw new Error("WORKOUT_DAY_NOT_FOUND"); },
+      } as never,
+      {} as never,
+      {} as never,
+    );
+    const caught = await controller
+      .applyReplacement({ id: "user-1" } as never, "0", { replacementType: "WALK" })
+      .catch((error: HttpException) => error);
+    expect(caught.getStatus()).toBe(400);
+    expect((caught.getResponse() as { message?: string }).message).toBe("WORKOUT_DAY_NOT_FOUND");
+  });
 });

@@ -85,32 +85,29 @@ export class WorkoutEngineController {
   @Post("generate")
   async generate(@CurrentUser() user: RequestUser, @Body() body?: { excludedKeys?: unknown }) {
     try {
-      const excludedKeys = Array.isArray(body?.excludedKeys)
-        ? body!.excludedKeys.map((k) => String(k)).filter(Boolean)
-        : [];
-      return await this.service.generatePlan(user.id, { excludedKeys });
+      return await this.service.generatePlan(user.id, { excludedKeys: body?.excludedKeys });
     } catch (error) {
       throw mapWorkoutError(error);
     }
   }
 
   @Get("days/:dayIndex/replacements")
-  replacements(@CurrentUser() user: RequestUser, @Param("dayIndex") dayIndex: string) {
+  async replacements(@CurrentUser() user: RequestUser, @Param("dayIndex") dayIndex: string) {
     try {
-      return this.service.listReplacementOptions(user.id, Number(dayIndex));
+      return await this.service.listReplacementOptions(user.id, Number(dayIndex));
     } catch (error) {
       throw mapWorkoutError(error);
     }
   }
 
   @Post("days/:dayIndex/replacements")
-  applyReplacement(
+  async applyReplacement(
     @CurrentUser() user: RequestUser,
     @Param("dayIndex") dayIndex: string,
     @Body() body: { replacementType?: string; moveTargetDayIndex?: number },
   ) {
     try {
-      return this.service.applyReplacement(user.id, {
+      return await this.service.applyReplacement(user.id, {
         dayIndex: Number(dayIndex),
         replacementType: String(body?.replacementType ?? "") as never,
         moveTargetDayIndex: body?.moveTargetDayIndex,
@@ -121,9 +118,9 @@ export class WorkoutEngineController {
   }
 
   @Post("replacements/:id/revert")
-  revertReplacement(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+  async revertReplacement(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     try {
-      return this.service.revertReplacement(user.id, id);
+      return await this.service.revertReplacement(user.id, id);
     } catch (error) {
       throw mapWorkoutError(error);
     }
