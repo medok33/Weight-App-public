@@ -20,40 +20,45 @@ export class RedisAuthAbuseService {
     try {
       const key = redisAuthAbuseKey(action, subjectHash);
       await redisPingAndTouch(url, key, DEFAULT_TIMEOUT_MS);
-    } catch {
+    } catch (error) {
+      const safe = error instanceof Error ? { errorClass: error.constructor.name, errorCode: typeof (error as NodeJS.ErrnoException).code === 'string' ? (error as NodeJS.ErrnoException).code : error.message } : { errorClass: 'UNKNOWN', errorCode: null };
+      console.warn(JSON.stringify({ event: 'auth.abuse.redis.unavailable', operation: 'PING_AND_SET', ...safe }));
       throw new AuthAbuseGuardUnavailableError();
     }
   }
 }
 
-async function redisPingAndTouch(urlText: string, key: string, timeoutMs: number): Promise<void> {
+export async function redisPingAndTouch(urlText: string, key: string, timeoutMs: number): Promise<void> {
   const parsed = new URL(urlText);
   const host = parsed.hostname || '127.0.0.1';
   const port = parsed.port ? Number(parsed.port) : 6379;
   const password = parsed.password ? decodeURIComponent(parsed.password) : '';
   const socket = new Socket();
   socket.setTimeout(timeoutMs);
-  const chunks: Buffer[] = [];
-  socket.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-  await new Promise<void>((resolve, reject) => {
-    socket.once('error', reject);
-    socket.once('timeout', () => reject(new Error('REDIS_TIMEOUT')));
-    socket.connect(port, host, resolve);
-  });
-  const commands = [
-    ...(password ? [resp(['AUTH', password])] : []),
-    resp(['PING']),
-    resp(['SET', key, String(Date.now()), 'EX', '60']),
-  ].join('');
-  await new Promise<void>((resolve, reject) => {
-    socket.once('error', reject);
-    socket.write(commands, (error) => (error ? reject(error) : resolve()));
-  });
-  await new Promise<void>((resolve) => setTimeout(resolve, 25));
-  socket.end();
-  const response = Buffer.concat(chunks).toString('utf8');
-  if (!response.includes('+PONG') || response.includes('-ERR') || response.includes('-NOAUTH')) {
-    throw new Error('REDIS_UNHEALTHY');
+  try {
+    const response = await new Promise<string>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const fail = (error: Error) => reject(error);
+      socket.once('error', fail);
+      socket.once('timeout', () => fail(new Error('REDIS_TIMEOUT')));
+      socket.on('data', (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        const received = Buffer.concat(chunks).toString('utf8');
+        if (received.includes('-ERR') || received.includes('-NOAUTH')) fail(new Error('REDIS_UNHEALTHY'));
+        if (received.includes('+PONG') && received.includes('+OK')) resolve(received);
+      });
+      socket.connect(port, host, () => {
+        const commands = [
+          ...(password ? [resp(['AUTH', password])] : []),
+          resp(['PING']),
+          resp(['SET', key, String(Date.now()), 'EX', '60']),
+        ].join('');
+        socket.write(commands, (error) => { if (error) fail(error); });
+      });
+    });
+    if (!response.includes('+PONG') || !response.includes('+OK')) throw new Error('REDIS_UNHEALTHY');
+  } finally {
+    socket.end();
   }
 }
 
