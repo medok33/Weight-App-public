@@ -15,7 +15,7 @@ import type {
  * WORKOUT-01A boundary. Bump when the effective generator request or decision
  * semantics change; this is deliberately independent from deployment identity.
  */
-export const GENERATOR_CONTRACT_VERSION = 'workout-generator-pilot-01a.1';
+export const GENERATOR_CONTRACT_VERSION = 'workout-generator-pilot-01a.2';
 
 export type GeneratorRequestKind = 'NEW_WEEKLY' | 'HOME_SHORT_REPLACEMENT';
 export type GeneratorResultStatus = 'SUCCESS' | 'NO_VIABLE_CANDIDATE' | 'INSUFFICIENT_INPUT';
@@ -217,7 +217,13 @@ export function selectHomeShortReplacementForPilot(
   status: 'NO_VIABLE_CANDIDATE'; exercises: []; trace: WorkoutGeneratorDecisionTrace;
 } {
   const request = normalizeInput({ ...input, trainingPlace: 'HOME' });
-  const exercises = filterCatalog(catalog, request).slice(0, 3);
+  // Replacing a day must produce genuinely different exercises.  Apply this
+  // as a hard constraint before the deterministic bounded selection rather
+  // than dropping candidates after a top-three choice was made.
+  const originalKeys = new Set(normalizeStrings(replacement.originalExerciseKeys));
+  const exercises = filterCatalog(catalog, request)
+    .filter((exercise) => !originalKeys.has(exercise.key))
+    .slice(0, 3);
   if (exercises.length < 3) {
     return {
       status: 'NO_VIABLE_CANDIDATE',

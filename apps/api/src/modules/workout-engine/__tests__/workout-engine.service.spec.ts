@@ -18,13 +18,14 @@ class MemoryWorkoutRepository {
     { id: string; version: number; status?: string; algorithmVersion?: string; plan: WorkoutPlanDetail }[]
   >();
   catalog: CatalogExercise[] = [
-    { id: 'e1', key: 'bodyweight_squats', name: 'bodyweight_squats', riskLevel: 'low', movementPattern: 'squat', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'] },
-    { id: 'e2', key: 'glute_bridge', name: 'glute_bridge', riskLevel: 'low', movementPattern: 'hinge', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'] },
-    { id: 'e3', key: 'push_ups', name: 'push_ups', riskLevel: 'low', movementPattern: 'push', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'] },
-    { id: 'e4', key: 'dead_bug', name: 'dead_bug', riskLevel: 'low', movementPattern: 'core', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'] },
-    { id: 'e5', key: 'morning_walk', name: 'morning_walk', riskLevel: 'low', movementPattern: 'cardio', difficulty: 'BEGINNER', equipmentCodes: ['NONE'] },
-    { id: 'e6', key: 'stretching', name: 'stretching', riskLevel: 'low', movementPattern: 'mobility', difficulty: 'BEGINNER', equipmentCodes: ['NONE'] },
-    { id: 'e7', key: 'core_plank', name: 'core_plank', riskLevel: 'low', movementPattern: 'core', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'] },
+    { id: 'e0', exerciseRevisionId: 'rev-ankle', key: 'ankle_rocks', name: 'ankle_rocks', riskLevel: 'low', movementPattern: 'mobility', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'], repetitionMode: 'DURATION', defaultSets: 1, defaultDurationSeconds: 300 },
+    { id: 'e1', key: 'bodyweight_squats', name: 'bodyweight_squats', riskLevel: 'low', movementPattern: 'squat', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'], repetitionMode: 'REPS' },
+    { id: 'e2', key: 'glute_bridge', name: 'glute_bridge', riskLevel: 'low', movementPattern: 'hinge', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'], repetitionMode: 'REPS' },
+    { id: 'e3', key: 'push_ups', name: 'push_ups', riskLevel: 'low', movementPattern: 'push', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'], repetitionMode: 'REPS' },
+    { id: 'e4', key: 'dead_bug', name: 'dead_bug', riskLevel: 'low', movementPattern: 'core', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'], repetitionMode: 'REPS' },
+    { id: 'e5', key: 'morning_walk', name: 'morning_walk', riskLevel: 'low', movementPattern: 'cardio', difficulty: 'BEGINNER', equipmentCodes: ['NONE'], repetitionMode: 'REPS' },
+    { id: 'e6', key: 'stretching', name: 'stretching', riskLevel: 'low', movementPattern: 'mobility', difficulty: 'BEGINNER', equipmentCodes: ['NONE'], repetitionMode: 'REPS' },
+    { id: 'e7', key: 'core_plank', name: 'core_plank', riskLevel: 'low', movementPattern: 'core', difficulty: 'BEGINNER', equipmentCodes: ['BODYWEIGHT'], repetitionMode: 'REPS' },
   ];
 
   async save(userId: string, version: number, plan: { days: { dayIndex: number; exercises: { name: string; riskLevel: string }[] }[] }) {
@@ -259,7 +260,7 @@ describe('WorkoutEngineService', () => {
 
   it('generatePlan returns a typed no-viable result instead of manufacturing a plan', async () => {
     const result = await service().generatePlan('no-viable-user', {
-      excludedKeys: ['bodyweight_squats', 'glute_bridge', 'push_ups', 'dead_bug', 'morning_walk', 'stretching', 'core_plank'],
+      excludedKeys: ['ankle_rocks', 'bodyweight_squats', 'glute_bridge', 'push_ups', 'dead_bug', 'morning_walk', 'stretching', 'core_plank'],
     });
     expect(result.status).toBe('NO_VIABLE_CANDIDATE');
     if (result.status !== 'NO_VIABLE_CANDIDATE') throw new Error('expected typed no-viable result');
@@ -325,6 +326,59 @@ describe('WorkoutEngineService', () => {
     const again = await svc.revertReplacement('replace-user', first.id);
     expect(reverted.id).toBe(again.id);
     expect(again.status).toBe('reverted');
+  });
+
+  it('HOME_SHORT excludes original exercises and persists revision-compatible prescriptions with trace equivalence', async () => {
+    const repo = new MemoryWorkoutRepository();
+    const profiles = new MemoryWorkoutProfileRepository();
+    const svc = service(repo, new MemoryProfileService(), profiles);
+    await svc.generatePlan('home-short-user');
+    const active = await repo.findLatestByUserId('home-short-user');
+    const original = active!.plan.days.find((day) => day.dayIndex === 0)!;
+
+    const applied = await svc.applyReplacement('home-short-user', {
+      dayIndex: 0,
+      replacementType: 'HOME_SHORT',
+    });
+    const snapshot = applied.replacementSnapshot;
+    const originalKeys = new Set(original.exercises.map((exercise) => exercise.exerciseKey));
+    expect(snapshot.exercises.some((exercise) => originalKeys.has(exercise.exerciseKey))).toBe(false);
+
+    const duration = snapshot.exercises.find((exercise) => exercise.exerciseKey === 'ankle_rocks')!;
+    expect(duration).toMatchObject({
+      prescriptionMode: 'DURATION', durationSecondsPerSet: 300, repsMin: null, repsMax: null, sets: 1,
+    });
+    const reps = snapshot.exercises.find((exercise) => exercise.exerciseKey !== 'ankle_rocks')!;
+    expect(reps).toMatchObject({ prescriptionMode: 'REPS', durationSecondsPerSet: null });
+    expect(reps.repsMin).not.toBeNull();
+    expect(reps.repsMax).not.toBeNull();
+
+    const trace = snapshot.decisionTrace!;
+    expect(trace.selectedExercises.map((exercise) => exercise.exerciseKey).sort())
+      .toEqual(snapshot.exercises.map((exercise) => exercise.exerciseKey).sort());
+    for (const selected of trace.selectedExercises) {
+      expect(snapshot.exercises.find((exercise) => exercise.exerciseKey === selected.exerciseKey)?.exerciseId)
+        .toBe(selected.exerciseId);
+    }
+  });
+
+  it('validates and canonicalizes excluded exercise keys before they become hard constraints', async () => {
+    const profiles = new MemoryWorkoutProfileRepository();
+    const svc = service(new MemoryWorkoutRepository(), new MemoryProfileService(), profiles);
+    await svc.getOrCreateWorkoutProfile('excluded-user');
+    const updated = await svc.updateWorkoutProfile('excluded-user', {
+      excludedExerciseKeys: [' push_ups ', 'push_ups'],
+    });
+    expect(updated.excludedExerciseKeys).toEqual(['push_ups']);
+    await expect(svc.updateWorkoutProfile('excluded-user', {
+      excludedExerciseKeys: ['PUSH_UPS'],
+    } as never)).rejects.toThrow(/WORKOUT_PROFILE_EXCLUSIONS_INVALID/);
+    await expect(svc.updateWorkoutProfile('excluded-user', {
+      excludedExerciseKeys: ['push_ups', 4],
+    } as never)).rejects.toThrow(/WORKOUT_PROFILE_EXCLUSIONS_INVALID/);
+    await expect(svc.updateWorkoutProfile('excluded-user', {
+      excludedExerciseKeys: 'push_ups',
+    } as never)).rejects.toThrow(/WORKOUT_PROFILE_EXCLUSIONS_INVALID/);
   });
 
   it('profiles remain isolated by user', async () => {
