@@ -58,6 +58,9 @@ ALTER TABLE "PriceSnapshot" ADD CONSTRAINT "PriceSnapshot_status_check"
 ALTER TABLE "PriceSnapshot" DROP CONSTRAINT IF EXISTS "PriceSnapshot_priceCondition_check";
 ALTER TABLE "PriceSnapshot" ADD CONSTRAINT "PriceSnapshot_priceCondition_check"
   CHECK ("priceCondition" IN ('REGULAR', 'PROMOTIONAL', 'LOYALTY_ONLY', 'CONDITIONAL', 'UNKNOWN_CONDITION'));
+DROP INDEX IF EXISTS "PriceSnapshot_productId_regionId_key";
+CREATE UNIQUE INDEX IF NOT EXISTS "PriceSnapshot_productId_regionId_storeId_key"
+  ON "PriceSnapshot" ("productId", "regionId", "storeId");
 
 CREATE INDEX IF NOT EXISTS "PriceObservation_product_store_collected_idx"
   ON "PriceObservation" ("productId", "storeId", "collectedAt" DESC);
