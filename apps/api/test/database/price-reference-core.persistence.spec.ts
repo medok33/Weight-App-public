@@ -42,6 +42,28 @@ describe('PRICE-01A dependable reference price persistence', () => {
     expect(storeB.price).toBe(200);
     expect(storeB.storeId).toBe(stores[1]!.rows[0]!.id);
 
+    const productMapped = await db.query<{ id: string }>(`INSERT INTO "Product" ("canonicalName", "productKey", name, unit, "caloriesPer100g", "proteinPer100g") VALUES ($1,$1,$2,'g',0,0) RETURNING id`, [`product_mapping_${suffix}`, 'Mapping']);
+    const unmapped = await db.query<{ id: string }>(`INSERT INTO "RetailProduct" ("retailerId", "externalSku", title, "mappingStatus", source) VALUES ($1,$2,'Unmapped','UNMAPPED','IMPORT') RETURNING id`, [retailer.rows[0]!.id, `unmapped_${suffix}`]);
+    await repo.insertObservation({ productId: productMapped.rows[0]!.id, storeId: stores[0]!.rows[0]!.id, retailerId: retailer.rows[0]!.id, retailProductId: unmapped.rows[0]!.id, price: 70, currency: 'RUB', sourceType: 'CSV', sourceName: 'CSV Import', collectedAt: now.toISOString(), legacySource: 'csv' });
+    expect((await repo.readReferencePrice(productMapped.rows[0]!.id, { storeId: stores[0]!.rows[0]!.id, now })).status).toBe('UNKNOWN');
+    const unmappedCount = await db.query<{ count: string }>(`SELECT count(*)::text FROM "PriceObservation" WHERE "retailProductId" = $1`, [unmapped.rows[0]!.id]);
+    expect(Number(unmappedCount.rows[0]!.count)).toBe(1);
+    await db.query(`UPDATE "RetailProduct" SET "canonicalProductId" = $2, "mappingStatus" = 'MAPPED', "lastMatchedAt" = now() WHERE id = $1`, [unmapped.rows[0]!.id, productMapped.rows[0]!.id]);
+    await repo.materializeSnapshot(productMapped.rows[0]!.id, stores[0]!.rows[0]!.id);
+    expect((await repo.readReferencePrice(productMapped.rows[0]!.id, { storeId: stores[0]!.rows[0]!.id, now })).status).toBe('CURRENT');
+
+    const productAmbiguous = await db.query<{ id: string }>(`INSERT INTO "Product" ("canonicalName", "productKey", name, unit, "caloriesPer100g", "proteinPer100g") VALUES ($1,$1,$2,'g',0,0) RETURNING id`, [`product_ambiguous_${suffix}`, 'Ambiguous']);
+    const ambiguous = await db.query<{ id: string }>(`INSERT INTO "RetailProduct" ("retailerId", "externalSku", title, "mappingStatus", source) VALUES ($1,$2,'Ambiguous','AMBIGUOUS','IMPORT') RETURNING id`, [retailer.rows[0]!.id, `ambiguous_${suffix}`]);
+    await repo.insertObservation({ productId: productAmbiguous.rows[0]!.id, storeId: stores[0]!.rows[0]!.id, retailerId: retailer.rows[0]!.id, retailProductId: ambiguous.rows[0]!.id, price: 60, currency: 'RUB', sourceType: 'CSV', sourceName: 'CSV Import', collectedAt: now.toISOString(), legacySource: 'csv' });
+    expect((await repo.readReferencePrice(productAmbiguous.rows[0]!.id, { storeId: stores[0]!.rows[0]!.id, now })).status).toBe('UNKNOWN');
+
+    const productPromo = await db.query<{ id: string }>(`INSERT INTO "Product" ("canonicalName", "productKey", name, unit, "caloriesPer100g", "proteinPer100g") VALUES ($1,$1,$2,'g',0,0) RETURNING id`, [`product_promo_${suffix}`, 'Promo']);
+    await repo.insertObservation({ productId: productPromo.rows[0]!.id, storeId: stores[0]!.rows[0]!.id, retailerId: retailer.rows[0]!.id, externalSku: `promo_a_${suffix}`, productTitle: 'Promo', packageValue: 500, packageUnit: 'g', price: 40, currency: 'RUB', sourceType: 'CSV', sourceName: 'CSV Import', collectedAt: now.toISOString(), legacySource: 'csv', priceCondition: 'LOYALTY_ONLY' });
+    await repo.insertObservation({ productId: productPromo.rows[0]!.id, storeId: stores[1]!.rows[0]!.id, retailerId: retailer.rows[0]!.id, externalSku: `promo_b_${suffix}`, productTitle: 'Promo', packageValue: 500, packageUnit: 'g', price: 90, currency: 'RUB', sourceType: 'CSV', sourceName: 'CSV Import', collectedAt: now.toISOString(), legacySource: 'csv', priceCondition: 'REGULAR' });
+    expect((await repo.readReferencePrice(productPromo.rows[0]!.id, { storeId: stores[0]!.rows[0]!.id, now })).priceCondition).toBe('LOYALTY_ONLY');
+    expect((await repo.readReferencePrice(productPromo.rows[0]!.id, { storeId: stores[0]!.rows[0]!.id, now })).status).toBe('APPROXIMATE');
+    expect((await repo.readReferencePrice(productPromo.rows[0]!.id, { storeId: stores[1]!.rows[0]!.id, now })).price).toBe(90);
+
     const duplicate = await repo.insertObservation({ productId: product.rows[0]!.id, storeId: stores[0]!.rows[0]!.id, retailerId: retailer.rows[0]!.id, externalSku: `sku_a_${suffix}`, productTitle: 'A', packageValue: 500, packageUnit: 'g', price: 100, currency: 'RUB', sourceType: 'CSV', sourceName: 'CSV Import', collectedAt: now.toISOString(), legacySource: 'csv' });
     expect(duplicate.inserted).toBe(false);
     const count = await db.query<{ count: string }>(`SELECT count(*)::text FROM "PriceObservation" WHERE "productId" = $1`, [product.rows[0]!.id]);

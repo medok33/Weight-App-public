@@ -23,6 +23,19 @@ export class PriceIntelligenceEngine {
     return { ...result, imported: result.prices };
   }
 
+  async syncProviders(providers: RetailerPriceProvider[], auditUserId?: string) {
+    const settled = await Promise.all(providers.map(async (provider) => {
+      try {
+        return { providerId: provider.providerId, status: 'SUCCESS' as const, result: await this.syncProvider(provider, auditUserId) };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'PRICE_PROVIDER_ERROR';
+        const status = message === 'PRICE_PROVIDER_TIMEOUT' ? 'TIMEOUT' as const : 'ERROR' as const;
+        return { providerId: provider.providerId, status, error: message };
+      }
+    }));
+    return settled;
+  }
+
   validateCsvCatalog(payload: string): CsvValidationResult & { rows: import('../providers/csv-retailer-price.provider').CsvCatalogRow[] } {
     return validateCsvCatalog(payload);
   }
