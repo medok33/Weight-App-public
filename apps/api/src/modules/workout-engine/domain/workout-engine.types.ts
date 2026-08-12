@@ -91,6 +91,8 @@ export type WorkoutPlanDayDetail = {
   isRestDay: boolean;
   trainingPlace?: Exclude<TrainingPlace, 'MIXED'>;
   estimatedMinutes?: number;
+  /** Immutable WORKOUT-01A evidence when this day came from a generator replacement. */
+  decisionTrace?: import('./workout-generator-pilot-contract').WorkoutGeneratorDecisionTrace;
   exercises: WorkoutPlanDayExercise[];
 };
 

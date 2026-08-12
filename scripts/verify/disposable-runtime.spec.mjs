@@ -1,8 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { URL } from 'node:url';
 import { assertDisposableConfig, classifyMarkerValue, createRuntimeEnv, diagnostics, isTransientMarkerProbeError, parseDatabaseUrl, parseRedisUrl, redactConnection } from './disposable-runtime.mjs';
 
 const base = { WEIGHT_APP_DISPOSABLE_MODE: '1', WEIGHT_APP_RUNTIME_ID: 'wa-test-12345678', DISPOSABLE_POSTGRES_MARKER: 'wa-test-12345678', DISPOSABLE_REDIS_MARKER: 'wa-test-12345678', DATABASE_URL: 'postgresql://user:secret@127.0.0.1:55432/weight_app_disposable_test_12345678', REDIS_URL: 'redis://127.0.0.1:56379' };
+
+test('PostgreSQL healthcheck accepts only the final PID 1 server', () => {
+  const compose = readFileSync(new URL('../../docker/compose.disposable.yaml', import.meta.url), 'utf8');
+  assert.match(compose, /pg_isready -U \$\$\{POSTGRES_USER\} -d \$\$\{POSTGRES_DB\}/);
+  assert.match(compose, /postmaster\.pid/);
+  assert.match(compose, /sed -n '1p'/);
+  assert.match(compose, /\)" = "1"/);
+});
 
 test('shared local database is rejected before mutation', () => assert.throws(() => assertDisposableConfig({ ...base, DATABASE_URL: 'postgresql://weight_app:secret@127.0.0.1:5432/weight_app' }), /POSTGRES_DATABASE_IDENTITY_MISMATCH/));
 test('one env flag cannot bypass the database identity', () => assert.throws(() => assertDisposableConfig({ ...base, DISPOSABLE_POSTGRES_MARKER: 'wa-test-12345678', DATABASE_URL: 'postgresql://user:x@127.0.0.1:55432/weight_app_test' }), /POSTGRES_DATABASE_IDENTITY_MISMATCH/));

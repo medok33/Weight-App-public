@@ -22,6 +22,9 @@ export type WorkoutPlanSummary = {
   planId?: string;
   algorithmVersion?: string;
   status?: string;
+  generatorContractVersion?: string;
+  catalogReleaseId?: string;
+  decisionTraceId?: string;
   days: WorkoutPlanSummaryDay[];
 };
 
@@ -30,7 +33,13 @@ export function toWorkoutPlanSummary(
   version: number,
   plan: WorkoutPlanDetail | WorkoutPlan,
   planId?: string,
-  meta?: { algorithmVersion?: string; status?: string },
+  meta?: {
+    algorithmVersion?: string;
+    status?: string;
+    generatorContractVersion?: string;
+    catalogReleaseId?: string;
+    decisionTraceId?: string;
+  },
 ): WorkoutPlanSummary {
   const days: WorkoutPlanSummaryDay[] = [];
 
@@ -82,6 +91,9 @@ export function toWorkoutPlanSummary(
     planId,
     algorithmVersion: meta?.algorithmVersion,
     status: meta?.status,
+    generatorContractVersion: meta?.generatorContractVersion,
+    catalogReleaseId: meta?.catalogReleaseId,
+    decisionTraceId: meta?.decisionTraceId,
     days,
   };
 }

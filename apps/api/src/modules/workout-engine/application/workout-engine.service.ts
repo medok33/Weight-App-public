@@ -7,9 +7,14 @@ import { DEFAULT_EXERCISES, toWorkoutPlanSummary } from '../domain/workout-engin
 import {
   ALGORITHM_VERSION,
   WORKOUT_EQUIPMENT_CODES,
-  filterCatalog,
-  generateWeeklyPlan,
 } from '../domain/workout-plan-generator';
+import { buildPlanExercisePrescription } from '../energy/workout-plan-prescription';
+import {
+  GENERATOR_CONTRACT_VERSION,
+  generateWeeklyPlanForPilot,
+  selectHomeShortReplacementForPilot,
+  type WorkoutGeneratorDecisionTrace,
+} from '../domain/workout-generator-pilot-contract';
 import type {
   Exercise,
   WorkoutPlanDayDetail,
@@ -25,6 +30,11 @@ import { WorkoutProfileRepository } from '../infrastructure/workout-profile.repo
 
 /** Advisory lock namespace for workout plan generation. */
 const WORKOUT_GENERATE_LOCK_KEY = 207_010_01;
+/** Keep lock contention below the established five-second DB/request boundary. */
+export const WORKOUT_REPLACEMENT_LOCK_TIMEOUT_MS = 4_000;
+const WORKOUT_REPLACEMENT_LOCK_BUSY = 'WORKOUT_REPLACEMENT_IN_PROGRESS';
+const MAX_EXCLUDED_EXERCISE_KEYS = 64;
+const STABLE_EXERCISE_KEY = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 
 function isUniqueViolation(err: unknown): boolean {
   const code = (err as { code?: string } | null)?.code;
@@ -178,7 +188,7 @@ export class WorkoutEngineService {
     };
   }
 
-  async generatePlan(userId: string, options?: { excludedKeys?: string[] }) {
+  async generatePlan(userId: string, options?: { excludedKeys?: unknown }) {
     if (!userId) throw new Error('WORKOUT_PLAN_USER_REQUIRED');
 
     const run = async () => {
@@ -203,10 +213,27 @@ export class WorkoutEngineService {
         equipmentCodes: workoutProfile.workoutEquipment,
         preferredActivityTypes: workoutProfile.preferredActivityTypes,
         excludedKeys: [
-          ...new Set([...workoutProfile.excludedExerciseKeys, ...(options?.excludedKeys ?? [])]),
+          ...new Set([
+            ...workoutProfile.excludedExerciseKeys,
+            ...normalizeExcludedExerciseKeys(options?.excludedKeys, 'WORKOUT_EXCLUSIONS_INVALID'),
+          ]),
         ],
       };
-      const plan = generateWeeklyPlan(catalog, input);
+      const generated = generateWeeklyPlanForPilot(catalog, input, {
+        id: release.id,
+        code: release.code,
+        manifestVersion: release.manifestVersion,
+      });
+      if (generated.status === 'INSUFFICIENT_INPUT') {
+        throw new Error('WORKOUT_SETUP_INCOMPLETE');
+      }
+      if (generated.status === 'NO_VIABLE_CANDIDATE' || !generated.plan) {
+        // This is a contract result, not an exception-string-only failure. It
+        // deliberately contains no user data and can be rendered by future V10
+        // surfaces without fabricating a workout.
+        return generated;
+      }
+      const plan = generated.plan;
       let timeZone = 'UTC';
       try {
         const profile = await this.userProfile?.getProfile(userId);
@@ -224,8 +251,10 @@ export class WorkoutEngineService {
             inputSnapshotJson: {
               ...input,
               algorithmVersion: ALGORITHM_VERSION,
+              generatorContractVersion: GENERATOR_CONTRACT_VERSION,
               workoutCatalogReleaseId: release.id,
               workoutCatalogReleaseCode: release.code,
+              decisionTrace: generated.trace,
               timeZone,
             },
             generatedAt: new Date(),
@@ -236,6 +265,9 @@ export class WorkoutEngineService {
           return toWorkoutPlanSummary(userId, saved.version, plan, saved.id, {
             algorithmVersion: ALGORITHM_VERSION,
             status: 'active',
+            generatorContractVersion: GENERATOR_CONTRACT_VERSION,
+            catalogReleaseId: release.id,
+            decisionTraceId: generated.trace.traceId,
           });
         } catch (err) {
           if (!isUniqueViolation(err) || attempt === 3) throw err;
@@ -309,6 +341,13 @@ export class WorkoutEngineService {
     userId: string,
     input: { dayIndex: number; replacementType: WorkoutReplacementType; moveTargetDayIndex?: number },
   ) {
+    return this.withReplacementMutationLock(userId, async () => this.applyReplacementUnlocked(userId, input));
+  }
+
+  private async applyReplacementUnlocked(
+    userId: string,
+    input: { dayIndex: number; replacementType: WorkoutReplacementType; moveTargetDayIndex?: number },
+  ) {
     if (!this.workoutProfiles) throw new Error('WORKOUT_PROFILE_REPOSITORY_UNAVAILABLE');
     assertDayIndex(input.dayIndex);
     validateReplacementType(input.replacementType);
@@ -331,34 +370,58 @@ export class WorkoutEngineService {
       assertMoveTargetAllowed(effective.days, input.dayIndex, input.moveTargetDayIndex, original);
     }
     let homeExercises: WorkoutPlanDayDetail['exercises'] | undefined;
+    let replacementTrace: WorkoutGeneratorDecisionTrace | undefined;
     if (input.replacementType === 'HOME_SHORT') {
       const profile = await this.getOrCreateWorkoutProfile(userId);
       if (!this.catalogReleases) {
         throw new Error('WORKOUT_CATALOG_RELEASE_SERVICE_UNAVAILABLE');
       }
-      const { exercises: releaseCatalog } =
+      const { release, exercises: releaseCatalog } =
         await this.catalogReleases.listGeneratorEligibleExercises();
-      const catalog = filterCatalog(releaseCatalog, {
+      const selection = selectHomeShortReplacementForPilot(releaseCatalog, {
         trainingLevel: profile.trainingLevel,
         trainingPlace: 'HOME',
         equipmentCodes: profile.workoutEquipment,
         excludedKeys: profile.excludedExerciseKeys,
-      }).slice(0, 3);
-      if (catalog.length < 3) throw new Error('WORKOUT_CATALOG_INSUFFICIENT');
-      const prescription = original.exercises[0];
-      homeExercises = catalog.map((exercise, exerciseOrder) => ({
-        exerciseOrder,
-        exerciseName: exercise.key,
-        exerciseKey: exercise.key,
-        exerciseId: exercise.id ?? null,
-        riskLevel: exercise.riskLevel,
-        sets: prescription?.sets ?? 2,
-        repsMin: prescription?.repsMin ?? 10,
-        repsMax: prescription?.repsMax ?? 12,
-        restSeconds: prescription?.restSeconds ?? 60,
-      }));
+        goalKind: 'replacement',
+        workoutsPerWeek: profile.workoutsPerWeek,
+      }, {
+        id: release.id, code: release.code, manifestVersion: release.manifestVersion,
+      }, {
+        sourceWorkoutPlanId: active.id,
+        sourcePlanVersion: active.version,
+        originalExerciseKeys: original.exercises.map((exercise) => exercise.exerciseKey ?? exercise.exerciseName),
+      });
+      if (selection.status === 'NO_VIABLE_CANDIDATE') return selection;
+      replacementTrace = selection.trace;
+      homeExercises = selection.exercises.map((exercise, exerciseOrder) => {
+        const base = original.exercises[0];
+        const prescription = buildPlanExercisePrescription({
+          revisionRepetitionMode: exercise.repetitionMode,
+          revisionDefaultSets: exercise.defaultSets ?? null,
+          defaultDurationSeconds: exercise.defaultDurationSeconds,
+          sets: base?.sets ?? 2,
+          repsMin: base?.repsMin ?? 10,
+          repsMax: base?.repsMax ?? 12,
+          restSeconds: base?.restSeconds ?? 60,
+        });
+        return {
+          exerciseOrder,
+          exerciseName: exercise.key,
+          exerciseKey: exercise.key,
+          exerciseId: exercise.id ?? null,
+          riskLevel: exercise.riskLevel,
+          sets: prescription.sets,
+          repsMin: prescription.repsMin,
+          repsMax: prescription.repsMax,
+          restSeconds: prescription.restSeconds,
+          prescriptionMode: prescription.prescriptionMode,
+          durationSecondsPerSet: prescription.durationSecondsPerSet,
+        };
+      });
     }
     const snapshot = replacementSnapshot(original, input.replacementType, homeExercises);
+    if (replacementTrace) snapshot.decisionTrace = replacementTrace;
     return this.workoutProfiles.replaceActiveOverride({
       userId,
       workoutPlanId: active.id,
@@ -367,6 +430,31 @@ export class WorkoutEngineService {
       replacementDayTitle: snapshot.dayTitle ?? null,
       replacementSnapshot: snapshot,
       moveTargetDayIndex: input.moveTargetDayIndex,
+    });
+  }
+
+  /**
+   * Replacement shares generation's PostgreSQL advisory-lock namespace.  The
+   * blocking transaction lock makes a concurrent retry observe the completed
+   * mutation instead of racing the partial-unique override constraint.
+   */
+  private async withReplacementMutationLock<T>(userId: string, run: () => Promise<T>): Promise<T> {
+    if (!this.db) return run();
+    return this.db.withTransaction(async (query) => {
+      await query('SELECT set_config($1, $2, true)', [
+        'lock_timeout',
+        `${WORKOUT_REPLACEMENT_LOCK_TIMEOUT_MS}ms`,
+      ]);
+      try {
+        await query(
+          'SELECT pg_advisory_xact_lock($1, hashtext($2))',
+          [WORKOUT_GENERATE_LOCK_KEY, `workout-generate:${userId}`],
+        );
+      } catch (error) {
+        if (isPostgresLockTimeout(error)) throw new Error(WORKOUT_REPLACEMENT_LOCK_BUSY);
+        throw error;
+      }
+      return run();
     });
   }
 
@@ -426,6 +514,10 @@ export class WorkoutEngineService {
   }
 }
 
+function isPostgresLockTimeout(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === '55P03');
+}
+
 const TRAINING_LEVELS = new Set(['BEGINNER', 'INTERMEDIATE', 'ADVANCED']);
 const TRAINING_PLACES = new Set(['HOME', 'GYM', 'MIXED']);
 const DURATIONS = new Set(['SHORT', 'STANDARD', 'LONG']);
@@ -461,7 +553,30 @@ function validateProfilePatch(patch: WorkoutProfilePatch): WorkoutProfilePatch {
     }
     patch = { ...patch, workoutEquipment: equipment as WorkoutProfile['workoutEquipment'] };
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'excludedExerciseKeys')) {
+    patch = {
+      ...patch,
+      excludedExerciseKeys: normalizeExcludedExerciseKeys(
+        patch.excludedExerciseKeys,
+        'WORKOUT_PROFILE_EXCLUSIONS_INVALID',
+      ),
+    };
+  }
   return patch;
+}
+
+function normalizeExcludedExerciseKeys(value: unknown, errorCode: string): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > MAX_EXCLUDED_EXERCISE_KEYS) {
+    throw new Error(errorCode);
+  }
+  const keys = value.map((item) => {
+    if (typeof item !== 'string') throw new Error(errorCode);
+    const key = item.trim();
+    if (!STABLE_EXERCISE_KEY.test(key)) throw new Error(errorCode);
+    return key;
+  });
+  return [...new Set(keys)].sort();
 }
 
 function assertDayIndex(dayIndex: number | undefined): asserts dayIndex is number {

@@ -441,8 +441,13 @@ async function runPersistenceSuite(env, inventory) {
     let drop;
     try {
       const fileEnv = { ...env, DATABASE_URL: databaseUrlFor(env.DATABASE_URL, database) };
-      const isLong = /(?:activity-01[ab]|workout-adaptation)/.test(relativeFile);
-      const fileBound = isLong ? 300_000 : 120_000;
+      const isActivityLong = /activity-01[ab]/.test(relativeFile);
+      const isLong = /workout-adaptation/.test(relativeFile);
+      // Activity-01A performs two isolated migration paths (full + pre-215)
+      // before its assertions.  A cold disposable run measured ~317s with no
+      // blocked query or leaked client; keep the per-file bound finite while
+      // allowing that documented setup to complete.
+      const fileBound = isActivityLong ? 360_000 : isLong ? 300_000 : 120_000;
       result = await pnpmCommand([
         '--dir', 'apps/api', 'exec', 'vitest', 'run', '--passWithNoTests',
         '--pool=forks', '--fileParallelism=false', '--reporter=verbose', relativeFile,
