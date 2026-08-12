@@ -25,6 +25,17 @@ describe("workout engine HTTP catalog error mapping", () => {
     });
   });
 
+  it("maps replacement lock timeout to a retryable 409 with its exact code", () => {
+    const error = mapWorkoutError(new Error("WORKOUT_REPLACEMENT_IN_PROGRESS"));
+    expect(error).toBeInstanceOf(HttpException);
+    expect((error as HttpException).getStatus()).toBe(409);
+    expect((error as HttpException).getResponse()).toEqual({
+      message: "WORKOUT_REPLACEMENT_IN_PROGRESS",
+      statusCode: 409,
+      error: "Conflict",
+    });
+  });
+
   it("generate endpoint preserves RELEASE_MISSING code (not GENERATE_FAILED)", async () => {
     const controller = new WorkoutEngineController(
       {

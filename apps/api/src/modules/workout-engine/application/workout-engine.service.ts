@@ -30,6 +30,9 @@ import { WorkoutProfileRepository } from '../infrastructure/workout-profile.repo
 
 /** Advisory lock namespace for workout plan generation. */
 const WORKOUT_GENERATE_LOCK_KEY = 207_010_01;
+/** Keep lock contention below the established five-second DB/request boundary. */
+export const WORKOUT_REPLACEMENT_LOCK_TIMEOUT_MS = 4_000;
+const WORKOUT_REPLACEMENT_LOCK_BUSY = 'WORKOUT_REPLACEMENT_IN_PROGRESS';
 const MAX_EXCLUDED_EXERCISE_KEYS = 64;
 const STABLE_EXERCISE_KEY = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 
@@ -438,10 +441,19 @@ export class WorkoutEngineService {
   private async withReplacementMutationLock<T>(userId: string, run: () => Promise<T>): Promise<T> {
     if (!this.db) return run();
     return this.db.withTransaction(async (query) => {
-      await query(
-        'SELECT pg_advisory_xact_lock($1, hashtext($2))',
-        [WORKOUT_GENERATE_LOCK_KEY, `workout-generate:${userId}`],
-      );
+      await query('SELECT set_config($1, $2, true)', [
+        'lock_timeout',
+        `${WORKOUT_REPLACEMENT_LOCK_TIMEOUT_MS}ms`,
+      ]);
+      try {
+        await query(
+          'SELECT pg_advisory_xact_lock($1, hashtext($2))',
+          [WORKOUT_GENERATE_LOCK_KEY, `workout-generate:${userId}`],
+        );
+      } catch (error) {
+        if (isPostgresLockTimeout(error)) throw new Error(WORKOUT_REPLACEMENT_LOCK_BUSY);
+        throw error;
+      }
       return run();
     });
   }
@@ -500,6 +512,10 @@ export class WorkoutEngineService {
       })),
     };
   }
+}
+
+function isPostgresLockTimeout(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === '55P03');
 }
 
 const TRAINING_LEVELS = new Set(['BEGINNER', 'INTERMEDIATE', 'ADVANCED']);

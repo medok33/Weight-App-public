@@ -84,6 +84,7 @@ function uiError(error: unknown, t: (key: MessageKey) => string): string {
       WORKOUT_SETUP_INCOMPLETE: 'workout.setupIncomplete',
       WORKOUT_CATALOG_INSUFFICIENT: 'workout.catalogInsufficient',
       WORKOUT_PLAN_GENERATE_IN_PROGRESS: 'workout.generateConflict',
+      WORKOUT_REPLACEMENT_IN_PROGRESS: 'workout.generateConflict',
       WORKOUT_PLAN_VERSION_CONFLICT: 'workout.generateConflict',
       WORKOUT_PLAN_NOT_FOUND: 'workout.empty',
       WORKOUT_EXERCISE_NOT_FOUND: 'workout.exerciseError',

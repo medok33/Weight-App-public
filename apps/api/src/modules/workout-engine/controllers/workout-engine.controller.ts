@@ -366,6 +366,7 @@ function mapWorkoutError(error: unknown): Error {
   }
   if (
     code === "WORKOUT_PLAN_GENERATE_IN_PROGRESS" ||
+    code === "WORKOUT_REPLACEMENT_IN_PROGRESS" ||
     code === "WORKOUT_SESSION_START_IN_PROGRESS" ||
     code === "WORKOUT_ACTIVE_SESSION_EXISTS" ||
     code === "WORKOUT_SESSION_INCOMPLETE"

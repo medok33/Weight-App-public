@@ -54,7 +54,7 @@ async function createReadyUser() {
   return { userId, service };
 }
 
-describe('WORKOUT-01A replacement integrity persistence', () => {
+describe('WORKOUT-01A replacement integrity persistence', { timeout: 30_000 }, () => {
   beforeAll(async () => { await pool.query('SELECT 1'); });
   afterAll(async () => { await pool.end(); });
 
@@ -72,6 +72,32 @@ describe('WORKOUT-01A replacement integrity persistence', () => {
       expect(override.workoutPlanId).toBe(saved.id);
       expect(override.workoutPlanId).not.toBe(planA!.id);
     } finally { lock.release(); }
+  });
+
+  it('bounds replacement lock contention and performs no write on timeout', async () => {
+    const { userId, service } = await createReadyUser();
+    const before = await pool.query<{ c: string }>(
+      'SELECT COUNT(*)::text AS c FROM "WorkoutPlanDayOverride" WHERE "userId" = $1',
+      [userId],
+    );
+    const lock = await pool.connect();
+    const startedAt = Date.now();
+    try {
+      await lock.query('SELECT pg_advisory_lock($1, hashtext($2))', [LOCK_KEY, `workout-generate:${userId}`]);
+      await expect(service.applyReplacement(userId, { dayIndex: 0, replacementType: 'WALK' }))
+        .rejects.toThrow('WORKOUT_REPLACEMENT_IN_PROGRESS');
+    } finally {
+      await lock.query('SELECT pg_advisory_unlock($1, hashtext($2))', [LOCK_KEY, `workout-generate:${userId}`]);
+      lock.release();
+    }
+    const elapsedMs = Date.now() - startedAt;
+    expect(elapsedMs).toBeGreaterThanOrEqual(3_500);
+    expect(elapsedMs).toBeLessThan(8_000);
+    const after = await pool.query<{ c: string }>(
+      'SELECT COUNT(*)::text AS c FROM "WorkoutPlanDayOverride" WHERE "userId" = $1',
+      [userId],
+    );
+    expect(after.rows[0]!.c).toBe(before.rows[0]!.c);
   });
 
   it('makes concurrent identical replacements return one effective idempotent override', async () => {
