@@ -41,6 +41,11 @@ const STAGE_BOUNDS = Object.freeze({
   cleanup: 120_000,
 });
 
+function migrationCount() {
+  return readdirSync(resolve(root, 'apps/api/prisma/migrations'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^\d+/.test(entry.name)).length;
+}
+
 export function isTrue(value) {
   return value === '1' || value === 'true';
 }
@@ -640,9 +645,10 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     await assertServerMarkers(env);
     const result = await pnpmCommand(['db:migrate'], env, STAGE_BOUNDS.migration, `migration ${expected}`);
     if (result.exitCode === 0 && !result.timedOut) {
+      const expectedCount = migrationCount();
       const expectedPattern = expected === 'first'
-        ? /"applied"\s*:\s*108/
-        : /"applied"\s*:\s*0[\s\S]*"skipped"\s*:\s*108/;
+        ? new RegExp(`"applied"\\s*:\\s*${expectedCount}`)
+        : new RegExp(`"applied"\\s*:\\s*0[\\s\\S]*"skipped"\\s*:\\s*${expectedCount}`);
       if (!expectedPattern.test(result.stdout)) return { ...result, exitCode: 1, reason: `migration ${expected} result did not match the required ledger counts` };
     }
     return result;
@@ -650,8 +656,8 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
   const stages = [
     { name: 'disposable topology startup', timeoutMs: STAGE_BOUNDS.topology, command: 'docker compose up -d --wait --wait-timeout 90 postgres redis', action: () => startTopology(env) },
     { name: 'PostgreSQL/Redis marker verification', timeoutMs: STAGE_BOUNDS.markers, command: 'owned marker probes', action: () => verifyRuntimeMarkers(env) },
-    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 108 applied)', action: migrationAction('first') },
-    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 0 applied / 108 skipped)', action: migrationAction('second') },
+    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect all migrations applied)', action: migrationAction('first') },
+    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 0 applied / all skipped)', action: migrationAction('second') },
     {
       name: 'static/lint/type validation', timeoutMs: STAGE_BOUNDS.static,
       command: 'root ESLint; migration/UI/workflow checks; direct API/Web/Worker typechecks; support package tests',
