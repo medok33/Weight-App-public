@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
-import { assertDisposableConfig, classifyMarkerValue, collectDiagnosticFailureEvidence, createBoundedLogBuffer, createRuntimeEnv, diagnosticFailureEvidence, diagnostics, DIAGNOSTIC_STAGE_MODES, diagnosticWebBuildBinding, isTransientMarkerProbeError, parseDatabaseUrl, parseDiagnosticStageMode, parseRedisUrl, redactConnection, sanitizeThrottleEvidence, throttleEvidenceFingerprint, throttleEvidenceQuery } from './disposable-runtime.mjs';
+import { assertDisposableConfig, classifyMarkerValue, createRuntimeEnv, diagnostics, isTransientMarkerProbeError, parseDatabaseUrl, parseRedisUrl, redactConnection } from './disposable-runtime.mjs';
 
 const base = { WEIGHT_APP_DISPOSABLE_MODE: '1', WEIGHT_APP_RUNTIME_ID: 'wa-test-12345678', DISPOSABLE_POSTGRES_MARKER: 'wa-test-12345678', DISPOSABLE_REDIS_MARKER: 'wa-test-12345678', DATABASE_URL: 'postgresql://user:secret@127.0.0.1:55432/weight_app_disposable_test_12345678', REDIS_URL: 'redis://127.0.0.1:56379' };
 
