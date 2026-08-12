@@ -44,6 +44,59 @@ export type LatestPriceQuote = {
   retailProductId?: string;
 };
 
+type SnapshotCandidateRow = {
+  id: string;
+  regionId: string;
+  retailerId: string | null;
+  storeId: string;
+  price: string;
+  confidence: string | null;
+  observedAt: string;
+  normalizedPackageQuantity: string | null;
+  normalizedPackageUnit: string | null;
+  unitPrice: string | null;
+  unitPriceUnit: string | null;
+  priceCondition: PriceCondition;
+  sourceType: string;
+  sourceName: string;
+  dataClass: string | null;
+};
+
+type SnapshotReadRow = {
+  productId: string;
+  price: string;
+  currency: string;
+  observedAt: string;
+  freshUntil: string | null;
+  status: string;
+  normalizedPackageQuantity: string | null;
+  normalizedPackageUnit: string | null;
+  unitPrice: string | null;
+  unitPriceUnit: string | null;
+  priceCondition: PriceCondition;
+  retailerId: string | null;
+  storeId: string | null;
+  locationScope: string | null;
+  sourceType: string | null;
+  sourceName: string | null;
+  evidenceObservationId: string | null;
+  dataClass: string | null;
+};
+
+type ConditionalEvidenceRow = {
+  productId: string;
+  price: string;
+  currency: string;
+  observedAt: string;
+  priceCondition: PriceCondition;
+  sourceType: string;
+  sourceName: string;
+  evidenceObservationId: string;
+  dataClass: string | null;
+  retailerId: string | null;
+  storeId: string;
+};
+
 @Injectable()
 export class PriceIntelligenceRepository {
   constructor(@Inject(PrismaService) private readonly db: PrismaService) {}
@@ -611,7 +664,7 @@ export class PriceIntelligenceRepository {
   }
 
   async materializeSnapshot(productId: string, storeId: string) {
-    const candidate = await this.db.query<any>(
+    const candidate = await this.db.query<SnapshotCandidateRow>(
       `SELECT po.id, rs."regionId", po."retailerId", po."storeId", po.price::text, COALESCE(po.confidence, 1)::text AS confidence,
               po."observedAt"::text, po."normalizedPackageQuantity"::text, po."normalizedPackageUnit",
               po."unitPrice"::text, po."unitPriceUnit", po."priceCondition", po."sourceType", po."sourceName", po."dataClass"
@@ -639,10 +692,10 @@ export class PriceIntelligenceRepository {
     const clauses = ['ps."productId" = $1'];
     if (options.storeId) { params.push(options.storeId); clauses.push(`ps."storeId" = $${params.length}`); }
     if (options.regionId) { params.push(options.regionId); clauses.push(`ps."regionId" = $${params.length}`); }
-    const result = await this.db.query<any>(`SELECT ps."productId", ps.price::text, 'RUB' AS currency, ps."observedAt"::text, ps."freshUntil"::text, ps.status, ps."normalizedPackageQuantity"::text, ps."normalizedPackageUnit", ps."unitPrice"::text, ps."unitPriceUnit", ps."priceCondition", ps."retailerId", ps."storeId", rs."locationScope", ps."sourceType", ps."sourceName", ps."evidenceObservationId", po."dataClass" FROM "PriceSnapshot" ps LEFT JOIN "RetailStore" rs ON rs.id = ps."storeId" LEFT JOIN "PriceObservation" po ON po.id = ps."evidenceObservationId" WHERE ${clauses.join(' AND ')} ORDER BY ps."observedAt" DESC, ps.id ASC LIMIT 1`, params);
+    const result = await this.db.query<SnapshotReadRow>(`SELECT ps."productId", ps.price::text, 'RUB' AS currency, ps."observedAt"::text, ps."freshUntil"::text, ps.status, ps."normalizedPackageQuantity"::text, ps."normalizedPackageUnit", ps."unitPrice"::text, ps."unitPriceUnit", ps."priceCondition", ps."retailerId", ps."storeId", rs."locationScope", ps."sourceType", ps."sourceName", ps."evidenceObservationId", po."dataClass" FROM "PriceSnapshot" ps LEFT JOIN "RetailStore" rs ON rs.id = ps."storeId" LEFT JOIN "PriceObservation" po ON po.id = ps."evidenceObservationId" WHERE ${clauses.join(' AND ')} ORDER BY ps."observedAt" DESC, ps.id ASC LIMIT 1`, params);
     const row = result.rows[0];
     if (!row) {
-      const conditional = await this.db.query<any>(
+      const conditional = await this.db.query<ConditionalEvidenceRow>(
         `SELECT po."productId", po.price::text, 'RUB' AS currency, po."observedAt"::text, po."priceCondition", po."sourceType", po."sourceName", po.id AS "evidenceObservationId", po."dataClass", po."retailerId", po."storeId"
          FROM "PriceObservation" po JOIN "RetailStore" rs ON rs.id = po."storeId"
          WHERE po."productId" = $1 AND po."priceCondition" IN ('LOYALTY_ONLY','CONDITIONAL','UNKNOWN_CONDITION')
