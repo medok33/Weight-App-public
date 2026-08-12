@@ -597,12 +597,12 @@ export class PriceIntelligenceRepository {
     const inserted = await this.db.query<{ id: string }>(
       `INSERT INTO "PriceObservation"
         ("productId", "storeId", "retailerId", "retailProductId", price, currency, "sourceType", "sourceName", "collectedAt", "observedAt", source, "dataClass", "observationKey", "observedPackageWeight", "observedPackageUnit", "normalizedPackageQuantity", "normalizedPackageUnit", "unitPrice", "unitPriceUnit", "priceCondition", "regularPrice", "conditionDescription", "validFrom", "validTo", "loyaltyRequired", "quantityRequirement")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,$9::timestamptz,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$5,$21,$22::timestamptz,$23::timestamptz,$24,$25)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,$9::timestamptz,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::timestamptz,$23::timestamptz,$24,$25)
        ON CONFLICT ("observationKey") DO NOTHING RETURNING id`,
       [input.productId, input.storeId, input.retailerId ?? null, retailProductId, input.price, input.currency, input.sourceType, input.sourceName,
         input.collectedAt, input.legacySource, input.dataClass ?? classifyPriceObservationHeuristics({ source: input.legacySource, sourceName: input.sourceName }), observationKey,
         pack?.sourceQuantity ?? null, pack?.sourceUnit ?? null, pack?.quantity ?? null, pack?.unit ?? null, unitPrice?.value ?? null, unitPrice?.unit ?? null,
-        condition, input.conditionDescription ?? null, input.validFrom ?? null, input.validTo ?? null, input.loyaltyRequired ?? null, input.quantityRequirement ?? null],
+        condition, input.price, input.conditionDescription ?? null, input.validFrom ?? null, input.validTo ?? null, input.loyaltyRequired ?? null, input.quantityRequirement ?? null],
     );
     // STEP_210: price changes do not create RecipeRevalidationTask, but may affect cost-constrained coverage.
     await this.markCoverageCostRefreshDirty(input.productId);
@@ -618,7 +618,7 @@ export class PriceIntelligenceRepository {
        FROM "PriceObservation" po JOIN "RetailStore" rs ON rs.id = po."storeId" JOIN "Retailer" r ON r.id = po."retailerId"
        LEFT JOIN "RetailProduct" rp ON rp.id = po."retailProductId"
        WHERE po."productId" = $1 AND po."storeId" = $2 AND r.active = true
-         AND (rp.id IS NULL OR (rp.status = 'ACTIVE' AND rp."mappingStatus" = 'MAPPED' AND rp."canonicalProductId" = po."productId"))
+         AND rp.id IS NOT NULL AND rp.status = 'ACTIVE' AND rp."mappingStatus" = 'MAPPED' AND rp."canonicalProductId" = po."productId"
          AND po.price >= 0 AND po."priceCondition" IN ('REGULAR','PROMOTIONAL')
        ORDER BY CASE WHEN rs."locationScope" = 'STORE' THEN 3 WHEN rs."locationScope" = 'CITY' THEN 2 ELSE 1 END DESC,
                 CASE WHEN po."sourceType" = 'API' THEN 4 WHEN po."sourceType" = 'CSV' THEN 3 WHEN po."sourceType" = 'MANUAL' THEN 2 ELSE 1 END DESC,
@@ -641,7 +641,17 @@ export class PriceIntelligenceRepository {
     if (options.regionId) { params.push(options.regionId); clauses.push(`ps."regionId" = $${params.length}`); }
     const result = await this.db.query<any>(`SELECT ps."productId", ps.price::text, 'RUB' AS currency, ps."observedAt"::text, ps."freshUntil"::text, ps.status, ps."normalizedPackageQuantity"::text, ps."normalizedPackageUnit", ps."unitPrice"::text, ps."unitPriceUnit", ps."priceCondition", ps."retailerId", ps."storeId", rs."locationScope", ps."sourceType", ps."sourceName", ps."evidenceObservationId", po."dataClass" FROM "PriceSnapshot" ps LEFT JOIN "RetailStore" rs ON rs.id = ps."storeId" LEFT JOIN "PriceObservation" po ON po.id = ps."evidenceObservationId" WHERE ${clauses.join(' AND ')} ORDER BY ps."observedAt" DESC, ps.id ASC LIMIT 1`, params);
     const row = result.rows[0];
-    if (!row) return { status: 'UNKNOWN', price: null, currency: 'RUB', normalizedUnitPrice: null, normalizedUnit: null, priceCondition: 'UNKNOWN_CONDITION', observedAt: null, freshUntil: null, productId };
+    if (!row) {
+      const conditional = await this.db.query<any>(
+        `SELECT po."productId", po.price::text, 'RUB' AS currency, po."observedAt"::text, po."priceCondition", po."sourceType", po."sourceName", po.id AS "evidenceObservationId", po."dataClass", po."retailerId", po."storeId"
+         FROM "PriceObservation" po JOIN "RetailStore" rs ON rs.id = po."storeId"
+         WHERE po."productId" = $1 AND po."priceCondition" IN ('LOYALTY_ONLY','CONDITIONAL','UNKNOWN_CONDITION')
+           AND ($2::uuid IS NULL OR po."storeId" = $2) AND ($3::uuid IS NULL OR rs."regionId" = $3)
+         ORDER BY po."observedAt" DESC, po.id ASC LIMIT 1`, [productId, options.storeId ?? null, options.regionId ?? null]);
+      const conditionalRow = conditional.rows[0];
+      if (conditionalRow) return { status: 'APPROXIMATE', price: Number(conditionalRow.price), currency: conditionalRow.currency, normalizedUnitPrice: null, normalizedUnit: null, priceCondition: conditionalRow.priceCondition, observedAt: conditionalRow.observedAt, freshUntil: null, productId, retailerId: conditionalRow.retailerId, storeId: conditionalRow.storeId, sourceType: conditionalRow.sourceType, sourceName: conditionalRow.sourceName, observationId: conditionalRow.evidenceObservationId };
+      return { status: 'UNKNOWN', price: null, currency: 'RUB', normalizedUnitPrice: null, normalizedUnit: null, priceCondition: 'UNKNOWN_CONDITION', observedAt: null, freshUntil: null, productId };
+    }
     const status = freshnessStatus({ observedAt: row.observedAt, dataClass: row.dataClass, now: options.now, condition: row.priceCondition });
     return { status, price: Number(row.price), currency: row.currency, normalizedUnitPrice: row.unitPrice ? Number(row.unitPrice) : null, normalizedUnit: row.unitPriceUnit, priceCondition: row.priceCondition, observedAt: row.observedAt, freshUntil: row.freshUntil, productId: row.productId, retailerId: row.retailerId, storeId: row.storeId, locationScope: row.locationScope, sourceType: row.sourceType, sourceName: row.sourceName, observationId: row.evidenceObservationId };
   }
