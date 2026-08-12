@@ -13,6 +13,7 @@ import { COVERAGE_MATRIX_VERSION_V1 } from '../../src/modules/recipe-platform/do
 import { ShoppingListRepository } from '../../src/modules/shopping-list/infrastructure/shopping-list.repository';
 import { ShoppingListService } from '../../src/modules/shopping-list/application/shopping-list.service';
 import { getDisposableDatabaseUrl } from '../../src/test-support/assert-disposable-database';
+import { observationIdentity } from '../../src/modules/price-intelligence/domain/reference-price.core';
 
 const pool = new Pool({
   connectionString: getDisposableDatabaseUrl(),
@@ -253,11 +254,22 @@ async function insertFixtureObservation(
     dataClass: 'FIXTURE' | 'PRODUCTION';
   },
 ): Promise<string> {
+  const observedAt = new Date().toISOString();
+  const observationKey = observationIdentity({
+    productId: fixture.productId,
+    storeId: fixture.storeId,
+    sourceType: input.sourceType,
+    sourceName: input.sourceName,
+    price: input.price,
+    currency: 'RUB',
+    observedAt,
+    priceCondition: 'REGULAR',
+  });
   const inserted = await pool.query<{ id: string }>(
     `INSERT INTO "PriceObservation"
       ("productId", "storeId", price, currency, source, "sourceType", "sourceName",
-       "observedAt", "collectedAt", "dataClass")
-     VALUES ($1, $2, $3, 'RUB', $4, $5, $6, now(), now(), $7)
+       "observedAt", "collectedAt", "dataClass", "observationKey")
+     VALUES ($1, $2, $3, 'RUB', $4, $5, $6, $8, $8, $7, $9)
      RETURNING id`,
     [
       fixture.productId,
@@ -267,6 +279,8 @@ async function insertFixtureObservation(
       input.sourceType,
       input.sourceName,
       input.dataClass,
+      observedAt,
+      observationKey,
     ],
   );
   const id = inserted.rows[0]!.id;

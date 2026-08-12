@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { STEP092_PRODUCTS, STEP092_RECIPES } from '../domain/meal-dish.fixture';
 import { STEP093_PRODUCTS, STEP093_RECIPES } from '../domain/substitution.fixture';
+import { observationIdentity } from '../../price-intelligence/domain/reference-price.core';
 
 type FixtureProduct = {
   id: string;
@@ -199,28 +200,54 @@ export class MealDishCatalogRepository {
         continue;
       }
       if (retailProductId) {
+        const observedAt = new Date().toISOString();
+        const observationKey = observationIdentity({
+          productId,
+          storeId,
+          retailerId,
+          retailProductId,
+          sourceType: 'MANUAL',
+          sourceName: 'STEP092/093 fixture',
+          price: product.unitPriceRub,
+          currency: 'RUB',
+          observedAt,
+          priceCondition: 'REGULAR',
+        });
         await this.db.query(
           `INSERT INTO "PriceObservation"
             ("productId", "storeId", price, "observedAt", source, currency, "sourceType", "sourceName",
-             "retailerId", "collectedAt", "retailProductId", "observedPackageWeight", "observedPackageUnit", availability, "dataClass")
-           VALUES ($1,$2,$3, now(), 'step092_fixture', 'RUB', 'MANUAL', 'STEP092/093 fixture',
-                   $4, now(), $5, $6, $7, 'IN_STOCK', 'FIXTURE')`,
+             "retailerId", "collectedAt", "retailProductId", "observedPackageWeight", "observedPackageUnit", availability, "dataClass", "observationKey")
+           VALUES ($1,$2,$3,$4, 'step092_fixture', 'RUB', 'MANUAL', 'STEP092/093 fixture',
+                   $5, $4, $6, $7, $8, 'IN_STOCK', 'FIXTURE', $9)`,
           [
             productId,
             storeId,
             product.unitPriceRub,
+            observedAt,
             retailerId,
             retailProductId,
             product.packageSize,
             product.packageUnit,
+            observationKey,
           ],
         );
       } else {
+        const observedAt = new Date().toISOString();
+        const observationKey = observationIdentity({
+          productId,
+          storeId,
+          sourceType: 'MANUAL',
+          sourceName: 'STEP092/093 fixture',
+          price: product.unitPriceRub,
+          currency: 'RUB',
+          observedAt,
+          priceCondition: 'REGULAR',
+        });
         await this.db.query(
           `INSERT INTO "PriceObservation"
-            ("productId", "storeId", price, "observedAt", source, currency, "sourceType", "sourceName", "retailerId", "collectedAt", "dataClass")
-           VALUES ($1,$2,$3, now(), 'step092_fixture', 'RUB', 'MANUAL', 'STEP092/093 fixture', $4, now(), 'FIXTURE')`,
-          [productId, storeId, product.unitPriceRub, retailerId],
+            ("productId", "storeId", price, "observedAt", source, currency, "sourceType", "sourceName", "retailerId", "collectedAt", "dataClass", "observationKey")
+           VALUES ($1,$2,$3,$4, 'step092_fixture', 'RUB', 'MANUAL', 'STEP092/093 fixture', $5, $4, 'FIXTURE', $6)`,
+          [productId, storeId, product.unitPriceRub, observedAt, retailerId, observationKey],
         );
       }
     }

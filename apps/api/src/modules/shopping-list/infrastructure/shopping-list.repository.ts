@@ -6,6 +6,7 @@ import type {
   ShoppingListRecord,
 } from '../domain/shopping-list.types';
 import type { AggregatedShoppingItem } from '../domain/shopping-list.policy';
+import { observationIdentity } from '../../price-intelligence/domain/reference-price.core';
 
 type ItemRow = {
   id: string;
@@ -156,16 +157,27 @@ export class ShoppingListRepository {
       };
     }
     const collectedAt = new Date().toISOString();
+    const sourceName = 'Каталог (fallback)';
+    const observationKey = observationIdentity({
+      productId,
+      storeId,
+      sourceType: 'MANUAL',
+      sourceName,
+      price,
+      currency: 'RUB',
+      observedAt: collectedAt,
+      priceCondition: 'REGULAR',
+    });
     await run(
       `INSERT INTO "PriceObservation"
-        ("productId", "storeId", price, "observedAt", source, currency, "sourceType", "sourceName", "collectedAt")
-       VALUES ($1, $2, $3, now(), 'catalog', 'RUB', 'MANUAL', 'Каталог (fallback)', now())`,
-      [productId, storeId, price],
+        ("productId", "storeId", price, "observedAt", source, currency, "sourceType", "sourceName", "collectedAt", "observationKey")
+       VALUES ($1, $2, $3, $4, 'catalog', 'RUB', 'MANUAL', $5, $4, $6)`,
+      [productId, storeId, price, collectedAt, sourceName, observationKey],
     );
     return {
       price,
       sourceType: 'MANUAL',
-      sourceName: 'Каталог (fallback)',
+      sourceName,
       collectedAt,
     };
   }
