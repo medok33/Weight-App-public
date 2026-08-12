@@ -24,6 +24,8 @@ export type ProviderPrice = {
   currency: string;
   retailer: ProviderRetailer;
   collectedAt: string;
+  weight?: string;
+  unit?: string;
 };
 
 export type ProviderAvailability = {

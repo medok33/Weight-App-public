@@ -44,6 +44,12 @@ export class PriceIntelligenceController {
     }
   }
 
+  @Get('evidence/:productId')
+  async readReferencePrice(@Param('productId') productId: string, @Query('storeId') storeId?: string, @Query('regionId') regionId?: string) {
+    if (!productId?.trim()) throw new BadRequestException('PRODUCT_INVALID');
+    return this.service.readReferencePrice(productId, { storeId, regionId });
+  }
+
   @Post('import')
   async import(
     @Headers('x-session-token') token: string | undefined,

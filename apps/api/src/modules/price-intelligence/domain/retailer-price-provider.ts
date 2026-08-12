@@ -18,9 +18,12 @@ export type SyncProduct = {
 
 export type SyncPrice = {
   productKey: string;
+  externalId?: string;
   price: number;
   currency: string;
   collectedAt: string;
+  weight?: string;
+  unit?: string;
 };
 
 export type SyncAvailability = {

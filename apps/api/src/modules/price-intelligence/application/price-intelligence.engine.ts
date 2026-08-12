@@ -15,7 +15,11 @@ export class PriceIntelligenceEngine {
   constructor(@Inject(PriceIntelligenceRepository) private readonly repository: PriceIntelligenceRepository) {}
 
   async syncProvider(provider: RetailerPriceProvider, auditUserId?: string): Promise<RetailerSyncResult & { sourceType: string; sourceName: string; imported: number; productsCreated: number; productsUpdated: number; pricesImported: number }> {
-    const result = await this.repository.syncFromRetailerProvider(provider, auditUserId);
+    const timeoutMs = Number(process.env.PRICE_PROVIDER_TIMEOUT_MS ?? 10_000);
+    const result = await Promise.race([
+      this.repository.syncFromRetailerProvider(provider, auditUserId),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('PRICE_PROVIDER_TIMEOUT')), timeoutMs)),
+    ]);
     return { ...result, imported: result.prices };
   }
 

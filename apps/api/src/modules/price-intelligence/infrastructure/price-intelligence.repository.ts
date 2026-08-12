@@ -6,6 +6,15 @@ import type { PriceProvider } from '../domain/price-provider';
 import type { RetailerRef } from '../domain/retailer.types';
 import type { RetailerEntity } from '../domain/retailer-entity';
 import { normalizeRetailerCode } from '../domain/retailer-entity';
+import {
+  DEFAULT_FRESHNESS_WINDOW_MS,
+  deriveUnitPrice,
+  freshnessStatus,
+  normalizePackage,
+  observationIdentity,
+  type PriceCondition,
+  type ReferencePriceEvidence,
+} from '../domain/reference-price.core';
 import type {
   CreateProductInput,
   ObservationAdminView,
@@ -27,6 +36,12 @@ export type LatestPriceQuote = {
   retailerId?: string;
   retailerName?: string;
   retailerCode?: string;
+  status?: 'CURRENT' | 'STALE' | 'UNKNOWN' | 'APPROXIMATE';
+  normalizedUnitPrice?: number;
+  normalizedUnit?: string;
+  priceCondition?: PriceCondition;
+  observationId?: string;
+  retailProductId?: string;
 };
 
 @Injectable()
@@ -493,6 +508,10 @@ export class PriceIntelligenceRepository {
         productId: upsert.id,
         storeId,
         retailerId,
+        externalSku: price.externalId ?? price.productKey,
+        productTitle: products.find((p) => p.productKey === price.productKey)?.name ?? price.productKey,
+        packageValue: price.weight,
+        packageUnit: undefined,
         price: price.price,
         currency: price.currency,
         sourceType: provider.sourceType,
@@ -535,6 +554,11 @@ export class PriceIntelligenceRepository {
     productId: string;
     storeId: string;
     retailerId?: string;
+    retailProductId?: string;
+    externalSku?: string;
+    productTitle?: string;
+    packageValue?: number | string;
+    packageUnit?: string;
     price: number;
     currency: string;
     sourceType: PriceSourceType;
@@ -542,30 +566,84 @@ export class PriceIntelligenceRepository {
     collectedAt: string;
     legacySource: string;
     dataClass?: 'PRODUCTION' | 'TEST_ONLY' | 'FIXTURE' | 'HISTORICAL_TEST';
+    priceCondition?: PriceCondition;
+    conditionDescription?: string;
+    validFrom?: string;
+    validTo?: string;
+    loyaltyRequired?: boolean;
+    quantityRequirement?: number;
   }) {
-    await this.db.query(
+    if (!Number.isFinite(input.price) || input.price < 0) throw new Error('PRICE_INVALID');
+    const condition = input.priceCondition ?? 'REGULAR';
+    const pack = normalizePackage(input.packageValue, input.packageUnit);
+    const unitPrice = deriveUnitPrice(input.price, pack);
+    let retailProductId = input.retailProductId ?? null;
+    if (!retailProductId && input.retailerId && input.externalSku) {
+      const rp = await this.db.query<{ id: string }>(
+        `INSERT INTO "RetailProduct" ("retailerId", "canonicalProductId", "externalSku", title, "packageWeight", "packageUnit", "packageQuantity", status, "mappingStatus", source, "lastMatchedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE', 'MAPPED', 'IMPORT', now())
+         ON CONFLICT ("retailerId", "externalSku") WHERE "externalSku" IS NOT NULL AND status <> 'MERGED'
+         DO UPDATE SET "canonicalProductId" = EXCLUDED."canonicalProductId", "mappingStatus" = 'MAPPED', "packageWeight" = COALESCE(EXCLUDED."packageWeight", "RetailProduct"."packageWeight"), "packageUnit" = COALESCE(EXCLUDED."packageUnit", "RetailProduct"."packageUnit"), "updatedAt" = now()
+         RETURNING id`,
+        [input.retailerId, input.productId, input.externalSku, input.productTitle ?? input.externalSku, pack?.quantity ?? null, pack?.unit ?? input.packageUnit ?? null, pack?.sourceQuantity ?? null],
+      );
+      retailProductId = rp.rows[0]?.id ?? null;
+    }
+    const observationKey = observationIdentity({
+      productId: input.productId, storeId: input.storeId, retailerId: input.retailerId, retailProductId,
+      sourceType: input.sourceType, sourceName: input.sourceName, price: input.price, currency: input.currency,
+      observedAt: input.collectedAt, priceCondition: condition,
+    });
+    const inserted = await this.db.query<{ id: string }>(
       `INSERT INTO "PriceObservation"
-        ("productId", "storeId", "retailerId", price, currency, "sourceType", "sourceName", "collectedAt", "observedAt", source, "dataClass")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $8::timestamptz, $9, $10)`,
-      [
-        input.productId,
-        input.storeId,
-        input.retailerId ?? null,
-        input.price,
-        input.currency,
-        input.sourceType,
-        input.sourceName,
-        input.collectedAt,
-        input.legacySource,
-        input.dataClass ??
-          classifyPriceObservationHeuristics({
-            source: input.legacySource,
-            sourceName: input.sourceName,
-          }),
-      ],
+        ("productId", "storeId", "retailerId", "retailProductId", price, currency, "sourceType", "sourceName", "collectedAt", "observedAt", source, "dataClass", "observationKey", "observedPackageWeight", "observedPackageUnit", "normalizedPackageQuantity", "normalizedPackageUnit", "unitPrice", "unitPriceUnit", "priceCondition", "regularPrice", "conditionDescription", "validFrom", "validTo", "loyaltyRequired", "quantityRequirement")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,$9::timestamptz,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$5,$21,$22::timestamptz,$23::timestamptz,$24,$25)
+       ON CONFLICT ("observationKey") DO NOTHING RETURNING id`,
+      [input.productId, input.storeId, input.retailerId ?? null, retailProductId, input.price, input.currency, input.sourceType, input.sourceName,
+        input.collectedAt, input.legacySource, input.dataClass ?? classifyPriceObservationHeuristics({ source: input.legacySource, sourceName: input.sourceName }), observationKey,
+        pack?.sourceQuantity ?? null, pack?.sourceUnit ?? null, pack?.quantity ?? null, pack?.unit ?? null, unitPrice?.value ?? null, unitPrice?.unit ?? null,
+        condition, input.conditionDescription ?? null, input.validFrom ?? null, input.validTo ?? null, input.loyaltyRequired ?? null, input.quantityRequirement ?? null],
     );
     // STEP_210: price changes do not create RecipeRevalidationTask, but may affect cost-constrained coverage.
     await this.markCoverageCostRefreshDirty(input.productId);
+    if (inserted.rows[0]?.id) await this.materializeSnapshot(input.productId, input.storeId);
+    return { inserted: Boolean(inserted.rows[0]?.id), observationId: inserted.rows[0]?.id ?? null, observationKey };
+  }
+
+  async materializeSnapshot(productId: string, storeId: string) {
+    const candidate = await this.db.query<any>(
+      `SELECT po.id, rs."regionId", po."retailerId", po."storeId", po.price::text, COALESCE(po.confidence, 1)::text AS confidence,
+              po."observedAt"::text, po."normalizedPackageQuantity"::text, po."normalizedPackageUnit",
+              po."unitPrice"::text, po."unitPriceUnit", po."priceCondition", po."sourceType", po."sourceName", po."dataClass"
+       FROM "PriceObservation" po JOIN "RetailStore" rs ON rs.id = po."storeId" JOIN "Retailer" r ON r.id = po."retailerId"
+       LEFT JOIN "RetailProduct" rp ON rp.id = po."retailProductId"
+       WHERE po."productId" = $1 AND po."storeId" = $2 AND r.active = true
+         AND (rp.id IS NULL OR (rp.status = 'ACTIVE' AND rp."mappingStatus" = 'MAPPED' AND rp."canonicalProductId" = po."productId"))
+         AND po.price >= 0 AND po."priceCondition" IN ('REGULAR','PROMOTIONAL')
+       ORDER BY CASE WHEN rs."locationScope" = 'STORE' THEN 3 WHEN rs."locationScope" = 'CITY' THEN 2 ELSE 1 END DESC,
+                CASE WHEN po."sourceType" = 'API' THEN 4 WHEN po."sourceType" = 'CSV' THEN 3 WHEN po."sourceType" = 'MANUAL' THEN 2 ELSE 1 END DESC,
+                po."observedAt" DESC, po.id ASC LIMIT 1`, [productId, storeId]);
+    const row = candidate.rows[0];
+    if (!row) return null;
+    const freshUntil = new Date(new Date(row.observedAt).getTime() + DEFAULT_FRESHNESS_WINDOW_MS);
+    await this.db.query(
+      `INSERT INTO "PriceSnapshot" ("productId", "regionId", "retailerId", "storeId", "evidenceObservationId", price, confidence, "observedAt", status, "freshUntil", "normalizedPackageQuantity", "normalizedPackageUnit", "unitPrice", "unitPriceUnit", "priceCondition", "sourceType", "sourceName")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::timestamptz,'CURRENT',$9::timestamptz,$10,$11,$12,$13,$14,$15,$16)
+       ON CONFLICT ("productId", "regionId") DO UPDATE SET "retailerId"=EXCLUDED."retailerId", "storeId"=EXCLUDED."storeId", "evidenceObservationId"=EXCLUDED."evidenceObservationId", price=EXCLUDED.price, confidence=EXCLUDED.confidence, "observedAt"=EXCLUDED."observedAt", status=EXCLUDED.status, "freshUntil"=EXCLUDED."freshUntil", "normalizedPackageQuantity"=EXCLUDED."normalizedPackageQuantity", "normalizedPackageUnit"=EXCLUDED."normalizedPackageUnit", "unitPrice"=EXCLUDED."unitPrice", "unitPriceUnit"=EXCLUDED."unitPriceUnit", "priceCondition"=EXCLUDED."priceCondition", "sourceType"=EXCLUDED."sourceType", "sourceName"=EXCLUDED."sourceName"`,
+      [productId, row.regionId, row.retailerId, row.storeId, row.id, Number(row.price), Number(row.confidence ?? 1), row.observedAt, freshUntil.toISOString(), row.normalizedPackageQuantity ? Number(row.normalizedPackageQuantity) : null, row.normalizedPackageUnit, row.unitPrice ? Number(row.unitPrice) : null, row.unitPriceUnit, row.priceCondition, row.sourceType, row.sourceName]);
+    return row.id;
+  }
+
+  async readReferencePrice(productId: string, options: { storeId?: string; regionId?: string; now?: Date } = {}): Promise<ReferencePriceEvidence> {
+    const params: unknown[] = [productId];
+    const clauses = ['ps."productId" = $1'];
+    if (options.storeId) { params.push(options.storeId); clauses.push(`ps."storeId" = $${params.length}`); }
+    if (options.regionId) { params.push(options.regionId); clauses.push(`ps."regionId" = $${params.length}`); }
+    const result = await this.db.query<any>(`SELECT ps."productId", ps.price::text, 'RUB' AS currency, ps."observedAt"::text, ps."freshUntil"::text, ps.status, ps."normalizedPackageQuantity"::text, ps."normalizedPackageUnit", ps."unitPrice"::text, ps."unitPriceUnit", ps."priceCondition", ps."retailerId", ps."storeId", rs."locationScope", ps."sourceType", ps."sourceName", ps."evidenceObservationId", po."dataClass" FROM "PriceSnapshot" ps LEFT JOIN "RetailStore" rs ON rs.id = ps."storeId" LEFT JOIN "PriceObservation" po ON po.id = ps."evidenceObservationId" WHERE ${clauses.join(' AND ')} ORDER BY ps."observedAt" DESC, ps.id ASC LIMIT 1`, params);
+    const row = result.rows[0];
+    if (!row) return { status: 'UNKNOWN', price: null, currency: 'RUB', normalizedUnitPrice: null, normalizedUnit: null, priceCondition: 'UNKNOWN_CONDITION', observedAt: null, freshUntil: null, productId };
+    const status = freshnessStatus({ observedAt: row.observedAt, dataClass: row.dataClass, now: options.now, condition: row.priceCondition });
+    return { status, price: Number(row.price), currency: row.currency, normalizedUnitPrice: row.unitPrice ? Number(row.unitPrice) : null, normalizedUnit: row.unitPriceUnit, priceCondition: row.priceCondition, observedAt: row.observedAt, freshUntil: row.freshUntil, productId: row.productId, retailerId: row.retailerId, storeId: row.storeId, locationScope: row.locationScope, sourceType: row.sourceType, sourceName: row.sourceName, observationId: row.evidenceObservationId };
   }
 
   /**
@@ -629,10 +707,13 @@ export class PriceIntelligenceRepository {
       retailerId: string | null;
       retailerName: string | null;
       retailerCode: string | null;
+      retailProductId: string | null;
+      priceCondition: PriceCondition;
+      dataClass: string | null;
     }>(
       `SELECT po."productId", po.price::text AS price, po.currency, po."sourceType", po."sourceName",
               COALESCE(po."collectedAt", po."observedAt")::text AS "collectedAt",
-              po."retailerId", r.name AS "retailerName", r.code AS "retailerCode"
+              po."retailerId", r.name AS "retailerName", r.code AS "retailerCode", po."retailProductId", po."priceCondition", po."dataClass"
        FROM "PriceObservation" po
        LEFT JOIN "Retailer" r ON r.id = po."retailerId"
        WHERE po."productId" = $1
@@ -652,6 +733,10 @@ export class PriceIntelligenceRepository {
       retailerId: row.retailerId ?? undefined,
       retailerName: row.retailerName ?? undefined,
       retailerCode: row.retailerCode ?? undefined,
+      status: freshnessStatus({ observedAt: row.collectedAt, dataClass: row.dataClass, condition: row.priceCondition }),
+      priceCondition: row.priceCondition,
+      observationId: undefined,
+      retailProductId: row.retailProductId ?? undefined,
     };
   }
 
@@ -678,6 +763,10 @@ export class PriceIntelligenceRepository {
         productId,
         storeId,
         retailerId,
+        externalSku: price.externalId ?? price.productKey ?? price.name,
+        productTitle: price.name,
+        packageValue: price.weight,
+        packageUnit: undefined,
         price: price.price,
         currency: price.currency,
         sourceType: provider.sourceType,

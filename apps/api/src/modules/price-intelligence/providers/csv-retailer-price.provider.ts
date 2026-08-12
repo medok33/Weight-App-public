@@ -62,9 +62,12 @@ export class CsvRetailerPriceProvider implements RetailerPriceProvider {
   async syncPrices(): Promise<SyncPrice[]> {
     return this.rows.map((row) => ({
       productKey: row.productKey,
+      externalId: row.productKey,
       price: row.price,
       currency: row.currency ?? 'RUB',
       collectedAt: row.collectedAt ? new Date(row.collectedAt).toISOString() : new Date().toISOString(),
+      weight: row.weight,
+      unit: row.unit,
     }));
   }
 
