@@ -407,9 +407,36 @@ describe('RP2-01B culinary roles / RetailProduct persistence', () => {
     );
     expect(Number(linked.rows[0]!.c)).toBeGreaterThan(0);
 
-    const quote = await prices.resolveForProduct(buckwheatId, { allowTestPrices: true });
-    expect(['RETAIL_PRODUCT_PRICE', 'LEGACY_PRODUCT_PRICE']).toContain(quote.provenance);
-    expect(quote.packagePriceRub).toBeGreaterThan(0);
+    // Stored fixture evidence remains auditable, but the canonical reader must not
+    // present it as a confirmed current price (PR30-005 / PRICE-01A contract).
+    const storedEvidence = await pool.query<{
+      id: string;
+      retailProductId: string | null;
+      observationKey: string;
+      sourceName: string;
+      retailSource: string | null;
+    }>(
+      `SELECT po.id::text AS id,
+              po."retailProductId"::text AS "retailProductId",
+              po."observationKey",
+              po."sourceName",
+              rp.source AS "retailSource"
+       FROM "PriceObservation" po
+       LEFT JOIN "RetailProduct" rp ON rp.id = po."retailProductId"
+       WHERE po."productId" = $1
+       ORDER BY po."observedAt" DESC, po.id ASC`,
+      [buckwheatId],
+    );
+    expect(storedEvidence.rows.length).toBeGreaterThan(0);
+    expect(storedEvidence.rows.some((row) => row.retailProductId != null)).toBe(true);
+    expect(storedEvidence.rows.some((row) => row.observationKey.length > 0)).toBe(true);
+    expect(storedEvidence.rows.some((row) => row.sourceName.toLowerCase().includes('fixture'))).toBe(true);
+    expect(storedEvidence.rows.some((row) => row.retailSource === 'FIXTURE')).toBe(true);
+
+    const canonicalQuote = await prices.resolveForProduct(buckwheatId);
+    expect(canonicalQuote.provenance).toBe('PRICE_MISSING');
+    expect(canonicalQuote.packagePriceRub).toBeNull();
+    expect(canonicalQuote.dataClass).toBe('PRODUCTION');
 
     // Production path must not treat FIXTURE retail observations as confirmed store evidence.
     const productionQuote = await prices.resolveForProduct(buckwheatId);
