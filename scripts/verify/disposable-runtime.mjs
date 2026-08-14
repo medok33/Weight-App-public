@@ -7,6 +7,7 @@ import { URL } from 'node:url';
 import { fileURLToPath } from 'node:url';
 import {
   RESULT,
+  createPnpmEnv,
   createInventory,
   redactText,
   resolvePnpmInvocation,
@@ -363,7 +364,7 @@ function pnpmCommand(args, env, timeoutMs, label) {
   const runner = resolvePnpmInvocation(env);
   return runBoundedProcess(runner.command, [...runner.argsPrefix, ...args], {
     cwd: root,
-    env,
+    env: createPnpmEnv(env),
     timeoutMs,
     label,
   });

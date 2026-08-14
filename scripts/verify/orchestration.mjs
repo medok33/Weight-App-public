@@ -75,6 +75,14 @@ export function resolvePnpmInvocation(env = process.env) {
   return { command: 'pnpm', argsPrefix: [] };
 }
 
+export function createPnpmEnv(env = process.env) {
+  return {
+    ...env,
+    CI: 'true',
+    npm_config_frozen_lockfile: 'true',
+  };
+}
+
 export function terminateProcessTree(pid) {
   if (!pid) return;
   if (process.platform === 'win32') {
