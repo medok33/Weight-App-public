@@ -1,0 +1,539 @@
+﻿{
+    "schemaVersion":  1,
+    "retailer":  "Magnit",
+    "sourceUrl":  "https://magnit.ru/catalog",
+    "fetchUrl":  "https://r.jina.ai/http://magnit.ru/catalog?nocache=1786711808879",
+    "store":  {
+                  "code":  "992301",
+                  "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                  "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                  "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+              },
+    "observedAt":  "2026-08-14T12:50:19.886Z",
+    "requestMs":  11017,
+    "rawSha256":  "6a1b38021451fa2ba4330214f94e532984b02c9a243070e709829b25b3544857",
+    "prices":  [
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РњР°СЂРјРµР»Р°Рґ Р§СѓРґРѕ-СЏРіРѕРґР° СЏСЂРєРёР№ РІРєСѓСЃ РјР°Р»РёРЅС‹ Р±СЂСѓСЃРЅРёРєРё С‡РµСЂРЅРѕР№ СЃРјРѕСЂРѕРґРёРЅС‹ 250Рі",
+                       "productId":  "1000140414",
+                       "regularPrice":  107.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "250Рі",
+                       "sourceUrl":  "http://magnit.ru/product/1000140414-chudo_yagoda_marmelad_mal_brus_cher_250g_fl_p_yasnaya_polyana_12?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџРµС‡РµРЅСЊРµ РЇС€РєРёРЅРѕ Р”Р¶РµРЅСЃ СЃРґРѕР±РЅРѕРµ 180Рі",
+                       "productId":  "1000087524",
+                       "regularPrice":  89.99,
+                       "promoPrice":  79.99,
+                       "currency":  "RUB",
+                       "unit":  "180Рі",
+                       "sourceUrl":  "http://magnit.ru/product/1000087524-yashkino_pechene_sdobnoe_dzhens_180g_kdv_minusinsk?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџРµС‡РµРЅСЊРµ Р‘Р°СЂС…Р°С‚РЅС‹Р№ РІРµС‡РµСЂ СЃРґРѕР±РЅРѕРµ 300Рі",
+                       "productId":  "1000287805",
+                       "regularPrice":  359.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "300Рі",
+                       "sourceUrl":  "http://magnit.ru/product/1000287805-pechene_sdobnoe_barkhatnyy_vecher_0_3kg_0_3kg_korreks_sp_gm?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РҐР»РµР±С†С‹ Baker House РС‚Р°Р»СЊСЏРЅСЃРєРёРµ СЃ СЃРµРјРµРЅР°РјРё С‚С‹РєРІС‹ 250Рі",
+                       "productId":  "1000294703",
+                       "regularPrice":  169.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "250Рі",
+                       "sourceUrl":  "http://magnit.ru/product/1000294703-khlebtsy_baker_house_italyanskie_khlebtsy_s_semenami_tykvy_250g?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџРµС‡РµРЅСЊРµ РѕРІСЃСЏРЅРѕРµ Рє РєРѕС„Рµ Р”РѕРјР°С€РЅРµРµ 350Рі",
+                       "productId":  "1000336745",
+                       "regularPrice":  169.99,
+                       "promoPrice":  469.99,
+                       "currency":  "RUB",
+                       "unit":  "350Рі",
+                       "sourceUrl":  "http://magnit.ru/product/1000336745-pechene_sladkaya_sloboda_domashnee_ovsyanoe_k_kofe_350g?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџРµС‡РµРЅСЊРµ РћРІСЃСЏРЅРѕРµ 5 Р·Р»Р°РєРѕРІ 250Рі",
+                       "productId":  "1000336273",
+                       "regularPrice":  149.99,
+                       "promoPrice":  132.99,
+                       "currency":  "RUB",
+                       "unit":  "250Рі",
+                       "sourceUrl":  "http://magnit.ru/product/1000336273-polet_pechene_ovsyanoe_ovsyanoe_5_zlakov_250g_floupak_ooo_konditerskoe_predpriyatie_polet_16?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РљСЂРµРј РґР»СЏ С‚РµР»Р° Sos Aevit By Librederm РІРѕСЃСЃС‚Р°РЅР°РІР»РёРІР°СЋС‰РёР№ 200РјР»",
+                       "productId":  "1000461989",
+                       "regularPrice":  529.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "200РјР»",
+                       "sourceUrl":  "http://magnit.ru/product/1000461989-aevit_by_librederm_krem_sos_vosstanavlivayushchiy_200ml?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџР°СЃС‚Р° РЎР°РЅС‚Р° Р‘СЂРµРјРѕСЂ РђРЅС‚Р°СЂРєС‚РёРє РљСЂРёР»СЊ СЃР»Р°РґРєРёР№ С‡РёР»Рё 150Рі",
+                       "productId":  "1000576832",
+                       "regularPrice":  146.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "150Рі",
+                       "sourceUrl":  "http://magnit.ru/product/1000576832-santa_bremor_pasta_antarktik_kril_slad_chili_150g_pl_ban?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РћС‚РєСЂС‹С‚РєР° РґРІРѕР№РЅР°СЏ РђСЂС‚ РґРёР·Р°Р№РЅ",
+                       "productId":  "1018443148",
+                       "regularPrice":  79.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/1018443148-otkrytka_dvoynaya_kod_n_art_dizayn?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РљРѕСЃРјРµС‚РёС‡РµСЃРєРёР№ РІР°Р·РµР»РёРЅ РґР»СЏ СЃРјСЏРіС‡РµРЅРёСЏ Рё Р·Р°С‰РёС‚С‹ РєРѕР¶Рё Fito 10Рі",
+                       "productId":  "1000549170",
+                       "regularPrice":  42.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "10Рі",
+                       "sourceUrl":  "http://magnit.ru/product/1000549170-fito_vazelin_kosmeticheskiy_dlya_smyagcheniya_i_zashchity_kozhi_10g?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РљР°РїСѓСЃС‚Р° РјРѕСЂСЃРєР°СЏ Р СѓСЃСЃРєРѕРµ РјРѕСЂРµ РјР°СЂРёРЅРѕРІР°РЅРЅР°СЏ РїРѕ-РєРѕСЂРµР№СЃРєРё СЃ РіСЂРёР±Р°РјРё 200Рі",
+                       "productId":  "1000482341",
+                       "regularPrice":  79.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "200Рі",
+                       "sourceUrl":  "http://magnit.ru/product/1000482341-russkoe_more_kapusta_morskaya_marin_po_kor_grib_200g_m_vak?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "Р”РµРєРѕСЂР°С‚РёРІРЅС‹Р№ Р±Р°РЅС‚ Р—РІРµР·РґР° Р Р°РґСѓРіР° d-6.35СЃРј РІ Р°СЃСЃРѕСЂС‚РёРјРµРЅС‚Рµ",
+                       "productId":  "4000029038",
+                       "regularPrice":  8.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000029038-bant_zvezda_raduga_1_sht_d_6_35sm_si_30_150?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РћС‚РєСЂС‹С‚РєР° РґРІРѕР№РЅР°СЏ РђСЂС‚ РґРёР·Р°Р№РЅ",
+                       "productId":  "4000088931",
+                       "regularPrice":  139.99,
+                       "promoPrice":  89.99,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000088931-otkrytka_dvoynaya_kod_250_art_dizayn?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџР°РєРµС‚ РџР°РєРµС‚РёРєРѕ РїРѕРґР°СЂРѕС‡РЅС‹Р№ РјР°С‚РѕРІР°СЏ Р»Р°РјРёРЅР°С†РёСЏ S РџР”Р› M 14.6*11.4СЃРј РІ Р°СЃСЃРѕСЂС‚РёРјРµРЅС‚Рµ",
+                       "productId":  "4000091727",
+                       "regularPrice":  49.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000091727-paket_podar_14_6kh11_4_sm_mat_lam_s_pdl_m_paketiko?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РљР»РµР№ Staff РєР°РЅС†РµР»СЏСЂСЃРєРёР№ Р°РїРїР»РёРєР°С‚РѕСЂ 30РјР»",
+                       "productId":  "4000092987",
+                       "regularPrice":  29.99,
+                       "promoPrice":  19.99,
+                       "currency":  "RUB",
+                       "unit":  "30РјР»",
+                       "sourceUrl":  "http://magnit.ru/product/4000092987-kley_kantselyarskiy_staff_30ml_applikator?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "Р›Р°СЃС‚РёРє + С‚РѕС‡РёР»РєР° Ebot 2РІ1",
+                       "productId":  "4000098868",
+                       "regularPrice":  269.99,
+                       "promoPrice":  149.99,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000098868-lastik_tochilka_skrepyshi_ebot_2v1_shb_si?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РќР°СЃС‚РѕР»СЊРЅРѕРµ РїРѕРєСЂС‹С‚РёРµ РџСЂРѕС„-РїСЂРµСЃСЃ Рђ4+ РїР»Р°СЃС‚РёРє РІ Р°СЃСЃРѕСЂС‚РёРјРµРЅС‚Рµ",
+                       "productId":  "4000086929",
+                       "regularPrice":  44.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000086929-nastolnoe_pokrytie_a4_plastik_v_ass_prof_press?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РћС‚РєСЂС‹С‚РєР° РґРІРѕР№РЅР°СЏ РђСЂС‚ Р”РёР·Р°Р№РЅ 230",
+                       "productId":  "4000088932",
+                       "regularPrice":  79.99,
+                       "promoPrice":  49.99,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000088932-otkrytka_dvoynaya_kod_230_art_dizayn?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "Р“СЂРёС„РµР»Рё РґР»СЏ РјРµС…Р°РЅРёС‡РµСЃРєРёС… РєР°СЂР°РЅРґР°С€РµР№ РљРѕРјСѓСЃ Pilot 0.5РјРј HB 12С€С‚",
+                       "productId":  "4000102719",
+                       "regularPrice":  79.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "12С€С‚",
+                       "sourceUrl":  "http://magnit.ru/product/4000102719-grifeli_d_mekhanich_karand_pilot_12sht_0_5mm_hb_komus?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџР°РєРµС‚ РџР°РєРµС‚РёРєРѕ РїРѕРґР°СЂРѕС‡РЅС‹Р№ LV РњРёР»Р°С€РєРё 31.5*25.5*11СЃРј РІ Р°СЃСЃРѕСЂС‚РёРјРµРЅС‚Рµ",
+                       "productId":  "4000105015",
+                       "regularPrice":  115.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000105015-paket_podar_32_7kh26_4kh13_6_lv_milashki_paketiko?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџР°РєРµС‚ РџР°РєРµС‚РёРєРѕ РїРѕРґР°СЂРѕС‡РЅС‹Р№ РґР»СЏ Р±СѓС‚С‹Р»РѕРє СЃ С‚РёСЃРЅРµРЅРёРµРј Р’РµС‡РµСЂРёРЅРєР° 36*12*9.5СЃРј РІ Р°СЃСЃРѕСЂС‚РёРјРµРЅС‚Рµ",
+                       "productId":  "4000105018",
+                       "regularPrice":  129.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000105018-paket_podar_d_but_36kh12kh7_tisn_vecherinka_paketiko?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџР°РєРµС‚ РїРѕРґР°СЂРѕС‡РЅС‹Р№ РџР°РєРµС‚РёРєРѕ СЃ Р±Р»РµСЃС‚РєР°РјРё РЎР‘Р‘08 РњРёР»Р°С€РєРё 14*19*11СЃРј РІ Р°СЃСЃРѕСЂС‚РёРјРµРЅС‚Рµ",
+                       "productId":  "4000105020",
+                       "regularPrice":  89.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000105020-paket_podar_14kh19kh11_s_blest_sbb08_milashki_paketiko?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџР°РєРµС‚ РџР°РєРµС‚РёРєРѕ РїРѕРґР°СЂРѕС‡РЅС‹Р№ LV Р›СѓРЅР°РїР°СЂРє 32.7*26.4*13.6СЃРј РІ Р°СЃСЃРѕСЂС‚РёРјРµРЅС‚Рµ",
+                       "productId":  "4000105039",
+                       "regularPrice":  129.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000105039-paket_podar_32_7kh26_4kh13_6_lv_lunapark_paketiko?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РџР°РєРµС‚ РїРѕРґР°СЂРѕС‡РЅС‹Р№ РџР°РєРµС‚РёРєРѕ Р›СѓРЅР°РїР°СЂРє XL 41*31*10СЃРј РІ Р°СЃСЃРѕСЂС‚РёРјРµРЅС‚Рµ",
+                       "productId":  "4000105041",
+                       "regularPrice":  139.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000105041-paket_podar_41kh31kh10_xl_lunapark_paketiko?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РЎС‚РµР»СЊРєРё Salton Thermo Control Р·РёРјРЅРёРµ С‚СЂРµС…СЃР»РѕР№РЅС‹Рµ СЃ РїРѕРІС‹С€РµРЅРЅРѕР№ С‚РµРїР»РѕРёР·РѕР»СЏС†РёРµР№",
+                       "productId":  "4000061749",
+                       "regularPrice":  499.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000061749-salton_stelki_zimnie_trekhsloynye_yunibrend_6_24?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РЁРЅСѓСЂРєРё РґР»СЏ РѕР±СѓРІРё Salton 90СЃРј",
+                       "productId":  "4000061750",
+                       "regularPrice":  129,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000061750-salton_shnurki_dlya_obuvi_90_sm_ros_distr_6_36?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "Р›Р°СЃС‚РёРє + С‚РѕС‡РёР»РєР° РљРѕР»СЊС†Рѕ 2РІ1 SV-RING8KTKR",
+                       "productId":  "4000098869",
+                       "regularPrice":  299.99,
+                       "promoPrice":  169.99,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000098869-lastik_tochilka_skrepyshi_koltso_2v1_shb_si?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РўРѕС‡РёР»РєР° РњРѕСЏ С†РµРЅР° РІ Р°СЃСЃРѕСЂС‚РёРјРµРЅС‚Рµ",
+                       "productId":  "4000078737",
+                       "regularPrice":  4.99,
+                       "promoPrice":  null,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/4000078737-tochilka_moya_tsena_1_sht_si?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   },
+                   {
+                       "retailer":  "Magnit",
+                       "store":  {
+                                     "code":  "992301",
+                                     "city":  "РљСЂР°СЃРЅРѕРґР°СЂ",
+                                     "region":  "РљСЂР°СЃРЅРѕРґР°СЂСЃРєРёР№ РєСЂР°Р№",
+                                     "address":  "СѓР». РёРј. Р”Р·РµСЂР¶РёРЅСЃРєРѕРіРѕ, РґРѕРј в„– 42"
+                                 },
+                       "product":  "РћС‚РєСЂС‹С‚РєР° РґРІРѕР№РЅР°СЏ РђСЂС‚РёС†РµРЅС‚СЂ 230",
+                       "productId":  "8000009017",
+                       "regularPrice":  79.99,
+                       "promoPrice":  4.99,
+                       "currency":  "RUB",
+                       "unit":  "package",
+                       "sourceUrl":  "http://magnit.ru/product/8000009017-otkrytka_dvoynaya_kod_230_artitsentr?shopCode=992301\u0026shopType=dostavka",
+                       "observedAt":  "2026-08-14T12:50:19.886Z",
+                       "method":  "public HTML via bounded text extraction proxy"
+                   }
+               ]
+}
