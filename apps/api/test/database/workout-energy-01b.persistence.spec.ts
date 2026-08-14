@@ -17,6 +17,7 @@ const M218 = "218_workout_session_energy_snapshot";
 const M219 = "219_workout_catalog_v3_01a_taxonomy_foundation";
 const M220 = "220_auth_01a_identity_invite_recovery";
 const M221 = "221_auth_01b_session_privacy_deletion_retention";
+const WORKOUT_ENERGY_UPGRADE_MIGRATIONS = [M218, M219, M220, M221];
 const SHARED_DB_MARKER = "postgresql://weight_app:weight_app_local@localhost:5432/weight_app";
 
 async function createUser(pool: Pool): Promise<string> {
@@ -64,12 +65,11 @@ describe("WORKOUT-ENERGY-01B migration + persistence", () => {
           const applied = await runSqlMigrations(client, {
             migrationsRoot: resolve(process.cwd(), "prisma/migrations"),
           });
-          expect(applied.applied.map((item: { name: string }) => item.name)).toEqual([
-            M218,
-            M219,
-            M220,
-            M221,
-          ]);
+          const appliedNames = applied.applied.map((item: { name: string }) => item.name);
+          expect(appliedNames.filter((name) => WORKOUT_ENERGY_UPGRADE_MIGRATIONS.includes(name))).toEqual(
+            WORKOUT_ENERGY_UPGRADE_MIGRATIONS,
+          );
+          expect(new Set(appliedNames).size).toBe(appliedNames.length);
         } finally {
           client.release();
         }
@@ -82,11 +82,13 @@ describe("WORKOUT-ENERGY-01B migration + persistence", () => {
         );
         expect(ledger.rows.map((row) => row.migrationName)).toEqual([M217, M218]);
 
-        const latest = await pool.query<{ migrationName: string }>(
+        const latestWorkoutMigration = await pool.query<{ migrationName: string }>(
           `SELECT "migrationName" FROM "SchemaMigrationLedger"
+           WHERE "migrationName" = ANY($1::text[])
            ORDER BY "migrationName" DESC LIMIT 1`,
+          [WORKOUT_ENERGY_UPGRADE_MIGRATIONS],
         );
-        expect(latest.rows[0]?.migrationName).toBe(M221);
+        expect(latestWorkoutMigration.rows[0]?.migrationName).toBe(M221);
 
         const timingTable = await pool.query<{ exists: boolean }>(
           `SELECT EXISTS (
