@@ -14,6 +14,9 @@ TOTAL_STORES_PROVEN=1
 LIVE_PRICE_COUNT=29
 SECOND_LIVE_RUN_PER_STORE=PASS for the one proven Magnit store
 STORE_DISCOVERY_IMPLEMENTED=YES (bounded, read-only fail-closed tool; no identity fabricated)
+PYATEROCHKA_PUBLIC_FLOW_IMPLEMENTED=YES (geocode -> nearest store/SAP -> store catalog search; no cookies or credentials)
+PYATEROCHKA_CURRENT_RUN=FAIL_CLOSED (2026-08-14: `5ka.ru/api/maps/geocode` returned HTTP 403 before a store or price was read)
+NETWORK_EXIT_CHECK=Armenia / Yerevan (current VPN exit, not a Russian exit)
 REGIONAL_PRICE_SEPARATION=PASS for captured Magnit record; broader coverage not proven
 HARDCODED_SINGLE_STORE_ONLY=NO (collector accepts --region, --city, --store; default preserves prior proven run)
 FIXTURE_AS_LIVE=NO
@@ -24,7 +27,7 @@ REGION_STORE_MATRIX=
 
 FAILED_DOORS=
 - Magnit | shops discovery endpoint | bounded proxy request failed/timeout | no retries or bypass; discovery tool added | unresolved
-- Pyaterochka | 5ka.ru / 5d.5ka.ru / api.5ka.ru | timeout/interstitial from sandbox | bounded proxy and fail-closed collector | unresolved
+- Pyaterochka | 5ka.ru / 5d.5ka.ru | current ordinary public request returned HTTP 403 at geocoding; no store/SAP or price accepted | direct official-contract collector fails closed | unresolved; requires a permitted route where the retailer accepts the request
 - Yarche | yarcheplus.ru | catalog can be read but store identity not proven | fail-closed collector | unresolved
 
 COLLECTOR_PATHS=tools/price-research/retailer-store-discovery.mjs; tools/price-research/magnit-live-collector.mjs; tools/price-research/pyaterochka-live-collector.mjs; tools/price-research/yarche-live-collector.mjs
