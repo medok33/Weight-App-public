@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "status": "partial",
+  "entries": [
+    { "retailer": "Magnit", "region": "Краснодарский край", "city": "Краснодар", "storeId": "992301", "discoveryMethod": "catalog URL shopCode and product source URLs", "prices": 29, "secondRun": true }
+  ],
+  "requiredButUnproven": ["Magnit regional discovery", "Pyaterochka", "Yarche"]
+}

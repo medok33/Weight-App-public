@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "status": "partial",
+  "retailers": ["Magnit"],
+  "prices": [],
+  "note": "No unproven or fixture prices copied into this cross-retailer dataset. See price-02r-glm-live-prices.json for the independently captured Magnit dataset."
+}
