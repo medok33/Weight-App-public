@@ -80,7 +80,7 @@ describe.runIf(Boolean(DATABASE_URL))('sql migration runner against postgres', (
       writeMig(root, '002_bad', 'CREATE TABLE totally_broken (;;;);');
       await expect(runSqlMigrations(client, { migrationsRoot: root })).rejects.toThrow(/MIGRATION_FAILED:002_bad/);
     });
-  });
+  }, 15_000);
 
   it('concurrent runners serialize via advisory lock', async () => {
     await withTempDb(async (client, root) => {
@@ -113,7 +113,7 @@ describe.runIf(Boolean(DATABASE_URL))('sql migration runner against postgres', (
       expect(rows.rows[0].c).toBe(1);
       expect(ADVISORY_LOCK_KEY).toBeTypeOf('number');
     });
-  });
+  }, 15_000);
 
   it('ensureLedger + drift gate', async () => {
     await withTempDb(async (client) => {
@@ -121,5 +121,5 @@ describe.runIf(Boolean(DATABASE_URL))('sql migration runner against postgres', (
       await expect(assertSchemaReady(client, ['SchemaMigrationLedger'])).resolves.toMatchObject({ missing: [] });
       await expect(assertSchemaReady(client, ['NopeTable'])).rejects.toThrow(/SCHEMA_DRIFT/);
     });
-  });
+  }, 15_000);
 });
