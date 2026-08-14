@@ -16,6 +16,7 @@ import {
   runStagePlan,
   terminateProcessTree,
 } from './orchestration.mjs';
+import { assertWebDependencyTopology } from './web-dependency-topology.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const composeFile = resolve(root, 'docker/compose.disposable.yaml');
@@ -704,7 +705,10 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     {
       name: 'web verification', timeoutMs: STAGE_BOUNDS.web,
       command: 'web Vitest + production Next build',
-      action: () => commandSequence([['--filter', 'web', 'test'], ['--filter', 'web', 'build']], env, STAGE_BOUNDS.web, 'web verification'),
+      action: async () => {
+        assertWebDependencyTopology(root);
+        return commandSequence([['--filter', 'web', 'test'], ['--filter', 'web', 'build']], env, STAGE_BOUNDS.web, 'web verification');
+      },
     },
     {
       name: 'worker verification', timeoutMs: STAGE_BOUNDS.worker,
