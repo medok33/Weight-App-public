@@ -9,6 +9,8 @@ const REQUIRED_ALIASES: Record<string, string[]> = {
 };
 
 const REQUIRED_COLUMNS = Object.keys(REQUIRED_ALIASES);
+const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
+const MAX_IMPORT_ROWS = 10_000;
 
 function splitCsvLine(line: string): string[] {
   const cells: string[] = [];
@@ -80,7 +82,9 @@ function parseRow(
 
 /** Validates catalog CSV/XLSX-exported TSV without failing on first bad row. */
 export function validateCsvCatalog(csv: string): CsvValidationResult & { rows: CsvCatalogRow[] } {
+  if (Buffer.byteLength(csv, 'utf8') > MAX_IMPORT_BYTES) throw new Error('PRICE_IMPORT_PAYLOAD_TOO_LARGE');
   const lines = csv.trim().split(/\r?\n/).filter(Boolean);
+  if (lines.length - 1 > MAX_IMPORT_ROWS) throw new Error('PRICE_IMPORT_ROW_LIMIT_EXCEEDED');
   const errors: CsvValidationError[] = [];
 
   if (lines.length < 2) {

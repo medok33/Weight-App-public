@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import {
   RESULT,
   addInventoryStage,
+  createPnpmEnv,
   createInventory,
   finalizeInventory,
   redactText,
@@ -124,4 +125,53 @@ test('cleanup failure makes an otherwise passing run fail', async () => {
     cleanup: async () => ({ result: RESULT.FAIL, exitCode: 9, reason: 'owned resources remain' }),
   }), /VERIFY_CLEANUP_FAIL/);
   assert.equal(runInventory.cleanupResult.result, RESULT.FAIL);
+});
+
+test('pnpm child contract is deterministic for a non-TTY polluted modules directory', async () => {
+  const modulesDirectory = resolve(tmpdir(), `weight-app-pnpm-contract-${process.pid}-${Date.now()}`);
+  mkdirSync(modulesDirectory, { recursive: true });
+  const fixture = [
+    "const fs = require('node:fs');",
+    `if (!fs.existsSync(${JSON.stringify(modulesDirectory)})) process.exit(20);`,
+    "if (process.stdin.isTTY) process.exit(21);",
+    "if (process.env.CI !== 'true' || process.env.npm_config_frozen_lockfile !== 'true') { console.error('interactive purge confirmation requested'); process.exit(22); }",
+    "if (process.env.FAIL_INSTALL === '1') process.exit(23);",
+    "process.stdout.write('non-tty install proceeded without confirmation');",
+  ].join('');
+  const oldEnv = { ...process.env, CI: '', npm_config_frozen_lockfile: '', FAIL_INSTALL: '' };
+  const correctedEnv = createPnpmEnv(oldEnv);
+  const oldResult = await runBoundedProcess(process.execPath, ['-e', fixture], {
+    cwd: modulesDirectory,
+    env: oldEnv,
+    timeoutMs: 1000,
+    output: silent,
+    errorOutput: silent,
+  });
+  assert.equal(oldResult.exitCode, 22, 'old non-TTY contract must fail at the interactive purge boundary');
+  const first = await runBoundedProcess(process.execPath, ['-e', fixture], {
+    cwd: modulesDirectory,
+    env: correctedEnv,
+    timeoutMs: 1000,
+    output: silent,
+    errorOutput: silent,
+  });
+  const second = await runBoundedProcess(process.execPath, ['-e', fixture], {
+    cwd: modulesDirectory,
+    env: correctedEnv,
+    timeoutMs: 1000,
+    output: silent,
+    errorOutput: silent,
+  });
+  assert.equal(first.exitCode, 0);
+  assert.equal(second.exitCode, 0, 'repeated non-TTY execution must remain safe');
+  const genuineFailure = await runBoundedProcess(process.execPath, ['-e', fixture], {
+    cwd: modulesDirectory,
+    env: { ...correctedEnv, FAIL_INSTALL: '1' },
+    timeoutMs: 1000,
+    output: silent,
+    errorOutput: silent,
+  });
+  assert.equal(genuineFailure.exitCode, 23, 'genuine install failures must remain non-zero');
+  assert.equal(existsSync(modulesDirectory), true, 'shared dependency directories are never targeted');
+  rmSync(modulesDirectory, { recursive: true, force: true });
 });

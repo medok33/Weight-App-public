@@ -64,6 +64,7 @@ RUN mkdir -p /scripts/verify \
  && chown -R weightapp:weightapp /scripts
 COPY --from=build --chown=weightapp:weightapp /app/scripts/verify/disposable-runtime.mjs /scripts/verify/disposable-runtime.mjs
 COPY --from=build --chown=weightapp:weightapp /app/scripts/verify/orchestration.mjs /scripts/verify/orchestration.mjs
+COPY --from=build --chown=weightapp:weightapp /app/scripts/verify/web-dependency-topology.mjs /scripts/verify/web-dependency-topology.mjs
 
 USER weightapp:weightapp
 

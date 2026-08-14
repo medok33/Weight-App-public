@@ -1,9 +1,11 @@
+import type { PriceCondition, ReferencePriceEvidence } from './reference-price.core';
+
 /** Stable provenance for price rows — DB never encodes a specific retailer API. */
 export type PriceSourceType = 'API' | 'CSV' | 'MANUAL' | 'PARSER';
 
 export type Retailer = { id: string; key: string; name: string; type: string };
 export type Region = { id: string; code: string };
-export type RetailStore = { id: string; retailerId: string; regionId: string; name: string };
+export type RetailStore = { id: string; retailerId: string; regionId: string; name: string; city?: string; address?: string; locationScope?: string };
 export type ExternalProduct = { id: string; source: string; externalId: string; name: string };
 export type ProductMatch = { productId: string; externalProductId: string; confidence: number };
 
@@ -20,6 +22,14 @@ export type PriceObservation = {
   source?: string;
   observedAt: string;
   collectedAt: string;
+  retailProductId?: string;
+  observationKey?: string;
+  normalizedPackageQuantity?: number;
+  normalizedPackageUnit?: string;
+  unitPrice?: number;
+  unitPriceUnit?: string;
+  priceCondition?: PriceCondition;
+  dataClass?: string;
 };
 
 export type PriceSnapshot = {
@@ -31,6 +41,8 @@ export type PriceSnapshot = {
   sourceType?: PriceSourceType;
   sourceName?: string;
 };
+
+export type PriceEvidenceRead = ReferencePriceEvidence;
 
 export type PriceImportRow = {
   productId: string;

@@ -12,6 +12,7 @@ import {
   ProductNutritionResolver,
   ProductRestrictionResolver,
 } from '../../src/modules/product-catalog/application/product-foundation.resolvers';
+import { observationIdentity } from '../../src/modules/price-intelligence/domain/reference-price.core';
 
 const connectionString = process.env.DATABASE_URL ?? 'postgresql://weight_app:weight_app_local@localhost:5432/weight_app';
 const pool = new Pool({ connectionString });
@@ -41,6 +42,45 @@ describe('STEP_092 meal dish detail persistence', () => {
       'step092-b@test.local',
     ]);
     await catalog.ensureCatalog();
+    const evidence = await pool.query<{
+      productId: string;
+      storeId: string;
+      retailerId: string | null;
+      retailProductId: string | null;
+      price: string;
+      currency: string;
+      sourceType: string;
+      sourceName: string;
+      observedAt: string;
+      observationKey: string;
+      dataClass: string;
+    }>(
+      `SELECT "productId", "storeId", "retailerId", "retailProductId", price::text, currency,
+              "sourceType", "sourceName",
+              to_char("observedAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "observedAt",
+              "observationKey", "dataClass"
+       FROM "PriceObservation"
+       WHERE source = 'step092_fixture'
+       ORDER BY "observedAt" ASC
+       LIMIT 1`,
+    );
+    expect(evidence.rows[0]).toBeDefined();
+    const row = evidence.rows[0]!;
+    expect(row.observationKey).toBe(
+      observationIdentity({
+        productId: row.productId,
+        storeId: row.storeId,
+        retailerId: row.retailerId,
+        retailProductId: row.retailProductId,
+        sourceType: row.sourceType,
+        sourceName: row.sourceName,
+        price: Number(row.price),
+        currency: row.currency,
+        observedAt: row.observedAt,
+        priceCondition: 'REGULAR',
+      }),
+    );
+    expect(row.dataClass).toBe('FIXTURE');
   }, 120_000);
 
   afterAll(async () => {

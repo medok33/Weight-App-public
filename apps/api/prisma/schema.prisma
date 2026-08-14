@@ -1747,7 +1747,7 @@ model Retailer {
 }
 
 model Region { id String @id @default(uuid()) @db.Uuid; code String @unique; stores RetailStore[]; snapshots PriceSnapshot[] }
-model RetailStore { id String @id @default(uuid()) @db.Uuid; retailerId String @db.Uuid; regionId String @db.Uuid; name String; retailer Retailer @relation(fields: [retailerId], references: [id]); region Region @relation(fields: [regionId], references: [id]); observations PriceObservation[]; @@index([retailerId]); @@index([regionId]) }
+model RetailStore { id String @id @default(uuid()) @db.Uuid; retailerId String @db.Uuid; regionId String @db.Uuid; name String; city String?; address String?; externalStoreId String?; locationScope String @default("REGION"); retailer Retailer @relation(fields: [retailerId], references: [id]); region Region @relation(fields: [regionId], references: [id]); observations PriceObservation[]; @@index([retailerId]); @@index([regionId]); @@unique([retailerId, externalStoreId]) }
 model ExternalProduct {
   id             String          @id @default(uuid()) @db.Uuid
   retailerId     String          @db.Uuid
@@ -1776,6 +1776,18 @@ model PriceObservation {
   observedPackageUnit    String?
   availability           String?
   confidence             Decimal?       @db.Decimal(5, 4)
+  observationKey         String         @unique
+  normalizedPackageQuantity Decimal?     @db.Decimal(12, 4)
+  normalizedPackageUnit   String?
+  unitPrice              Decimal?       @db.Decimal(12, 4)
+  unitPriceUnit          String?
+  priceCondition         String         @default("REGULAR")
+  regularPrice           Decimal?       @db.Decimal(10, 2)
+  conditionDescription   String?
+  validFrom              DateTime?
+  validTo                DateTime?
+  loyaltyRequired        Boolean?
+  quantityRequirement    Decimal?       @db.Decimal(12, 4)
   price                  Decimal        @db.Decimal(10, 2)
   currency               String         @default("RUB")
   sourceType             String         @default("MANUAL")
@@ -1793,7 +1805,7 @@ model PriceObservation {
   @@index([retailProductId, collectedAt])
 }
 
-model PriceSnapshot { id String @id @default(uuid()) @db.Uuid; productId String @db.Uuid; regionId String @db.Uuid; price Decimal @db.Decimal(10,2); confidence Decimal @db.Decimal(5,4); observedAt DateTime; region Region @relation(fields: [regionId], references: [id]); @@unique([productId, regionId]); @@index([regionId, observedAt]) }
+model PriceSnapshot { id String @id @default(uuid()) @db.Uuid; productId String @db.Uuid; regionId String @db.Uuid; retailerId String? @db.Uuid; storeId String? @db.Uuid; evidenceObservationId String? @db.Uuid; price Decimal @db.Decimal(10,2); confidence Decimal @db.Decimal(5,4); observedAt DateTime; status String @default("CURRENT"); freshUntil DateTime?; normalizedPackageQuantity Decimal? @db.Decimal(12,4); normalizedPackageUnit String?; unitPrice Decimal? @db.Decimal(12,4); unitPriceUnit String?; priceCondition String @default("REGULAR"); sourceType String?; sourceName String?; region Region @relation(fields: [regionId], references: [id]); @@unique([productId, regionId, storeId]); @@index([regionId, observedAt]); @@index([evidenceObservationId]) }
 
 /// STEP_175 — pantry inventory (migration 159_pantry)
 model Pantry {

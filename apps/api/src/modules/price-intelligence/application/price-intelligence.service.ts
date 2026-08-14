@@ -24,6 +24,10 @@ export class PriceIntelligenceService {
     return estimatePrice(observations, fallback);
   }
 
+  async readReferencePrice(productId: string, options: { storeId?: string; regionId?: string } = {}) {
+    return this.repository.readReferencePrice(productId, options);
+  }
+
   review(observations: PriceObservation[]) {
     return reviewQueue(observations);
   }

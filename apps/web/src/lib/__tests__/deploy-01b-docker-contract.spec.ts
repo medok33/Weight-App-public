@@ -36,6 +36,9 @@ describe('DEPLOY-01B docker packaging contracts', () => {
     expect(dockerfile).toContain(
       'COPY --from=build --chown=weightapp:weightapp /app/scripts/verify/orchestration.mjs /scripts/verify/orchestration.mjs',
     );
+    expect(dockerfile).toContain(
+      'COPY --from=build --chown=weightapp:weightapp /app/scripts/verify/web-dependency-topology.mjs /scripts/verify/web-dependency-topology.mjs',
+    );
     expect(dockerfile).not.toMatch(
       /COPY --from=build[^\n]*\.\/scripts\/verify\/disposable-runtime\.mjs/,
     );

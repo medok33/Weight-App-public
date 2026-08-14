@@ -6,6 +6,8 @@ import type {
   ShoppingListRecord,
 } from '../domain/shopping-list.types';
 import type { AggregatedShoppingItem } from '../domain/shopping-list.policy';
+import { observationIdentity } from '../../price-intelligence/domain/reference-price.core';
+import { readReferencePriceWithQuery } from '../../price-intelligence/infrastructure/reference-price.reader';
 
 type ItemRow = {
   id: string;
@@ -98,7 +100,10 @@ export class ShoppingListRepository {
     const retailerId = retailer.rows[0]?.id;
     if (!regionId || !retailerId) throw new Error('PRICE_CATALOG_STORE_FAILED');
     const store = await run<{ id: string }>(
-      'INSERT INTO "RetailStore" ("retailerId", "regionId", name) VALUES ($1, $2, $3) RETURNING id',
+      `INSERT INTO "RetailStore" ("retailerId", "regionId", name, "externalStoreId", "locationScope")
+       VALUES ($1, $2, $3, 'SCOPE:UNKNOWN:CATALOG_FALLBACK', 'UNKNOWN')
+       ON CONFLICT ("retailerId", "externalStoreId") WHERE "externalStoreId" IS NOT NULL
+       DO UPDATE SET name=EXCLUDED.name RETURNING id`,
       [retailerId, regionId, 'Catalog fallback store'],
     );
     const storeId = store.rows[0]?.id;
@@ -119,54 +124,44 @@ export class ShoppingListRepository {
     retailerName?: string;
     retailerCode?: string;
     dataClass?: string;
+    status: 'CURRENT' | 'STALE' | 'UNKNOWN' | 'APPROXIMATE';
   }> {
     const run = this.q(query);
-    const latest = await run<{
-      price: string;
-      sourceType: string | null;
-      sourceName: string | null;
-      collectedAt: string;
-      retailerName: string | null;
-      retailerCode: string | null;
-      dataClass: string | null;
-    }>(
-      `SELECT po.price::text AS price,
-              COALESCE(po."sourceType", 'MANUAL') AS "sourceType",
-              COALESCE(po."sourceName", po.source, 'unknown') AS "sourceName",
-              COALESCE(po."collectedAt", po."observedAt")::text AS "collectedAt",
-              r.name AS "retailerName",
-              r.code AS "retailerCode",
-              COALESCE(po."dataClass", 'PRODUCTION') AS "dataClass"
-       FROM "PriceObservation" po
-       LEFT JOIN "Retailer" r ON r.id = po."retailerId"
-       WHERE po."productId" = $1
-       ORDER BY COALESCE(po."collectedAt", po."observedAt") DESC
-       LIMIT 1`,
-      [productId],
-    );
-    if (latest.rows[0]) {
+    const latest = await readReferencePriceWithQuery(run, productId);
+    if (latest.status === 'CURRENT' && latest.price != null && latest.currency === 'RUB') {
       return {
-        price: Number(latest.rows[0].price),
-        sourceType: latest.rows[0].sourceType ?? 'MANUAL',
-        sourceName: latest.rows[0].sourceName ?? 'unknown',
-        collectedAt: latest.rows[0].collectedAt,
-        retailerName: latest.rows[0].retailerName ?? undefined,
-        retailerCode: latest.rows[0].retailerCode ?? undefined,
-        dataClass: latest.rows[0].dataClass ?? 'PRODUCTION',
+        price: latest.price, sourceType: latest.sourceType ?? 'MANUAL',
+        sourceName: latest.sourceName ?? 'unknown', collectedAt: latest.observedAt!,
+        retailerName: latest.retailerName ?? undefined, retailerCode: latest.retailerCode ?? undefined,
+        dataClass: latest.dataClass ?? 'PRODUCTION', status: 'CURRENT',
       };
     }
     const collectedAt = new Date().toISOString();
+    const sourceName = 'Каталог (fallback)';
+    const observationKey = observationIdentity({
+      productId,
+      storeId,
+      sourceType: 'MANUAL',
+      sourceName,
+      price,
+      currency: 'RUB',
+      observedAt: collectedAt,
+      priceCondition: 'UNKNOWN_CONDITION',
+    });
     await run(
       `INSERT INTO "PriceObservation"
-        ("productId", "storeId", price, "observedAt", source, currency, "sourceType", "sourceName", "collectedAt")
-       VALUES ($1, $2, $3, now(), 'catalog', 'RUB', 'MANUAL', 'Каталог (fallback)', now())`,
-      [productId, storeId, price],
+        ("productId", "storeId", price, "observedAt", source, currency, "sourceType", "sourceName", "collectedAt", "observationKey", "dataClass", "priceCondition")
+       VALUES ($1, $2, $3, $4, 'catalog', 'RUB', 'MANUAL', $5, $4, $6, 'TEST_ONLY', 'UNKNOWN_CONDITION')
+       ON CONFLICT ("observationKey") DO NOTHING`,
+      [productId, storeId, price, collectedAt, sourceName, observationKey],
     );
     return {
       price,
       sourceType: 'MANUAL',
-      sourceName: 'Каталог (fallback)',
+      sourceName,
       collectedAt,
+      dataClass: 'TEST_ONLY',
+      status: 'APPROXIMATE',
     };
   }
 

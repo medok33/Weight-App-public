@@ -7,6 +7,7 @@ import { URL } from 'node:url';
 import { fileURLToPath } from 'node:url';
 import {
   RESULT,
+  createPnpmEnv,
   createInventory,
   redactText,
   resolvePnpmInvocation,
@@ -15,6 +16,7 @@ import {
   runStagePlan,
   terminateProcessTree,
 } from './orchestration.mjs';
+import { assertWebDependencyTopology } from './web-dependency-topology.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const composeFile = resolve(root, 'docker/compose.disposable.yaml');
@@ -28,9 +30,12 @@ const STAGE_BOUNDS = Object.freeze({
   migration: 180_000,
   static: 300_000,
   apiUnit: 300_000,
-  // Measured pre-optimization run reached file 65 at 25m; template-clone harness removes
-  // 48 repeated full migrations. Keep a finite 30m bound with margin for cold Windows I/O.
-  apiPersistence: 1_800_000,
+  // The prior 30m aggregate bound expired after 73/80 files. 73 measured file bodies
+  // consumed 1,602,241ms; the observed clone/cleanup overhead through file 73 was
+  // 197,825ms. Bounding each of the seven remaining files at the measured P95 body
+  // duration (31,670ms) plus the existing 30s clone and cleanup bounds gives
+  // 2,441,756ms. Keep 58,244ms explicit headroom while retaining a finite hard bound.
+  apiPersistence: 2_500_000,
   web: 600_000,
   worker: 180_000,
   userSmoke: 300_000,
@@ -40,6 +45,11 @@ const STAGE_BOUNDS = Object.freeze({
   content: 120_000,
   cleanup: 120_000,
 });
+
+function migrationCount() {
+  return readdirSync(resolve(root, 'apps/api/prisma/migrations'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^\d+/.test(entry.name)).length;
+}
 
 export function isTrue(value) {
   return value === '1' || value === 'true';
@@ -358,7 +368,7 @@ function pnpmCommand(args, env, timeoutMs, label) {
   const runner = resolvePnpmInvocation(env);
   return runBoundedProcess(runner.command, [...runner.argsPrefix, ...args], {
     cwd: root,
-    env,
+    env: createPnpmEnv(env),
     timeoutMs,
     label,
   });
@@ -408,7 +418,7 @@ const PUBLIC_NOT_APPLICABLE_DEPLOYMENT_TESTS = [
   { file: 'apps/web/src/lib/__tests__/deploy-01d-workflow-contract.spec.ts', test: 'publishes only from release workflow with lowercase GHCR names' },
 ].map((item) => ({ ...item, result: RESULT.NOT_APPLICABLE, classification: 'PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE', reason: 'PRIVATE_DEPLOYMENT_SURFACE_EXCLUDED_FROM_PUBLIC_REPOSITORY' }));
 
-async function runPersistenceSuite(env, inventory) {
+export async function runPersistenceSuite(env, inventory) {
   const started = Date.now();
   const template = await preparePersistenceTemplate(env);
   if (template.timedOut || template.exitCode !== 0) return template;
@@ -430,6 +440,9 @@ async function runPersistenceSuite(env, inventory) {
     const remaining = STAGE_BOUNDS.apiPersistence - elapsed;
     if (remaining <= 0) return { exitCode: 124, timedOut: true, lastProgress: `PERSISTENCE_FILE_PENDING ${relativeFile}` };
     process.stdout.write(`PERSISTENCE_FILE_START ${JSON.stringify({ index: index + 1, total: files.length, file: relativeFile, database })}\n`);
+    const fileStartedAt = new Date().toISOString();
+    const fileStarted = Date.now();
+    const cloneStarted = Date.now();
     const create = await persistenceDatabaseCommand(
       env,
       `CREATE DATABASE "${database}" TEMPLATE "${env.DISPOSABLE_CATALOG_TEMPLATE_DATABASE}"`,
@@ -437,8 +450,10 @@ async function runPersistenceSuite(env, inventory) {
       `persistence clone ${relativeFile}`,
     );
     if (create.timedOut || create.exitCode !== 0) return { ...create, reason: `persistence clone failed: ${relativeFile}` };
+    const cloneElapsedMs = Date.now() - cloneStarted;
     let result;
     let drop;
+    const testStarted = Date.now();
     try {
       const fileEnv = { ...env, DATABASE_URL: databaseUrlFor(env.DATABASE_URL, database) };
       const isActivityLong = /activity-01[ab]/.test(relativeFile);
@@ -447,18 +462,34 @@ async function runPersistenceSuite(env, inventory) {
       // before its assertions.  A cold disposable run measured ~317s with no
       // blocked query or leaked client; keep the per-file bound finite while
       // allowing that documented setup to complete.
-      const fileBound = isActivityLong ? 360_000 : isLong ? 300_000 : 120_000;
-      result = await pnpmCommand([
+      // Activity-01B includes a legitimate cold pre-216 migration in beforeAll.
+      // A measured cold run reached the former 360s bound before test execution
+      // completed; retain a finite bound with a 120s margin for bounded host
+      // contention rather than counting that setup as a hang.
+      const fileBound = isActivityLong ? 480_000 : isLong ? 300_000 : 120_000;
+      const vitestArgs = [
         '--dir', 'apps/api', 'exec', 'vitest', 'run', '--passWithNoTests',
-        '--pool=forks', '--fileParallelism=false', '--reporter=verbose', relativeFile,
-      ], fileEnv, Math.min(fileBound, STAGE_BOUNDS.apiPersistence - (Date.now() - started)), `API persistence ${relativeFile}`);
+        '--pool=forks', '--fileParallelism=false', '--reporter=verbose',
+        ...(isActivityLong ? ['--hookTimeout', String(fileBound)] : []),
+        relativeFile,
+      ];
+      result = await pnpmCommand(
+        vitestArgs,
+        fileEnv,
+        Math.min(fileBound, STAGE_BOUNDS.apiPersistence - (Date.now() - started)),
+        `API persistence ${relativeFile}`,
+      );
     } finally {
+      const testElapsedMs = Date.now() - testStarted;
+      const cleanupStarted = Date.now();
       drop = await persistenceDatabaseCommand(
         env,
         `DROP DATABASE IF EXISTS "${database}" WITH (FORCE)`,
         30_000,
         `persistence cleanup ${relativeFile}`,
       );
+      const cleanupElapsedMs = Date.now() - cleanupStarted;
+      process.stdout.write(`PERSISTENCE_FILE_TIMING ${JSON.stringify({ index: index + 1, total: files.length, file: relativeFile, startedAt: fileStartedAt, cloneElapsedMs, testElapsedMs, cleanupElapsedMs, totalElapsedMs: Date.now() - fileStarted })}\n`);
     }
     if (drop?.timedOut || drop?.exitCode !== 0) return { ...drop, reason: `persistence cleanup failed: ${relativeFile}` };
     if (result.timedOut || result.exitCode !== 0) return { ...result, reason: `persistence file failed: ${relativeFile}` };
@@ -640,9 +671,10 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     await assertServerMarkers(env);
     const result = await pnpmCommand(['db:migrate'], env, STAGE_BOUNDS.migration, `migration ${expected}`);
     if (result.exitCode === 0 && !result.timedOut) {
+      const expectedCount = migrationCount();
       const expectedPattern = expected === 'first'
-        ? /"applied"\s*:\s*108/
-        : /"applied"\s*:\s*0[\s\S]*"skipped"\s*:\s*108/;
+        ? new RegExp(`"applied"\\s*:\\s*${expectedCount}`)
+        : new RegExp(`"applied"\\s*:\\s*0[\\s\\S]*"skipped"\\s*:\\s*${expectedCount}`);
       if (!expectedPattern.test(result.stdout)) return { ...result, exitCode: 1, reason: `migration ${expected} result did not match the required ledger counts` };
     }
     return result;
@@ -650,8 +682,8 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
   const stages = [
     { name: 'disposable topology startup', timeoutMs: STAGE_BOUNDS.topology, command: 'docker compose up -d --wait --wait-timeout 90 postgres redis', action: () => startTopology(env) },
     { name: 'PostgreSQL/Redis marker verification', timeoutMs: STAGE_BOUNDS.markers, command: 'owned marker probes', action: () => verifyRuntimeMarkers(env) },
-    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 108 applied)', action: migrationAction('first') },
-    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 0 applied / 108 skipped)', action: migrationAction('second') },
+    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect all migrations applied)', action: migrationAction('first') },
+    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 0 applied / all skipped)', action: migrationAction('second') },
     {
       name: 'static/lint/type validation', timeoutMs: STAGE_BOUNDS.static,
       command: 'root ESLint; migration/UI/workflow checks; direct API/Web/Worker typechecks; support package tests',
@@ -673,7 +705,10 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     {
       name: 'web verification', timeoutMs: STAGE_BOUNDS.web,
       command: 'web Vitest + production Next build',
-      action: () => commandSequence([['--filter', 'web', 'test'], ['--filter', 'web', 'build']], env, STAGE_BOUNDS.web, 'web verification'),
+      action: async () => {
+        assertWebDependencyTopology(root);
+        return commandSequence([['--filter', 'web', 'test'], ['--filter', 'web', 'build']], env, STAGE_BOUNDS.web, 'web verification');
+      },
     },
     {
       name: 'worker verification', timeoutMs: STAGE_BOUNDS.worker,

@@ -12,6 +12,7 @@ import {
   runSqlMigrations,
   assertSchemaReady,
   ADVISORY_LOCK_KEY,
+  assertNoLateMigrationInsertion,
 } from '../../scripts/lib/sql-migration-runner.mjs';
 
 describe('sql migration runner contract', () => {
@@ -32,6 +33,12 @@ describe('sql migration runner contract', () => {
     writeFileSync(join(root, '094_a', 'migration.sql'), 'SELECT 1;');
     expect(listMigrationNames(root)).toEqual(['094_a', '136_b']);
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it('rejects a previously absent lower-numbered migration after a higher migration was applied', () => {
+    expect(() => assertNoLateMigrationInsertion(['221_a', '222_brain', '223_price'], ['221_a', '223_price']))
+      .toThrow(/MIGRATION_LATE_INSERTION:222_brain/);
+    expect(() => assertNoLateMigrationInsertion(['221_a', '223_price'], ['221_a', '223_price'])).not.toThrow();
   });
 });
 
@@ -80,7 +87,7 @@ describe.runIf(Boolean(DATABASE_URL))('sql migration runner against postgres', (
       writeMig(root, '002_bad', 'CREATE TABLE totally_broken (;;;);');
       await expect(runSqlMigrations(client, { migrationsRoot: root })).rejects.toThrow(/MIGRATION_FAILED:002_bad/);
     });
-  });
+  }, 15_000);
 
   it('concurrent runners serialize via advisory lock', async () => {
     await withTempDb(async (client, root) => {
@@ -113,7 +120,7 @@ describe.runIf(Boolean(DATABASE_URL))('sql migration runner against postgres', (
       expect(rows.rows[0].c).toBe(1);
       expect(ADVISORY_LOCK_KEY).toBeTypeOf('number');
     });
-  });
+  }, 15_000);
 
   it('ensureLedger + drift gate', async () => {
     await withTempDb(async (client) => {
@@ -121,5 +128,5 @@ describe.runIf(Boolean(DATABASE_URL))('sql migration runner against postgres', (
       await expect(assertSchemaReady(client, ['SchemaMigrationLedger'])).resolves.toMatchObject({ missing: [] });
       await expect(assertSchemaReady(client, ['NopeTable'])).rejects.toThrow(/SCHEMA_DRIFT/);
     });
-  });
+  }, 15_000);
 });

@@ -14,6 +14,7 @@
     "test": "turbo run test",
     "verify": "node scripts/verify/verify-all.mjs",
     "verify:disposable": "node scripts/verify/disposable-runtime.mjs full",
+    "verify:disposable:runner-test": "node --test scripts/verify/durable-runner.spec.mjs",
     "verify:disposable:guard": "node scripts/verify/disposable-runtime.mjs guard-test",
     "verify:disposable:diagnostics": "node scripts/verify/disposable-runtime.mjs diagnostics",
     "ui:check-ru": "node scripts/ui/check-ru.mjs",
