@@ -7,6 +7,13 @@ const SOURCE_RANK: Record<PriceSourceType, number> = {
   MANUAL: 2,
   PARSER: 1,
 };
+export const MAX_PRICE_IMPORT_BYTES = 10 * 1024 * 1024;
+export const MAX_PRICE_IMPORT_ROWS = 10_000;
+
+function assertImportBounds(payload: string, rowCount?: number) {
+  if (Buffer.byteLength(payload, 'utf8') > MAX_PRICE_IMPORT_BYTES) throw new Error('PRICE_IMPORT_PAYLOAD_TOO_LARGE');
+  if (rowCount != null && rowCount > MAX_PRICE_IMPORT_ROWS) throw new Error('PRICE_IMPORT_ROW_LIMIT_EXCEEDED');
+}
 
 export function validateObservation(observation: PriceObservation) {
   if (!observation.productId || !observation.storeId || observation.price < 0 || !observation.collectedAt) {
@@ -38,6 +45,7 @@ export function rankSources(observations: PriceObservation[], now = Date.now()):
 
 /** @deprecated legacy CSV with productId,storeId UUIDs — prefer open-data parsers */
 export function parsePriceCsv(csv: string) {
+  assertImportBounds(csv);
   return csv
     .trim()
     .split(/\r?\n/)
@@ -130,7 +138,9 @@ function mapOpenDataRow(row: Record<string, string>): OpenDataPriceRow {
 }
 
 export function parseOpenDataCsv(csv: string, delimiter = ','): OpenDataPriceRow[] {
+  assertImportBounds(csv);
   const lines = csv.trim().split(/\r?\n/).filter(Boolean);
+  assertImportBounds(csv, Math.max(0, lines.length - 1));
   if (lines.length < 2) throw new Error('PRICE_IMPORT_INVALID');
   const headers = splitDelimitedLine(lines[0]!, delimiter).map(normalizeHeader);
   return lines.slice(1).map((line) => {
@@ -144,9 +154,11 @@ export function parseOpenDataCsv(csv: string, delimiter = ','): OpenDataPriceRow
 }
 
 export function parseOpenDataJson(payload: string): OpenDataPriceRow[] {
+  assertImportBounds(payload);
   const parsed = JSON.parse(payload) as unknown;
   const rows = Array.isArray(parsed) ? parsed : (parsed as { items?: unknown[] }).items;
   if (!Array.isArray(rows)) throw new Error('PRICE_IMPORT_INVALID');
+  assertImportBounds(payload, rows.length);
   return rows.map((item) => {
     const row = item as Record<string, unknown>;
     return mapOpenDataRow(
@@ -156,7 +168,9 @@ export function parseOpenDataJson(payload: string): OpenDataPriceRow[] {
 }
 
 export function parseOpenDataXml(payload: string): OpenDataPriceRow[] {
+  assertImportBounds(payload);
   const items = [...payload.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)];
+  assertImportBounds(payload, items.length);
   if (!items.length) throw new Error('PRICE_IMPORT_INVALID');
   return items.map((match) => {
     const body = match[1] ?? '';
@@ -188,7 +202,9 @@ export function parseOpenDataXlsxOrTsv(payload: string): OpenDataPriceRow[] {
 }
 
 export function parseManualCsv(csv: string): ManualPriceRow[] {
+  assertImportBounds(csv);
   const lines = csv.trim().split(/\r?\n/).filter(Boolean);
+  assertImportBounds(csv, Math.max(0, lines.length - 1));
   if (lines.length < 2) throw new Error('PRICE_IMPORT_INVALID');
   const headers = splitDelimitedLine(lines[0]!, ',').map(normalizeHeader);
   return lines.slice(1).map((line) => {
@@ -216,8 +232,10 @@ export function parseManualCsv(csv: string): ManualPriceRow[] {
 }
 
 export function parseManualJson(payload: string): ManualPriceRow[] {
+  assertImportBounds(payload);
   const parsed = JSON.parse(payload) as unknown;
   if (!Array.isArray(parsed)) throw new Error('PRICE_IMPORT_INVALID');
+  assertImportBounds(payload, parsed.length);
   return parsed.map((item) => {
     const row = item as Record<string, unknown>;
     return parseManualCsv(

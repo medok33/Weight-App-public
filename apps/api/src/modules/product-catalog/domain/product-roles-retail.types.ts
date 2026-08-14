@@ -128,6 +128,10 @@ export type ProductPriceQuote = {
   coverage: 'FULL' | 'PARTIAL' | 'LEGACY' | 'MISSING';
   /** Persisted PriceObservation.dataClass when known. */
   dataClass?: 'PRODUCTION' | 'TEST_ONLY' | 'FIXTURE' | 'HISTORICAL_TEST';
+  status?: 'CURRENT' | 'STALE' | 'UNKNOWN' | 'APPROXIMATE';
+  priceCondition?: 'REGULAR' | 'PROMOTIONAL' | 'LOYALTY_ONLY' | 'CONDITIONAL' | 'UNKNOWN_CONDITION';
+  observationId?: string | null;
+  locationScope?: string | null;
 };
 
 export type RetailProductSnapshot = {

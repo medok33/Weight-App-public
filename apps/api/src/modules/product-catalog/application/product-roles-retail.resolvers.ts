@@ -1,5 +1,6 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { PrismaService, type SqlQuery } from '../../../infrastructure/database/prisma.service';
+import { readReferencePriceWithQuery } from '../../price-intelligence/infrastructure/reference-price.reader';
 import { allowTestPriceEvidence, classifyPriceObservationHeuristics } from '../domain/price-data-class.policy';
 import {
   assertCookingMethodCode,
@@ -341,6 +342,7 @@ export class ProductPriceResolver {
     options?: {
       retailerId?: string | null;
       regionCode?: string | null;
+      storeId?: string | null;
       consumedAmount?: number | null;
       query?: SqlQuery;
       /** Explicit opt-in for FIXTURE/TEST_ONLY evidence (never implied by VITEST alone). */
@@ -374,6 +376,7 @@ export class ProductPriceResolver {
     options?: {
       retailerId?: string | null;
       regionCode?: string | null;
+      storeId?: string | null;
       query?: SqlQuery;
     },
   ): Promise<Map<string, ProductPriceQuote>> {
@@ -386,6 +389,35 @@ export class ProductPriceResolver {
   }
 
   private async resolveOne(
+    productId: string,
+    options?: { retailerId?: string | null; regionCode?: string | null; storeId?: string | null; query?: SqlQuery },
+  ): Promise<ProductPriceQuote> {
+    const evidence = await readReferencePriceWithQuery(this.q(options?.query), productId, {
+      retailerId: options?.retailerId ?? undefined,
+      regionCode: options?.regionCode ?? undefined,
+      storeId: options?.storeId ?? undefined,
+    });
+    const current = evidence.status === 'CURRENT'
+      && (evidence.priceCondition === 'REGULAR' || evidence.priceCondition === 'PROMOTIONAL')
+      && evidence.currency === 'RUB';
+    const complete = current && evidence.price != null && evidence.packageQuantity != null && evidence.packageQuantity > 0;
+    return {
+      productId, retailProductId: evidence.retailProductId ?? null,
+      retailerId: evidence.retailerId ?? null, retailerName: evidence.retailerName ?? null,
+      retailerCode: evidence.retailerCode ?? null, packageWeight: evidence.packageQuantity ?? null,
+      packageUnit: evidence.packageUnit ?? null, packagePriceRub: complete ? evidence.price : null,
+      currency: evidence.currency, collectedAt: evidence.observedAt, availability: evidence.availability ?? null,
+      confidence: evidence.confidence ?? null, stale: evidence.status === 'STALE',
+      provenance: evidence.observationId ? (complete ? 'RETAIL_PRODUCT_PRICE' : 'PRICE_INCOMPLETE') : 'PRICE_MISSING',
+      coverage: complete ? 'FULL' : evidence.observationId ? 'PARTIAL' : 'MISSING',
+      dataClass: (evidence.dataClass as ProductPriceQuote['dataClass']) ?? 'PRODUCTION',
+      status: evidence.status, priceCondition: evidence.priceCondition,
+      observationId: evidence.observationId ?? null, locationScope: evidence.locationScope ?? null,
+    };
+  }
+
+  /** Evidence-only legacy resolver retained for admin diagnostics; product decisions use resolveOne. */
+  async resolveEvidenceOnlyLegacy(
     productId: string,
     options?: {
       retailerId?: string | null;

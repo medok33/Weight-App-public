@@ -12,6 +12,7 @@ import {
   runSqlMigrations,
   assertSchemaReady,
   ADVISORY_LOCK_KEY,
+  assertNoLateMigrationInsertion,
 } from '../../scripts/lib/sql-migration-runner.mjs';
 
 describe('sql migration runner contract', () => {
@@ -32,6 +33,12 @@ describe('sql migration runner contract', () => {
     writeFileSync(join(root, '094_a', 'migration.sql'), 'SELECT 1;');
     expect(listMigrationNames(root)).toEqual(['094_a', '136_b']);
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it('rejects a previously absent lower-numbered migration after a higher migration was applied', () => {
+    expect(() => assertNoLateMigrationInsertion(['221_a', '222_brain', '223_price'], ['221_a', '223_price']))
+      .toThrow(/MIGRATION_LATE_INSERTION:222_brain/);
+    expect(() => assertNoLateMigrationInsertion(['221_a', '223_price'], ['221_a', '223_price'])).not.toThrow();
   });
 });
 

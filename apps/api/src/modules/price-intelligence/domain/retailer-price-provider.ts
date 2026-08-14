@@ -24,6 +24,16 @@ export type SyncPrice = {
   collectedAt: string;
   weight?: string;
   unit?: string;
+  location?: PriceLocation;
+};
+
+export type PriceLocation = {
+  scope: 'STORE' | 'CITY' | 'REGION' | 'UNKNOWN';
+  regionCode?: string;
+  externalStoreId?: string;
+  storeName?: string;
+  city?: string;
+  address?: string;
 };
 
 export type SyncAvailability = {
@@ -54,11 +64,18 @@ export interface RetailerPriceProvider {
   /** Retailer catalog code this provider feeds (MAGNIT, PYATEROCHKA, …). */
   readonly retailerCode: string;
 
-  syncCategories(): Promise<SyncCategory[]>;
-  syncProducts(): Promise<SyncProduct[]>;
-  syncPrices(): Promise<SyncPrice[]>;
-  syncAvailability(): Promise<SyncAvailability[]>;
+  syncCategories(signal?: AbortSignal): Promise<SyncCategory[]>;
+  syncProducts(signal?: AbortSignal): Promise<SyncProduct[]>;
+  syncPrices(signal?: AbortSignal): Promise<SyncPrice[]>;
+  syncAvailability(signal?: AbortSignal): Promise<SyncAvailability[]>;
 }
+
+export type RetailerProviderPayload = {
+  categories: SyncCategory[];
+  products: SyncProduct[];
+  prices: SyncPrice[];
+  availability: SyncAvailability[];
+};
 
 export type ProviderSyncContext = {
   retailer: RetailerEntity;

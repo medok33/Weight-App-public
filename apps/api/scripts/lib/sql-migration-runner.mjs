@@ -47,6 +47,13 @@ export function shouldIncludeMigration(name, { stopBefore = null, onlyUntil = nu
   return true;
 }
 
+export function assertNoLateMigrationInsertion(names, appliedNames) {
+  const applied = new Set(appliedNames);
+  const highestApplied = Math.max(0, ...appliedNames.map(migrationSortKey));
+  const late = names.filter((name) => !applied.has(name) && migrationSortKey(name) < highestApplied);
+  if (late.length) throw new Error(`MIGRATION_LATE_INSERTION:${late.join(',')}:highestApplied=${highestApplied}`);
+}
+
 /** Fail if working tree has migration.sql files that are not git-tracked. */
 export function assertMigrationsTracked(repoRoot, migrationsRoot) {
   let tracked;
@@ -124,6 +131,7 @@ export async function runSqlMigrations(client, options) {
   return withAdvisoryLock(client, async () => {
     await ensureLedger(client);
     const existing = new Map((await readLedger(client)).map((row) => [row.migrationName, row]));
+    assertNoLateMigrationInsertion(names, [...existing.keys()]);
     const applied = [];
     const skipped = [];
 

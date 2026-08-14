@@ -255,9 +255,21 @@ async function insertFixtureObservation(
   },
 ): Promise<string> {
   const observedAt = new Date().toISOString();
+  const retailProduct = await pool.query<{ id: string }>(
+    `INSERT INTO "RetailProduct" ("retailerId","canonicalProductId","externalSku",title,status,"mappingStatus",source,"lastMatchedAt")
+     VALUES ($1,$2,$3,'RP2 hygiene','ACTIVE','MAPPED',$4,now())
+     ON CONFLICT ("retailerId","externalSku") WHERE "externalSku" IS NOT NULL AND status <> 'MERGED'
+     DO UPDATE SET "canonicalProductId"=EXCLUDED."canonicalProductId", "mappingStatus"='MAPPED'
+     RETURNING id`,
+    [fixture.retailerId, fixture.productId, `rp2-hygiene-${fixture.productId}`, input.dataClass === 'FIXTURE' ? 'FIXTURE' : 'IMPORT'],
+  );
+  const retailProductId = retailProduct.rows[0]!.id;
   const observationKey = observationIdentity({
     productId: fixture.productId,
     storeId: fixture.storeId,
+    retailerId: fixture.retailerId,
+    retailProductId,
+    externalSku: `rp2-hygiene-${fixture.productId}`,
     sourceType: input.sourceType,
     sourceName: input.sourceName,
     price: input.price,
@@ -267,9 +279,9 @@ async function insertFixtureObservation(
   });
   const inserted = await pool.query<{ id: string }>(
     `INSERT INTO "PriceObservation"
-      ("productId", "storeId", price, currency, source, "sourceType", "sourceName",
-       "observedAt", "collectedAt", "dataClass", "observationKey")
-     VALUES ($1, $2, $3, 'RUB', $4, $5, $6, $8, $8, $7, $9)
+      ("productId", "storeId", "retailerId", "retailProductId", price, currency, source, "sourceType", "sourceName",
+       "observedAt", "collectedAt", "dataClass", "observationKey", "observedPackageWeight", "observedPackageUnit")
+     VALUES ($1, $2, $10, $11, $3, 'RUB', $4, $5, $6, $8, $8, $7, $9, 100, 'g')
      RETURNING id`,
     [
       fixture.productId,
@@ -281,6 +293,8 @@ async function insertFixtureObservation(
       input.dataClass,
       observedAt,
       observationKey,
+      fixture.retailerId,
+      retailProductId,
     ],
   );
   const id = inserted.rows[0]!.id;
@@ -308,6 +322,7 @@ async function teardownFixture(fixture: HygieneFixture | null) {
   // RecipeVersion rows are immutable (trigger) — leave PUBLISHED fixture versions on disposable DB.
   // Unique product/store/retailer rows are still removed when no observations remain.
   await pool.query(`DELETE FROM "PriceObservation" WHERE "productId" = $1`, [fixture.productId]);
+  await pool.query(`DELETE FROM "RetailProduct" WHERE "canonicalProductId" = $1`, [fixture.productId]);
   await pool.query(`DELETE FROM "Product" WHERE id = $1`, [fixture.productId]);
   await pool.query(`DELETE FROM "RetailStore" WHERE id = $1`, [fixture.storeId]);
   await pool.query(`DELETE FROM "Retailer" WHERE id = $1`, [fixture.retailerId]);
@@ -473,7 +488,7 @@ describe('RP2-03C Phase 0 hygiene (PG)', () => {
     expect(afterUnrelated.rows[0]?.c).toBe(beforeUnrelated.rows[0]?.c);
   }, 180000);
 
-  it('cost search may use FIXTURE prices when ALLOW_TEST_PRICES=1 is explicitly set', async () => {
+  it('explicit test opt-in cannot promote FIXTURE prices to confirmed current', async () => {
     const stamp = `${Date.now()}_${randomUUID().slice(0, 8)}`;
     const fixture = await createHygieneFixture(stamp, fingerprints);
     fixtures.push(fixture);
@@ -507,7 +522,7 @@ describe('RP2-03C Phase 0 hygiene (PG)', () => {
       }>;
       const hit = candidates.find((c) => c.recipeVersionId === fixture.recipeVersionId);
       expect(hit, 'fixture opt-in unique recipe must appear as a candidate').toBeTruthy();
-      expect(hit!.costStatus).toBe('CURRENT_PRICE_CONFIRMED');
+      expect(hit!.costStatus).toBe('PRICE_MISSING');
     } finally {
       delete process.env.ALLOW_TEST_PRICES;
     }
