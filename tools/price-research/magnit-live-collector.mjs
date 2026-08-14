@@ -6,6 +6,10 @@ const SOURCE = 'https://magnit.ru/catalog';
 const FETCH_BASE = `https://r.jina.ai/http://magnit.ru/catalog?nocache=`;
 const OUT = '.data/research/price-02r-glm-live-prices.json';
 const RAW = '.data/research/price-02r-glm-raw/magnit-catalog.txt';
+const cli = Object.fromEntries(process.argv.slice(2).flatMap((x, i, a) => x.startsWith('--') ? [[x.slice(2), a[i + 1] ?? true]] : []));
+const selectedStore = cli.store ?? process.env.MAGNIT_STORE ?? '992301';
+const selectedCity = cli.city ?? process.env.MAGNIT_CITY ?? 'Краснодар';
+const selectedRegion = cli.region ?? process.env.MAGNIT_REGION ?? 'Краснодарский край';
 
 function parseCatalog(text, observedAt) {
   const re = /\]\((https?:\/\/magnit\.ru\/product\/[^)]+)\s+"([^"]+)"\)/g;
@@ -22,7 +26,7 @@ function parseCatalog(text, observedAt) {
     if (!productId) continue;
     rows.push({
       retailer: 'Magnit',
-      store: { code: '992301', city: 'Краснодар', region: 'Краснодарский край', address: 'ул. им. Дзержинского, дом № 42' },
+      store: { code: selectedStore, city: selectedCity, region: selectedRegion, address: 'ул. им. Дзержинского, дом № 42' },
       product: title.replace(/\s+/g, ' ').trim(),
       productId,
       regularPrice: Number(regular ?? price),
