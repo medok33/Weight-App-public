@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCatalog } from './magnit-live-collector.mjs';
+import { createCatalogUrls, parseCatalog } from './magnit-live-collector.mjs';
+
+test('binds the selected shop code to both source and extraction URLs', () => {
+  const { targetUrl, fetchUrl } = createCatalogUrls('992301', 123);
+  assert.match(targetUrl, /[?&]shopCode=992301(?:&|$)/);
+  assert.match(fetchUrl, /[?&]shopCode=992301(?:&|$)/);
+  assert.match(fetchUrl, /[?&]nocache=123(?:&|$)/);
+});
 
 test('normalizes product id, RUB prices, promo and unit from public markdown', () => {
   const html = '120.00 ₽ -20% 150.00 ₽ Sample milk 1л](http://magnit.ru/product/123456-sample?shopCode=992301&shopType=dostavka "Sample milk 1л")';

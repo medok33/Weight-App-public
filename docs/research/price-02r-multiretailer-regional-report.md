@@ -1,42 +1,41 @@
 # PRICE-02R regional/multiretailer remediation
 
 TASK_ID=PRICE-02R-GLM-MULTIRETAILER-REGIONAL-COVERAGE-REMEDIATION
-START_HEAD=8be792f033b3bcc08ae691d5000f84b7c2531e02
 BRANCH=price/02r-glm-live-public-price-extraction
-RETAILERS_PROVEN=1
-MAGNIT_PROVEN=YES (single Краснодар store, shopCode=992301, 29 RUB positions and repeat run)
+RETAILERS_PROVEN=0
+MAGNIT_PROVEN=NO (the prior collector recorded a shop code but did not send it in the catalog URL; its 29 positions are not accepted as store-bound evidence)
 PYATEROCHKA_PROVEN=NO
 YARCHE_PROVEN=NO
-REGIONS_DISCOVERED=1
-CITIES_DISCOVERED=1
-STORES_DISCOVERED=1
-TOTAL_STORES_PROVEN=1
-LIVE_PRICE_COUNT=29
-SECOND_LIVE_RUN_PER_STORE=PASS for the one proven Magnit store
-STORE_DISCOVERY_IMPLEMENTED=YES (bounded, read-only fail-closed tool; no identity fabricated)
+REGIONS_DISCOVERED=0
+CITIES_DISCOVERED=0
+STORES_DISCOVERED=0
+TOTAL_STORES_PROVEN=0
+LIVE_PRICE_COUNT=0 (no accepted store-bound record)
+SECOND_LIVE_RUN_PER_STORE=NOT_PROVEN
+STORE_DISCOVERY_IMPLEMENTED=PARTIAL (bounded read-only tool; all store identities still require independent proof)
 PYATEROCHKA_PUBLIC_FLOW_IMPLEMENTED=YES (geocode -> nearest store/SAP -> store catalog search; no cookies or credentials)
 PYATEROCHKA_CURRENT_RUN=FAIL_CLOSED (2026-08-14: `5ka.ru/api/maps/geocode` returned HTTP 403 before a store or price was read)
 NETWORK_EXIT_CHECK=Armenia / Yerevan (current VPN exit, not a Russian exit)
-REGIONAL_PRICE_SEPARATION=PASS for captured Magnit record; broader coverage not proven
-HARDCODED_SINGLE_STORE_ONLY=NO (collector accepts --region, --city, --store; default preserves prior proven run)
+REGIONAL_PRICE_SEPARATION=NOT_PROVEN
+HARDCODED_SINGLE_STORE_ONLY=NO (Magnit collector now requires --region, --city, and --store, and sends the store in the catalog request)
 FIXTURE_AS_LIVE=NO
 SECRETS_COMMITTED=NO
 
 REGION_STORE_MATRIX=
-- Magnit | Краснодарский край | Краснодар | shopCode=992301 | source product URLs/catalog context | 29 | PASS
+- No accepted entries. The former Magnit candidate requires a fresh store-bound collection and repeat after the collector binding repair.
 
 FAILED_DOORS=
-- Magnit | shops discovery endpoint | bounded proxy request failed/timeout | no retries or bypass; discovery tool added | unresolved
+- Magnit | catalog store binding | prior implementation failed to include `shopCode` in the actual catalog request; repaired collector now requires it | rerun with a separately discovered store identity and repeat | unresolved
 - Pyaterochka | 5ka.ru / 5d.5ka.ru | current ordinary public request returned HTTP 403 at geocoding; no store/SAP or price accepted | direct official-contract collector fails closed | unresolved; requires a permitted route where the retailer accepts the request
 - Yarche | yarcheplus.ru | current public catalog probe had a transport failure; separately indexed product pages do not expose a selected store identity | fail-closed collector | unresolved; store-selection flow must be accepted by the retailer before regional prices can count
 
 COLLECTOR_PATHS=tools/price-research/retailer-store-discovery.mjs; tools/price-research/magnit-live-collector.mjs; tools/price-research/pyaterochka-live-collector.mjs; tools/price-research/yarche-live-collector.mjs
 DATASET_PATH=.data/research/price-02r-multiretailer-live-prices.json
-RAW_EVIDENCE_PATH=.data/research/price-02r-glm-raw/magnit-catalog.txt
+RAW_EVIDENCE_PATH=.data/research/price-02r-glm-raw/
 REPORT_PATH=docs/research/price-02r-multiretailer-regional-report.md
 PARSER_TESTS=PASS for Magnit parser (2/2)
 SECRETS_SCAN=PASS; no cookies/tokens/credentials
 
-BLOCKERS=The mandatory three-retailer, multi-region threshold was not honestly reachable in this bounded run. Pyaterochka and Yarche store-level identity/current prices were not proven; no fixture data was promoted.
-NEXT_ACTION=Continue with an ordinary browser/network session for each retailer's own store-selection flow, then rerun each collector at >=3 regions and retain per-store raw evidence.
-FINAL_VERDICT=PRICE_02R_PARTIAL_REGIONAL_COVERAGE
+BLOCKERS=No accepted store-bound live-price record currently exists. Current network exit is Armenia, while Pyaterochka's ordinary geocode route returns HTTP 403 and Yarche's catalog probe fails at transport.
+NEXT_ACTION=Use an ordinary retailer-accepted Russian network route; discover each store identity, run each collector twice, and retain sanitized raw evidence.
+FINAL_VERDICT=PRICE_02R_NO_STORE_BOUND_REGIONAL_PROOF_YET
