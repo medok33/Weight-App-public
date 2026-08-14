@@ -1,12 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createCatalogUrls, parseCatalog } from './magnit-live-collector.mjs';
+import { createCatalogUrls, extractProductShopCodes, parseCatalog } from './magnit-live-collector.mjs';
 
 test('binds the selected shop code to both source and extraction URLs', () => {
   const { targetUrl, fetchUrl } = createCatalogUrls('992301', 123);
   assert.match(targetUrl, /[?&]shopCode=992301(?:&|$)/);
   assert.match(fetchUrl, /[?&]shopCode=992301(?:&|$)/);
   assert.match(fetchUrl, /[?&]nocache=123(?:&|$)/);
+});
+
+test('extracts one declared store code from product URLs', () => {
+  const text = '[Milk](https://magnit.ru/product/1-milk?shopCode=992301&shopType=dostavka "Milk")';
+  assert.deepEqual(extractProductShopCodes(text), ['992301']);
 });
 
 test('normalizes product id, RUB prices, promo and unit from public markdown', () => {
