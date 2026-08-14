@@ -28,7 +28,7 @@ REGION_STORE_MATRIX=
 FAILED_DOORS=
 - Magnit | shops discovery endpoint | bounded proxy request failed/timeout | no retries or bypass; discovery tool added | unresolved
 - Pyaterochka | 5ka.ru / 5d.5ka.ru | current ordinary public request returned HTTP 403 at geocoding; no store/SAP or price accepted | direct official-contract collector fails closed | unresolved; requires a permitted route where the retailer accepts the request
-- Yarche | yarcheplus.ru | catalog can be read but store identity not proven | fail-closed collector | unresolved
+- Yarche | yarcheplus.ru | current public catalog probe had a transport failure; separately indexed product pages do not expose a selected store identity | fail-closed collector | unresolved; store-selection flow must be accepted by the retailer before regional prices can count
 
 COLLECTOR_PATHS=tools/price-research/retailer-store-discovery.mjs; tools/price-research/magnit-live-collector.mjs; tools/price-research/pyaterochka-live-collector.mjs; tools/price-research/yarche-live-collector.mjs
 DATASET_PATH=.data/research/price-02r-multiretailer-live-prices.json
