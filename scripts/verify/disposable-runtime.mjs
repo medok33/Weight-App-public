@@ -29,9 +29,12 @@ const STAGE_BOUNDS = Object.freeze({
   migration: 180_000,
   static: 300_000,
   apiUnit: 300_000,
-  // Measured pre-optimization run reached file 65 at 25m; template-clone harness removes
-  // 48 repeated full migrations. Keep a finite 30m bound with margin for cold Windows I/O.
-  apiPersistence: 1_800_000,
+  // The prior 30m aggregate bound expired after 73/80 files. 73 measured file bodies
+  // consumed 1,602,241ms; the observed clone/cleanup overhead through file 73 was
+  // 197,825ms. Bounding each of the seven remaining files at the measured P95 body
+  // duration (31,670ms) plus the existing 30s clone and cleanup bounds gives
+  // 2,441,756ms. Keep 58,244ms explicit headroom while retaining a finite hard bound.
+  apiPersistence: 2_500_000,
   web: 600_000,
   worker: 180_000,
   userSmoke: 300_000,
@@ -414,7 +417,7 @@ const PUBLIC_NOT_APPLICABLE_DEPLOYMENT_TESTS = [
   { file: 'apps/web/src/lib/__tests__/deploy-01d-workflow-contract.spec.ts', test: 'publishes only from release workflow with lowercase GHCR names' },
 ].map((item) => ({ ...item, result: RESULT.NOT_APPLICABLE, classification: 'PRIVATE_DEPLOYMENT_CONTRACT_NOT_APPLICABLE', reason: 'PRIVATE_DEPLOYMENT_SURFACE_EXCLUDED_FROM_PUBLIC_REPOSITORY' }));
 
-async function runPersistenceSuite(env, inventory) {
+export async function runPersistenceSuite(env, inventory) {
   const started = Date.now();
   const template = await preparePersistenceTemplate(env);
   if (template.timedOut || template.exitCode !== 0) return template;
@@ -436,6 +439,9 @@ async function runPersistenceSuite(env, inventory) {
     const remaining = STAGE_BOUNDS.apiPersistence - elapsed;
     if (remaining <= 0) return { exitCode: 124, timedOut: true, lastProgress: `PERSISTENCE_FILE_PENDING ${relativeFile}` };
     process.stdout.write(`PERSISTENCE_FILE_START ${JSON.stringify({ index: index + 1, total: files.length, file: relativeFile, database })}\n`);
+    const fileStartedAt = new Date().toISOString();
+    const fileStarted = Date.now();
+    const cloneStarted = Date.now();
     const create = await persistenceDatabaseCommand(
       env,
       `CREATE DATABASE "${database}" TEMPLATE "${env.DISPOSABLE_CATALOG_TEMPLATE_DATABASE}"`,
@@ -443,8 +449,10 @@ async function runPersistenceSuite(env, inventory) {
       `persistence clone ${relativeFile}`,
     );
     if (create.timedOut || create.exitCode !== 0) return { ...create, reason: `persistence clone failed: ${relativeFile}` };
+    const cloneElapsedMs = Date.now() - cloneStarted;
     let result;
     let drop;
+    const testStarted = Date.now();
     try {
       const fileEnv = { ...env, DATABASE_URL: databaseUrlFor(env.DATABASE_URL, database) };
       const isActivityLong = /activity-01[ab]/.test(relativeFile);
@@ -471,12 +479,16 @@ async function runPersistenceSuite(env, inventory) {
         `API persistence ${relativeFile}`,
       );
     } finally {
+      const testElapsedMs = Date.now() - testStarted;
+      const cleanupStarted = Date.now();
       drop = await persistenceDatabaseCommand(
         env,
         `DROP DATABASE IF EXISTS "${database}" WITH (FORCE)`,
         30_000,
         `persistence cleanup ${relativeFile}`,
       );
+      const cleanupElapsedMs = Date.now() - cleanupStarted;
+      process.stdout.write(`PERSISTENCE_FILE_TIMING ${JSON.stringify({ index: index + 1, total: files.length, file: relativeFile, startedAt: fileStartedAt, cloneElapsedMs, testElapsedMs, cleanupElapsedMs, totalElapsedMs: Date.now() - fileStarted })}\n`);
     }
     if (drop?.timedOut || drop?.exitCode !== 0) return { ...drop, reason: `persistence cleanup failed: ${relativeFile}` };
     if (result.timedOut || result.exitCode !== 0) return { ...result, reason: `persistence file failed: ${relativeFile}` };
