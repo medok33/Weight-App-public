@@ -452,11 +452,23 @@ async function runPersistenceSuite(env, inventory) {
       // before its assertions.  A cold disposable run measured ~317s with no
       // blocked query or leaked client; keep the per-file bound finite while
       // allowing that documented setup to complete.
-      const fileBound = isActivityLong ? 360_000 : isLong ? 300_000 : 120_000;
-      result = await pnpmCommand([
+      // Activity-01B includes a legitimate cold pre-216 migration in beforeAll.
+      // A measured cold run reached the former 360s bound before test execution
+      // completed; retain a finite bound with a 120s margin for bounded host
+      // contention rather than counting that setup as a hang.
+      const fileBound = isActivityLong ? 480_000 : isLong ? 300_000 : 120_000;
+      const vitestArgs = [
         '--dir', 'apps/api', 'exec', 'vitest', 'run', '--passWithNoTests',
-        '--pool=forks', '--fileParallelism=false', '--reporter=verbose', relativeFile,
-      ], fileEnv, Math.min(fileBound, STAGE_BOUNDS.apiPersistence - (Date.now() - started)), `API persistence ${relativeFile}`);
+        '--pool=forks', '--fileParallelism=false', '--reporter=verbose',
+        ...(isActivityLong ? ['--hookTimeout', String(fileBound)] : []),
+        relativeFile,
+      ];
+      result = await pnpmCommand(
+        vitestArgs,
+        fileEnv,
+        Math.min(fileBound, STAGE_BOUNDS.apiPersistence - (Date.now() - started)),
+        `API persistence ${relativeFile}`,
+      );
     } finally {
       drop = await persistenceDatabaseCommand(
         env,
