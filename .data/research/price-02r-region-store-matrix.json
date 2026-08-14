@@ -1,6 +1,20 @@
 {
   "schemaVersion": 1,
-  "status": "no-accepted-store-bound-evidence",
-  "entries": [],
-  "requiredButUnproven": ["Magnit store discovery and store-bound rerun", "Pyaterochka", "Yarche"]
+  "status": "partial-single-store-proof",
+  "entries": [
+    {
+      "retailer": "Magnit",
+      "region": "Krasnodar Krai",
+      "city": "Krasnodar",
+      "storeId": "992301",
+      "discoveryMethod": "public catalog title and product URLs with matching shopCode",
+      "prices": 29,
+      "secondRun": true,
+      "runArtifacts": [
+        "price-02r-glm-live-prices-magnit-992301-run1.json",
+        "price-02r-glm-live-prices-magnit-992301-run2.json"
+      ]
+    }
+  ],
+  "requiredButUnproven": ["Magnit stores in four additional required cities", "Pyaterochka", "Yarche"]
 }

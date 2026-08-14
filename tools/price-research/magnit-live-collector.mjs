@@ -4,13 +4,12 @@ import { createHash } from 'node:crypto';
 
 const SOURCE = 'https://magnit.ru/catalog';
 const FETCH_BASE = 'https://r.jina.ai/http://magnit.ru/catalog';
-const OUT = '.data/research/price-02r-glm-live-prices.json';
-const RAW = '.data/research/price-02r-glm-raw/magnit-catalog.txt';
 const cli = Object.fromEntries(process.argv.slice(2).flatMap((x, i, a) => x.startsWith('--') ? [[x.slice(2), a[i + 1] ?? true]] : []));
 const selectedStore = cli.store ?? process.env.MAGNIT_STORE;
 const selectedCity = cli.city ?? process.env.MAGNIT_CITY;
 const selectedRegion = cli.region ?? process.env.MAGNIT_REGION;
 const selectedAddress = cli.address ?? process.env.MAGNIT_ADDRESS ?? null;
+const runId = cli['run-id'] ?? null;
 
 function parseCatalog(text, observedAt) {
   const re = /\]\((https?:\/\/magnit\.ru\/product\/[^)]+)\s+"([^"]+)"\)/g;
@@ -55,6 +54,12 @@ async function main() {
   if (!selectedStore || !selectedCity || !selectedRegion) {
     throw new Error('--store, --city, and --region (or MAGNIT_STORE/MAGNIT_CITY/MAGNIT_REGION) are required');
   }
+  if (runId !== null && !/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(runId)) {
+    throw new Error('--run-id must contain only letters, digits, underscores, or hyphens');
+  }
+  const suffix = runId ? `-${runId}` : '';
+  const out = `.data/research/price-02r-glm-live-prices${suffix}.json`;
+  const raw = `.data/research/price-02r-glm-raw/magnit-catalog${suffix}.txt`;
   const started = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25_000);
@@ -70,10 +75,10 @@ async function main() {
   if (rows.length < 20) throw new Error(`verified prices ${rows.length} < 20`);
   await mkdir('.data/research/price-02r-glm-raw', { recursive: true });
   await mkdir('.data/research', { recursive: true });
-  await writeFile(RAW, text.replace(/set-cookie:[^\n]*/gi, 'set-cookie: [REDACTED]'));
+  await writeFile(raw, text.replace(/set-cookie:[^\n]*/gi, 'set-cookie: [REDACTED]'));
   const payload = { schemaVersion: 1, retailer: 'Magnit', sourceUrl: targetUrl, fetchUrl, store: rows[0].store, observedAt, requestMs: Date.now() - started, rawSha256: createHash('sha256').update(text).digest('hex'), prices: rows };
-  await writeFile(OUT, `${JSON.stringify(payload, null, 2)}\n`);
-  console.log(JSON.stringify({ ok: true, count: rows.length, observedAt, rawSha256: payload.rawSha256, output: OUT, raw: RAW }));
+  await writeFile(out, `${JSON.stringify(payload, null, 2)}\n`);
+  console.log(JSON.stringify({ ok: true, count: rows.length, observedAt, rawSha256: payload.rawSha256, output: out, raw }));
 }
 
 if (process.argv[1]?.replaceAll('\\', '/').endsWith('/magnit-live-collector.mjs')) {
