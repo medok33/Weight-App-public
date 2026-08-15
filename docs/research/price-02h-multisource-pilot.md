@@ -33,12 +33,16 @@ real sample file.
 
 | Source | City | Scope | Result |
 |---|---|---|---|
-| Proshoper | Москва | CITY_PROMO | Current catalog dated 11–17 Aug 2026, 248 products; two independent network runs and raw response hash were not captured in this audit. |
-| Proshoper | Ковров | CITY_PROMO | Search result exposes historical catalog pages, but no current ≥20-row sample with valid dates was available. Not accepted. |
-| SkidkaOnline | Ковров | CITY_PROMO | Current page result was stale/historical; no acceptance sample. |
+| Proshoper | Москва | CITY_PROMO | Current catalog dated 11–17 Aug 2026, 248 products; two browser acquisitions, 20 normalized RUB offers per run. Snapshot SHA256: `348d7a36098d657a72bfd4a70b0c0ee725eda6eda777cbbb40091a74491ddab6`. |
+| Proshoper | Ковров | CITY_PROMO | Current catalog dated 11–17 Aug 2026, 239 products; two browser acquisitions, 20 normalized RUB offers per run. Snapshot SHA256: `8c5d60da199c3e95d95cf6b04c2b1351157fc56529696858eef281b2133165e1`. |
+| SkidkaOnline | Ковров | CITY_PROMO | Historical page available, but not used for acceptance because Proshoper supplied a current catalog. |
 
-The Moscow source is not store-specific: source pages explicitly warn that prices can vary
-by store. These rows must not be used for store-level PostgreSQL observations.
+Both Proshoper sources are city-level only: source pages explicitly warn that prices can
+vary by store. These rows must not be used for store-level PostgreSQL observations.
+
+The saved artifacts are browser DOM snapshots, not HTTP HAR bodies. Direct local TLS
+retrieval failed with Windows Schannel `SEC_E_NO_CREDENTIALS`; therefore the hashes above
+are hashes of the rendered snapshots and are not represented as raw HTTP-response hashes.
 
 ## Commercial feed pilot
 
@@ -51,11 +55,11 @@ sample files were available; therefore no provider is marked live or persisted.
 - existing Pyaterochka collector tests: PASS (6/6);
 - API typecheck: PASS;
 - `git diff --check`: PASS;
-- PostgreSQL writer/reader acceptance: NOT RUN — no accepted live rows and no disposable DB run was authorized for this research-only pilot.
+- PostgreSQL writer/reader acceptance: BLOCKED — Docker/PostgreSQL is unavailable in the current environment; no database writes were attempted.
 
 ## Verdict
 
-`PRICE_02H_MULTISOURCE_PARTIAL_NOT_ACCEPTED`
+`PRICE_02H_MULTISOURCE_CITY_PROMO_EVIDENCE_READY_DB_BLOCKED`
 
 Direct/browser store channel remains separate and may be unavailable due CAPTCHA/403.
 The city-promo adapter is implemented, but only Moscow has a current source indication;
