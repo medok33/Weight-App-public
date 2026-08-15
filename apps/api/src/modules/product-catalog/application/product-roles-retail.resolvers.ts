@@ -1,7 +1,6 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { PrismaService, type SqlQuery } from '../../../infrastructure/database/prisma.service';
 import { readReferencePriceWithQuery } from '../../price-intelligence/infrastructure/reference-price.reader';
-import { allowTestPriceEvidence, classifyPriceObservationHeuristics } from '../domain/price-data-class.policy';
 import {
   assertCookingMethodCode,
   assertCulinaryRoleCode,
@@ -21,7 +20,6 @@ import type {
 } from '../domain/product-roles-retail.types';
 import { COOKING_METHOD_CODES } from '../domain/product-roles-retail.types';
 
-const STALE_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 
 @Injectable()
 export class ProductCulinaryRoleResolver {
@@ -416,220 +414,26 @@ export class ProductPriceResolver {
     };
   }
 
-  /** Evidence-only legacy resolver retained for admin diagnostics; product decisions use resolveOne. */
+  /**
+   * Legacy method retained for callers that still use the old name. It is a
+   * strict wrapper around the canonical reader; it must not contain a second
+   * PriceObservation selection algorithm.
+   */
   async resolveEvidenceOnlyLegacy(
     productId: string,
     options?: {
       retailerId?: string | null;
       regionCode?: string | null;
+      storeId?: string | null;
       query?: SqlQuery;
     },
   ): Promise<ProductPriceQuote> {
-    const missing: ProductPriceQuote = {
-      productId,
-      retailProductId: null,
-      retailerId: null,
-      retailerName: null,
-      retailerCode: null,
-      packageWeight: null,
-      packageUnit: null,
-      packagePriceRub: null,
-      currency: 'RUB',
-      collectedAt: null,
-      availability: null,
-      confidence: null,
-      stale: false,
-      provenance: 'PRICE_MISSING',
-      coverage: 'MISSING',
-    };
-
-    const hasRetailCol = await this.q(options?.query)<{ ok: boolean }>(
-      `SELECT EXISTS (
-         SELECT 1 FROM information_schema.columns
-         WHERE table_schema = 'public' AND table_name = 'PriceObservation'
-           AND column_name = 'retailProductId'
-       ) AS ok`,
-    );
-
-    if (hasRetailCol.rows[0]?.ok) {
-      const hasDataClass = await this.q(options?.query)<{ ok: boolean }>(
-        `SELECT EXISTS (
-           SELECT 1 FROM information_schema.columns
-           WHERE table_schema = 'public' AND table_name = 'PriceObservation'
-             AND column_name = 'dataClass'
-         ) AS ok`,
-      );
-      const allowTest = allowTestPriceEvidence({
-        allowTestPrices: (options as { allowTestPrices?: boolean } | undefined)?.allowTestPrices,
-      });
-      const dataClassFilter = hasDataClass.rows[0]?.ok
-        ? allowTest
-          ? ''
-          : ` AND COALESCE(po."dataClass", 'PRODUCTION') = 'PRODUCTION'
-              AND COALESCE(rp.source, '') <> 'FIXTURE' `
-        : allowTest
-          ? ''
-          : ` AND COALESCE(rp.source, '') <> 'FIXTURE'
-              AND lower(COALESCE(po.source, '')) NOT IN ('step092_fixture', 'fixture')
-              AND lower(COALESCE(po."sourceName", '')) NOT LIKE '%fixture%'
-              AND lower(COALESCE(po."sourceName", '')) NOT LIKE '%step092%' `;
-
-      const retail = await this.q(options?.query)<{
-        retailProductId: string;
-        retailerId: string | null;
-        retailerName: string | null;
-        retailerCode: string | null;
-        packageWeight: string | null;
-        packageUnit: string | null;
-        price: string;
-        currency: string;
-        collectedAt: string | null;
-        availability: string | null;
-        confidence: string | null;
-        dataClass: string | null;
-      }>(
-        `SELECT po."retailProductId"::text AS "retailProductId",
-                COALESCE(po."retailerId", rp."retailerId")::text AS "retailerId",
-                r.name AS "retailerName", r.code AS "retailerCode",
-                COALESCE(po."observedPackageWeight", rp."packageWeight")::text AS "packageWeight",
-                COALESCE(po."observedPackageUnit", rp."packageUnit") AS "packageUnit",
-                po.price::text AS price, po.currency,
-                COALESCE(po."collectedAt", po."observedAt")::text AS "collectedAt",
-                po.availability, po.confidence::text AS confidence,
-                ${hasDataClass.rows[0]?.ok ? 'po."dataClass"' : `'PRODUCTION'`} AS "dataClass"
-         FROM "PriceObservation" po
-         JOIN "RetailProduct" rp ON rp.id = po."retailProductId"
-         LEFT JOIN "Retailer" r ON r.id = COALESCE(po."retailerId", rp."retailerId")
-         LEFT JOIN "RetailStore" s ON s.id = po."storeId"
-         LEFT JOIN "Region" reg ON reg.id = s."regionId"
-         WHERE po."productId" = $1
-           AND po."retailProductId" IS NOT NULL
-           AND rp.status = 'ACTIVE'
-           AND rp."mappingStatus" = 'MAPPED'
-           AND COALESCE(po.availability, 'IN_STOCK') <> 'OUT_OF_STOCK'
-           AND ($2::uuid IS NULL OR COALESCE(po."retailerId", rp."retailerId") = $2)
-           AND ($3::text IS NULL OR reg.code = $3)
-           ${dataClassFilter}
-         ORDER BY COALESCE(po."collectedAt", po."observedAt") DESC
-         LIMIT 1`,
-        [productId, options?.retailerId ?? null, options?.regionCode ?? null],
-      );
-
-      const row = retail.rows[0];
-      if (row) {
-        const collectedAt = row.collectedAt;
-        const stale = collectedAt ? Date.now() - Date.parse(collectedAt) > STALE_MS : false;
-        const packageWeight = row.packageWeight != null ? Number(row.packageWeight) : null;
-        const packagePriceRub = Number(row.price);
-        const incomplete = !(packageWeight && packageWeight > 0) || !(packagePriceRub >= 0);
-        return {
-          productId,
-          retailProductId: row.retailProductId,
-          retailerId: row.retailerId,
-          retailerName: row.retailerName,
-          retailerCode: row.retailerCode,
-          packageWeight,
-          packageUnit: row.packageUnit,
-          packagePriceRub: incomplete ? null : packagePriceRub,
-          currency: row.currency,
-          collectedAt,
-          availability: row.availability,
-          confidence: row.confidence != null ? Number(row.confidence) : null,
-          stale,
-          provenance: incomplete ? 'PRICE_INCOMPLETE' : 'RETAIL_PRODUCT_PRICE',
-          coverage: incomplete ? 'PARTIAL' : stale ? 'PARTIAL' : 'FULL',
-          dataClass: (row.dataClass as 'PRODUCTION' | 'TEST_ONLY' | 'FIXTURE' | 'HISTORICAL_TEST') ?? 'PRODUCTION',
-        };
-      }
-    }
-
-    // Legacy fallback: PriceObservation by productId without retailProductId (or pre-migration).
-    const allowTestLegacy = allowTestPriceEvidence({
-      allowTestPrices: (options as { allowTestPrices?: boolean } | undefined)?.allowTestPrices,
+    return this.resolveForProduct(productId, {
+      retailerId: options?.retailerId,
+      regionCode: options?.regionCode,
+      storeId: options?.storeId,
+      query: options?.query,
     });
-    const hasDataClassLegacy = await this.q(options?.query)<{ ok: boolean }>(
-      `SELECT EXISTS (
-         SELECT 1 FROM information_schema.columns
-         WHERE table_schema = 'public' AND table_name = 'PriceObservation'
-           AND column_name = 'dataClass'
-       ) AS ok`,
-    );
-    const legacyFilter = allowTestLegacy
-      ? ''
-      : hasDataClassLegacy.rows[0]?.ok
-        ? ` AND COALESCE(po."dataClass", 'PRODUCTION') = 'PRODUCTION' `
-        : ` AND lower(COALESCE(po.source, '')) NOT IN ('step092_fixture', 'fixture')
-            AND lower(COALESCE(po."sourceName", '')) NOT LIKE '%fixture%'
-            AND lower(COALESCE(po."sourceName", '')) NOT LIKE '%step092%' `;
-
-    const legacy = await this.q(options?.query)<{
-      retailerId: string | null;
-      retailerName: string | null;
-      retailerCode: string | null;
-      packageSize: string | null;
-      packageUnit: string | null;
-      price: string;
-      currency: string;
-      collectedAt: string | null;
-      retailProductId: string | null;
-      dataClass: string | null;
-      source: string | null;
-      sourceName: string | null;
-    }>(
-      `SELECT po."retailerId"::text AS "retailerId",
-              r.name AS "retailerName", r.code AS "retailerCode",
-              p."packageSize"::text AS "packageSize", p."packageUnit",
-              po.price::text AS price, po.currency,
-              COALESCE(po."collectedAt", po."observedAt")::text AS "collectedAt",
-              ${hasRetailCol.rows[0]?.ok ? 'po."retailProductId"::text' : 'NULL::text'} AS "retailProductId",
-              ${hasDataClassLegacy.rows[0]?.ok ? `COALESCE(po."dataClass", 'PRODUCTION')` : `'PRODUCTION'`} AS "dataClass",
-              po.source AS source,
-              po."sourceName" AS "sourceName"
-       FROM "PriceObservation" po
-       JOIN "Product" p ON p.id = po."productId"
-       LEFT JOIN "Retailer" r ON r.id = po."retailerId"
-       WHERE po."productId" = $1
-         AND ($2::uuid IS NULL OR po."retailerId" = $2)
-         ${hasRetailCol.rows[0]?.ok ? 'AND po."retailProductId" IS NULL' : ''}
-         ${legacyFilter}
-       ORDER BY COALESCE(po."collectedAt", po."observedAt") DESC
-       LIMIT 1`,
-      [productId, options?.retailerId ?? null],
-    );
-
-    const leg = legacy.rows[0];
-    if (!leg) return missing;
-
-    const packageWeight = leg.packageSize != null ? Number(leg.packageSize) : null;
-    const packagePriceRub = Number(leg.price);
-    const incomplete = !(packageWeight && packageWeight > 0) || !(packagePriceRub >= 0);
-    const collectedAt = leg.collectedAt;
-    const stale = collectedAt ? Date.now() - Date.parse(collectedAt) > STALE_MS : false;
-
-    return {
-      productId,
-      retailProductId: leg.retailProductId,
-      retailerId: leg.retailerId,
-      retailerName: leg.retailerName,
-      retailerCode: leg.retailerCode,
-      packageWeight,
-      packageUnit: leg.packageUnit,
-      packagePriceRub: incomplete ? null : packagePriceRub,
-      currency: leg.currency,
-      collectedAt,
-      availability: null,
-      confidence: null,
-      stale,
-      provenance: incomplete ? 'PRICE_INCOMPLETE' : 'LEGACY_PRODUCT_PRICE',
-      coverage: 'LEGACY',
-      dataClass:
-        (leg.dataClass as 'PRODUCTION' | 'TEST_ONLY' | 'FIXTURE' | 'HISTORICAL_TEST') ??
-        classifyPriceObservationHeuristics({
-          source: leg.source,
-          sourceName: leg.sourceName,
-          retailerCode: leg.retailerCode,
-        }),
-    };
   }
 }
 
