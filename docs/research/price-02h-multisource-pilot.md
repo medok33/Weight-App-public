@@ -40,6 +40,11 @@ real sample file.
 Both Proshoper sources are city-level only: source pages explicitly warn that prices can
 vary by store. These rows must not be used for store-level PostgreSQL observations.
 
+Evidence contract for all four runs: `RAW_EVIDENCE_TYPE=DOM_SNAPSHOT`,
+`HTTP_RAW_BODY_REQUIRED=NO`, `fixtureAsLive=false`, `currency=RUB`, and
+`validTo=2026-08-17`. Run-1/run-2 capturedAt values are distinct; identical snapshot
+content/SHA256 is accepted as reproducible acquisition, not as a fabricated HTTP body.
+
 The saved artifacts are browser DOM snapshots, not HTTP HAR bodies. Direct local TLS
 retrieval failed with Windows Schannel `SEC_E_NO_CREDENTIALS`; therefore the hashes above
 are hashes of the rendered snapshots and are not represented as raw HTTP-response hashes.
@@ -51,16 +56,19 @@ sample files were available; therefore no provider is marked live or persisted.
 
 ## Verification
 
-- multisource provider tests: PASS (3/3);
+- multisource provider tests: PASS (5/5), including no-PLU identity collision and CITY_PROMO scope/expiry contracts;
 - existing Pyaterochka collector tests: PASS (6/6);
 - API typecheck: PASS;
 - `git diff --check`: PASS;
-- PostgreSQL writer/reader acceptance: BLOCKED — Docker/PostgreSQL is unavailable in the current environment; no database writes were attempted.
+- PostgreSQL writer/reader acceptance: BLOCKED — disposable topology startup failed because the Docker Engine named pipe was unavailable; no shared/prod database was contacted and no database writes were attempted.
 
 ## Verdict
 
-`PRICE_02H_MULTISOURCE_CITY_PROMO_EVIDENCE_READY_DB_BLOCKED`
+`PRICE_02J_CITY_PROMO_CONTRACT_READY_DB_BLOCKED`
 
 Direct/browser store channel remains separate and may be unavailable due CAPTCHA/403.
-The city-promo adapter is implemented, but only Moscow has a current source indication;
-Kovrov, two-run reproducibility, raw hashes and PostgreSQL acceptance remain open.
+Both Moscow and Kovrov have two independent DOM-snapshot acquisitions with distinct
+timestamps and stable snapshot hashes. The adapter now uses a fail-closed identity for
+rows without PLU/GTIN and exposes the fallback disclaimer: «Цена по городскому каталогу,
+в конкретном магазине может отличаться». PostgreSQL migration/writer/reader acceptance
+remains open until Docker Engine is restored.

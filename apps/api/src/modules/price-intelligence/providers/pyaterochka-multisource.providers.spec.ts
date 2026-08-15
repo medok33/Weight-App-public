@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PRICE_PROVIDER_PRIORITY, PyaterochkaCityPromoProvider, assertFresh, assertRegionalIsolation, providerPriority } from './pyaterochka-multisource.providers';
+import { CITY_PROMO_DISCLAIMER, PRICE_PROVIDER_PRIORITY, PyaterochkaCityPromoProvider, assertFresh, assertRegionalIsolation, buildCityPromoIdentity, providerPriority, selectCityPromoRows } from './pyaterochka-multisource.providers';
 
 const row = (overrides: Record<string, unknown> = {}) => ({ retailer: 'PYATEROCHKA' as const, city: 'Москва', region: 'MOW', title: 'Товар', plu: '1', currentPrice: 99, currency: 'RUB' as const, capturedAt: '2026-08-15T06:00:00.000Z', sourceUrl: 'https://proshoper.ru/catalog/1', hash: 'hash', scope: 'CITY_PROMO' as const, ...overrides });
 
@@ -16,4 +16,18 @@ describe('Pyaterochka multisource providers', () => {
     expect(() => assertFresh(row({ capturedAt: '2026-08-14T12:00:00.000Z', validTo: '2026-08-14T00:00:00.000Z' }), new Date('2026-08-15T00:00:00.000Z'))).toThrow('PRICE_PROMO_EXPIRED');
   });
   it('rejects store duplicate PLU within one city', () => expect(() => assertRegionalIsolation([row({ scope: 'STORE' }), row({ scope: 'STORE' })])).toThrow('PRICE_STORE_DUPLICATE_PLU'));
+  it('uses city/catalog/validity identity when PLU and GTIN are absent', () => {
+    const moscow = row({ plu: undefined, gtin: undefined, title: 'Молоко 3,2%', catalogId: '329728', validFrom: '2026-08-11', validTo: '2026-08-17' });
+    const kovrov = row({ plu: undefined, gtin: undefined, city: 'Ковров', region: 'VLA', title: 'Молоко 3,2%', catalogId: '329738', validFrom: '2026-08-11', validTo: '2026-08-17' });
+    expect(buildCityPromoIdentity(moscow)).not.toBe(buildCityPromoIdentity(kovrov));
+    expect(() => assertRegionalIsolation([moscow, { ...moscow, currentPrice: 100 }])).toThrow('PRICE_CITY_PROMO_IDENTITY_COLLISION');
+  });
+  it('keeps CITY_PROMO isolated from STORE and excludes expired rows', async () => {
+    const city = row({ plu: undefined, gtin: undefined, validTo: '2026-08-17', regularPrice: 120, promoPrice: 99, unitPriceBasis: true });
+    expect(selectCityPromoRows([city, { ...city, scope: 'STORE' }], 'Москва', new Date('2026-08-16T12:00:00.000Z'))).toHaveLength(1);
+    expect(selectCityPromoRows([city], 'Москва', new Date('2026-08-18T00:00:00.000Z'))).toHaveLength(0);
+    const prices = await new PyaterochkaCityPromoProvider([city]).syncPrices();
+    expect(prices[0]).toMatchObject({ regularPrice: 120, promoPrice: 99, unitPriceBasis: true, sourceUrl: 'https://proshoper.ru/catalog/1' });
+    expect(CITY_PROMO_DISCLAIMER).toContain('может отличаться');
+  });
 });

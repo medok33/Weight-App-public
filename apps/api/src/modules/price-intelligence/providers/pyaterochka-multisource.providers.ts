@@ -20,6 +20,10 @@ export type PyaterochkaPilotRow = {
   promoPrice?: number;
   currency: 'RUB';
   unitPriceBasis?: boolean;
+  package?: string;
+  quantity?: number;
+  unit?: string;
+  catalogId?: string;
   availability?: boolean;
   capturedAt: string;
   validFrom?: string;
@@ -28,6 +32,49 @@ export type PyaterochkaPilotRow = {
   hash: string;
   scope: 'STORE' | 'CITY_PROMO' | 'RECEIPT_HISTORY';
 };
+
+export const CITY_PROMO_DISCLAIMER = 'Цена по городскому каталогу, в конкретном магазине может отличаться';
+
+export function normalizeProductTitle(title: string): string {
+  return title.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
+}
+
+function sourceIdentity(sourceUrl: string, catalogId?: string): string {
+  try {
+    const url = new URL(sourceUrl);
+    return `${url.hostname.toLocaleLowerCase('en-US')}${url.pathname.replace(/\/$/, '')}${catalogId ? `#${catalogId}` : ''}`;
+  } catch {
+    return `${sourceUrl.trim()}${catalogId ? `#${catalogId}` : ''}`;
+  }
+}
+
+export function buildCityPromoIdentity(row: PyaterochkaPilotRow): string {
+  if (row.scope !== 'CITY_PROMO') throw new Error('PRICE_CITY_PROMO_IDENTITY_SCOPE_REQUIRED');
+  return [
+    row.retailer,
+    row.scope,
+    row.city.trim().toLocaleLowerCase('ru-RU'),
+    row.region.trim().toLocaleLowerCase('ru-RU'),
+    sourceIdentity(row.sourceUrl, row.catalogId),
+    normalizeProductTitle(row.title),
+    row.package?.trim().toLocaleLowerCase('ru-RU') ?? '',
+    row.quantity ?? '',
+    row.unit?.trim().toLocaleLowerCase('ru-RU') ?? '',
+    row.validFrom ?? '',
+    row.validTo ?? '',
+  ].join('|');
+}
+
+export function assertIdentityCollisions(rows: PyaterochkaPilotRow[]): void {
+  const seen = new Map<string, string>();
+  for (const row of rows.filter((candidate) => candidate.scope === 'CITY_PROMO')) {
+    const identity = buildCityPromoIdentity(row);
+    const payload = JSON.stringify({ title: row.title, package: row.package, quantity: row.quantity, unit: row.unit, currentPrice: row.currentPrice, regularPrice: row.regularPrice, promoPrice: row.promoPrice, currency: row.currency, unitPriceBasis: row.unitPriceBasis });
+    const previous = seen.get(identity);
+    if (previous && previous !== payload) throw new Error('PRICE_CITY_PROMO_IDENTITY_COLLISION');
+    seen.set(identity, payload);
+  }
+}
 
 export const PRICE_PROVIDER_PRIORITY = Object.freeze({
   STORE: 4,
@@ -54,6 +101,15 @@ export function assertRegionalIsolation(rows: PyaterochkaPilotRow[]): void {
     if (duplicate.has(key) && row.scope === 'STORE') throw new Error('PRICE_STORE_DUPLICATE_PLU');
     duplicate.add(key);
   }
+  assertIdentityCollisions(rows);
+}
+
+export function isExpired(row: PyaterochkaPilotRow, at = new Date()): boolean {
+  return Boolean(row.validTo && new Date(row.validTo).getTime() < at.getTime());
+}
+
+export function selectCityPromoRows(rows: PyaterochkaPilotRow[], city: string, at = new Date()): PyaterochkaPilotRow[] {
+  return rows.filter((row) => row.scope === 'CITY_PROMO' && row.city === city && !isExpired(row, at));
 }
 
 abstract class PyaterochkaRowsProvider implements RetailerPriceProvider {
@@ -75,15 +131,15 @@ abstract class PyaterochkaRowsProvider implements RetailerPriceProvider {
   }
 
   async syncProducts(): Promise<SyncProduct[]> {
-    return this.rows.map((row) => ({ productKey: row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, name: row.title, category: row.scope, unit: row.unitPriceBasis ? '100g' : 'item' }));
+    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, name: row.title, category: row.scope, unit: row.unitPriceBasis ? '100g' : row.unit ?? 'item' }));
   }
 
   async syncPrices(): Promise<SyncPrice[]> {
-    return this.rows.map((row) => ({ productKey: row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, price: row.currentPrice, regularPrice: row.regularPrice, promoPrice: row.promoPrice, currency: row.currency, collectedAt: row.capturedAt, validFrom: row.validFrom, validTo: row.validTo, unitPriceBasis: row.unitPriceBasis, location: { scope: row.scope === 'STORE' ? 'STORE' : 'CITY', city: row.city, regionCode: row.region, address: row.address, externalStoreId: row.storeId }, sourceUrl: row.sourceUrl }));
+    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, price: row.currentPrice, regularPrice: row.regularPrice, promoPrice: row.promoPrice, currency: row.currency, collectedAt: row.capturedAt, validFrom: row.validFrom, validTo: row.validTo, unitPriceBasis: row.unitPriceBasis, location: { scope: row.scope === 'STORE' ? 'STORE' : 'CITY', city: row.city, regionCode: row.region, address: row.address, externalStoreId: row.storeId }, sourceUrl: row.sourceUrl }));
   }
 
   async syncAvailability(): Promise<SyncAvailability[]> {
-    return this.rows.map((row) => ({ productKey: row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, available: row.availability ?? true }));
+    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, available: row.availability ?? true }));
   }
 }
 
