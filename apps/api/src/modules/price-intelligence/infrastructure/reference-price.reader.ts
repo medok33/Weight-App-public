@@ -34,6 +34,8 @@ type ReferenceRow = {
   evidenceSha256: string | null;
   acquiredAt: string | null;
   acquisitionTimeQuality: string | null;
+  validFrom: string | null;
+  validTo: string | null;
 };
 
 export type ReferencePriceReadOptions = {
@@ -69,7 +71,7 @@ export async function readReferencePriceWithQuery(
             ps."storeId", rs."locationScope", ps."sourceType", ps."sourceName",
             ps."evidenceObservationId", po."retailProductId", po."observedPackageWeight"::text,
             po."observedPackageUnit", po.availability, po.confidence::text, po."dataClass",
-            po."sourceUrl", po."evidenceSha256", po."acquiredAt"::text, po."acquisitionTimeQuality"
+            po."sourceUrl", po."evidenceSha256", po."acquiredAt"::text, po."acquisitionTimeQuality", po."validFrom"::text, po."validTo"::text
        FROM "PriceSnapshot" ps
        JOIN "PriceObservation" po ON po.id = ps."evidenceObservationId"
        JOIN "RetailProduct" rp ON rp.id = po."retailProductId"
@@ -81,6 +83,8 @@ export async function readReferencePriceWithQuery(
         AND COALESCE(po."dataClass", 'PRODUCTION') = 'PRODUCTION'
         AND rp.status = 'ACTIVE' AND rp."mappingStatus" = 'MAPPED'
         AND rp."canonicalProductId" = ps."productId"
+        AND po."acquisitionTimeQuality" = 'MEASURED'
+        AND po."acquiredAt" IS NOT NULL
         AND ($2::uuid IS NULL OR ps."storeId" = $2)
         AND ($2::uuid IS NOT NULL OR rs."locationScope" = 'REGION')
         AND ($3::uuid IS NULL OR ps."regionId" = $3)
@@ -97,7 +101,7 @@ export async function readReferencePriceWithQuery(
   const row = result.rows[0];
   if (row) {
     return {
-      status: freshnessStatus({ observedAt: row.observedAt, dataClass: row.dataClass, now: options.now, condition: row.priceCondition }),
+      status: freshnessStatus({ observedAt: row.observedAt, dataClass: row.dataClass, acquiredAt: row.acquiredAt, acquisitionTimeQuality: row.acquisitionTimeQuality, validFrom: row.validFrom, validTo: row.validTo, now: options.now, condition: row.priceCondition }),
       price: Number(row.price), currency: row.currency, normalizedUnitPrice: row.unitPrice == null ? null : Number(row.unitPrice),
       normalizedUnit: row.unitPriceUnit, priceCondition: row.priceCondition, observedAt: row.observedAt,
       freshUntil: row.freshUntil, productId: row.productId, retailerId: row.retailerId,
@@ -123,7 +127,7 @@ export async function readReferencePriceWithQuery(
             po."storeId", rs."locationScope", po."sourceType", po."sourceName",
             po.id AS "evidenceObservationId", po."retailProductId", po."observedPackageWeight"::text,
             po."observedPackageUnit", po.availability, po.confidence::text, po."dataClass",
-            po."sourceUrl", po."evidenceSha256", po."acquiredAt"::text, po."acquisitionTimeQuality"
+            po."sourceUrl", po."evidenceSha256", po."acquiredAt"::text, po."acquisitionTimeQuality", po."validFrom"::text, po."validTo"::text
        FROM "PriceObservation" po
        JOIN "RetailProduct" rp ON rp.id = po."retailProductId"
        JOIN "RetailStore" rs ON rs.id = po."storeId"
@@ -135,6 +139,8 @@ export async function readReferencePriceWithQuery(
         AND COALESCE(po."dataClass", 'PRODUCTION') = 'PRODUCTION'
         AND rp.status = 'ACTIVE' AND rp."mappingStatus" = 'MAPPED'
         AND rp."canonicalProductId" = po."productId"
+        AND po."acquisitionTimeQuality" = 'MEASURED'
+        AND po."acquiredAt" IS NOT NULL
         AND ($2::uuid IS NULL OR po."storeId" = $2)
         AND ($2::uuid IS NOT NULL OR rs."locationScope" = 'REGION')
         AND ($3::uuid IS NULL OR rs."regionId" = $3)
@@ -149,7 +155,7 @@ export async function readReferencePriceWithQuery(
   const eligibleRow = eligible.rows[0];
   if (eligibleRow) {
     return {
-      status: freshnessStatus({ observedAt: eligibleRow.observedAt, dataClass: eligibleRow.dataClass, now: options.now, condition: eligibleRow.priceCondition }),
+      status: freshnessStatus({ observedAt: eligibleRow.observedAt, dataClass: eligibleRow.dataClass, acquiredAt: eligibleRow.acquiredAt, acquisitionTimeQuality: eligibleRow.acquisitionTimeQuality, validFrom: eligibleRow.validFrom, validTo: eligibleRow.validTo, now: options.now, condition: eligibleRow.priceCondition }),
       price: Number(eligibleRow.price), currency: eligibleRow.currency,
       normalizedUnitPrice: eligibleRow.unitPrice == null ? null : Number(eligibleRow.unitPrice),
       normalizedUnit: eligibleRow.unitPriceUnit, priceCondition: eligibleRow.priceCondition,
@@ -177,7 +183,7 @@ export async function readReferencePriceWithQuery(
             po."storeId", rs."locationScope", po."sourceType", po."sourceName",
             po.id AS "evidenceObservationId", po."retailProductId", po."observedPackageWeight"::text,
             po."observedPackageUnit", po.availability, po.confidence::text, po."dataClass",
-            po."sourceUrl", po."evidenceSha256", po."acquiredAt"::text, po."acquisitionTimeQuality"
+            po."sourceUrl", po."evidenceSha256", po."acquiredAt"::text, po."acquisitionTimeQuality", po."validFrom"::text, po."validTo"::text
        FROM "PriceObservation" po
        JOIN "RetailProduct" rp ON rp.id = po."retailProductId"
        JOIN "RetailStore" rs ON rs.id = po."storeId"
@@ -189,6 +195,8 @@ export async function readReferencePriceWithQuery(
         AND COALESCE(po."dataClass", 'PRODUCTION') = 'PRODUCTION'
         AND rp.status = 'ACTIVE' AND rp."mappingStatus" = 'MAPPED'
         AND rp."canonicalProductId" = po."productId"
+        AND po."acquisitionTimeQuality" = 'MEASURED'
+        AND po."acquiredAt" IS NOT NULL
         AND ($2::uuid IS NULL OR po."storeId" = $2)
         AND ($2::uuid IS NOT NULL OR rs."locationScope" = 'REGION')
         AND ($3::uuid IS NULL OR rs."regionId" = $3)

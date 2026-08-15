@@ -1,5 +1,6 @@
 import type { ManualPriceRow, OpenDataPriceRow, PriceObservation, PriceSnapshot, PriceSourceType } from './price-intelligence.types';
 import { normalizeRetailerRef } from './retailer.types';
+import { freshnessStatus } from './reference-price.core';
 
 const SOURCE_RANK: Record<PriceSourceType, number> = {
   API: 4,
@@ -24,11 +25,19 @@ export function validateObservation(observation: PriceObservation) {
 
 export function rankSources(observations: PriceObservation[], now = Date.now()): PriceSnapshot | undefined {
   if (!observations.length) return undefined;
-  const valid = observations.map(validateObservation).sort((a, b) => {
+  const valid = observations.map(validateObservation).filter((observation) => freshnessStatus({
+    observedAt: observation.observedAt,
+    dataClass: observation.dataClass,
+    acquiredAt: observation.acquiredAt,
+    acquisitionTimeQuality: observation.acquisitionTimeQuality,
+    condition: observation.priceCondition,
+    now: new Date(now),
+  }) === 'CURRENT').sort((a, b) => {
     const byType = (SOURCE_RANK[b.sourceType] ?? 0) - (SOURCE_RANK[a.sourceType] ?? 0);
     if (byType !== 0) return byType;
     return Date.parse(b.collectedAt) - Date.parse(a.collectedAt);
   });
+  if (!valid.length) return undefined;
   const best = valid[0]!;
   const ageDays = Math.max(0, (now - Date.parse(best.collectedAt)) / 86_400_000);
   const base = best.sourceType === 'API' ? 0.9 : best.sourceType === 'CSV' ? 0.75 : best.sourceType === 'MANUAL' ? 0.7 : 0.55;

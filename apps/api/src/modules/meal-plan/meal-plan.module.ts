@@ -3,6 +3,7 @@ import { DatabaseModule } from '../../infrastructure/database/database.module';
 import { UserProfileModule } from '../user-profile/user-profile.module';
 import { PantryModule } from '../pantry/pantry.module';
 import { ProductCatalogModule } from '../product-catalog/product-catalog.module';
+import { PriceIntelligenceModule } from '../price-intelligence/price-intelligence.module';
 import { RecipePlatformModule } from '../recipe-platform/recipe-platform.module';
 import { RevisionEngineModule } from '../revision-engine/revision-engine.module';
 import { ShoppingListModule } from '../shopping-list/shopping-list.module';
@@ -20,6 +21,7 @@ import { MealDishCatalogRepository } from './infrastructure/meal-dish-catalog.re
     UserProfileModule,
     AuditSecurityModule,
     ProductCatalogModule,
+    PriceIntelligenceModule,
     RecipePlatformModule,
     RevisionEngineModule,
     forwardRef(() => PantryModule),

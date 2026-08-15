@@ -15,7 +15,7 @@ import { OfficialApiProviderStub } from '../providers/stubs/official-api-provide
 
 describe('price intelligence sources', () => {
   it('ranks API over CSV/MANUAL for the same product age', () => {
-    const now = '2026-07-21T12:00:00.000Z';
+    const now = new Date().toISOString();
     const result = rankSources([
       {
         productId: 'p',
@@ -26,6 +26,9 @@ describe('price intelligence sources', () => {
         sourceName: 'Ручной',
         observedAt: now,
         collectedAt: now,
+        acquiredAt: now,
+        acquisitionTimeQuality: 'MEASURED',
+        dataClass: 'PRODUCTION',
       },
       {
         productId: 'p',
@@ -36,10 +39,21 @@ describe('price intelligence sources', () => {
         sourceName: 'Mock Official API',
         observedAt: now,
         collectedAt: now,
+        acquiredAt: now,
+        acquisitionTimeQuality: 'MEASURED',
+        dataClass: 'PRODUCTION',
       },
     ]);
     expect(result?.price).toBe(299);
     expect(result?.sourceType).toBe('API');
+  });
+
+  it('never ranks normalized-only evidence as a current snapshot', () => {
+    const now = new Date().toISOString();
+    expect(rankSources([{
+      productId: 'p', storeId: 's', price: 200, currency: 'RUB', sourceType: 'API', sourceName: 'normalized',
+      observedAt: now, collectedAt: now, acquiredAt: now, acquisitionTimeQuality: 'NORMALIZED_ONLY', dataClass: 'PRODUCTION',
+    }])).toBeUndefined();
   });
 
   it('normalizes retailer by key/type — not display name', () => {

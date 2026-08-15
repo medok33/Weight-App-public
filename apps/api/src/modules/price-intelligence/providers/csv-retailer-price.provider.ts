@@ -60,6 +60,7 @@ export class CsvRetailerPriceProvider implements RetailerPriceProvider {
   }
 
   async syncPrices(): Promise<SyncPrice[]> {
+    const acquiredAt = new Date().toISOString();
     return this.rows.map((row) => ({
       productKey: row.productKey,
       externalId: row.productKey,
@@ -68,6 +69,8 @@ export class CsvRetailerPriceProvider implements RetailerPriceProvider {
       collectedAt: row.collectedAt ? new Date(row.collectedAt).toISOString() : new Date().toISOString(),
       weight: row.weight,
       unit: row.unit,
+      acquiredAt,
+      acquisitionTimeQuality: 'MEASURED' as const,
     }));
   }
 

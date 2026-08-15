@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CITY_PROMO_DISCLAIMER, PRICE_PROVIDER_PRIORITY, PyaterochkaCityPromoProvider, assertFresh, assertRegionalIsolation, buildCityPromoIdentity, providerPriority, selectCityPromoRows } from './pyaterochka-multisource.providers';
+import { CITY_PROMO_DISCLAIMER, PRICE_PROVIDER_PRIORITY, PyaterochkaCityPromoProvider, PyaterochkaLicensedFeedProvider, PyaterochkaReceiptObservationProvider, assertFresh, assertRegionalIsolation, buildCityPromoIdentity, providerPriority, selectCityPromoRows } from './pyaterochka-multisource.providers';
 
 const row = (overrides: Record<string, unknown> = {}) => ({ retailer: 'PYATEROCHKA' as const, city: 'Москва', region: 'MOW', title: 'Товар', plu: '1', currentPrice: 99, currency: 'RUB' as const, capturedAt: '2026-08-15T06:00:00.000Z', sourceUrl: 'https://proshoper.ru/catalog/1', hash: 'hash', scope: 'CITY_PROMO' as const, ...overrides });
 
@@ -29,5 +29,12 @@ describe('Pyaterochka multisource providers', () => {
     const prices = await new PyaterochkaCityPromoProvider([city]).syncPrices();
     expect(prices[0]).toMatchObject({ regularPrice: 120, promoPrice: 99, unitPriceBasis: true, sourceUrl: 'https://proshoper.ru/catalog/1' });
     expect(CITY_PROMO_DISCLAIMER).toContain('может отличаться');
+  });
+  it('fails closed for title-only precise-scope identity', () => {
+    expect(() => new PyaterochkaLicensedFeedProvider([row({ plu: undefined, gtin: undefined, scope: 'STORE', storeId: '389698' })])).toThrow('PRICE_PRECISE_SCOPE_IDENTIFIER_REQUIRED');
+    expect(() => new PyaterochkaLicensedFeedProvider([row({ plu: undefined, gtin: undefined, scope: 'DELIVERY_ADDRESS', address: 'Первомайская, 17' })])).toThrow('PRICE_PRECISE_SCOPE_IDENTIFIER_REQUIRED');
+  });
+  it('fails closed for title-only non-precise identity too', () => {
+    expect(() => new PyaterochkaReceiptObservationProvider([row({ plu: undefined, gtin: undefined, catalogId: undefined, scope: 'RECEIPT_HISTORY' })])).toThrow('PRICE_RETAILER_PRODUCT_IDENTIFIER_REQUIRED');
   });
 });

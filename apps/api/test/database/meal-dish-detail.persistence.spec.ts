@@ -54,13 +54,23 @@ describe('STEP_092 meal dish detail persistence', () => {
       observedAt: string;
       observationKey: string;
       dataClass: string;
+      externalSku: string | null;
+      observedPackageWeight: string | null;
+      observedPackageUnit: string | null;
+      regionId: string | null;
+      locationScope: string | null;
+      acquiredAt: string | null;
+      acquisitionTimeQuality: string | null;
     }>(
-      `SELECT "productId", "storeId", "retailerId", "retailProductId", price::text, currency,
-              "sourceType", "sourceName",
-              to_char("observedAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "observedAt",
-              "observationKey", "dataClass"
+      `SELECT "PriceObservation"."productId", "PriceObservation"."storeId", "PriceObservation"."retailerId", "PriceObservation"."retailProductId", price::text, currency,
+              "PriceObservation"."sourceType", "PriceObservation"."sourceName",
+              to_char("PriceObservation"."observedAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "observedAt",
+              "PriceObservation"."observationKey", "PriceObservation"."dataClass", rp."externalSku", "PriceObservation"."observedPackageWeight", "PriceObservation"."observedPackageUnit",
+              rs."regionId", rs."locationScope", "PriceObservation"."acquiredAt", "PriceObservation"."acquisitionTimeQuality"
        FROM "PriceObservation"
-       WHERE source = 'step092_fixture'
+       LEFT JOIN "RetailProduct" rp ON rp.id = "PriceObservation"."retailProductId"
+       LEFT JOIN "RetailStore" rs ON rs.id = "PriceObservation"."storeId"
+       WHERE "PriceObservation"."source" = 'step092_fixture'
        ORDER BY "observedAt" ASC
        LIMIT 1`,
     );
@@ -77,7 +87,14 @@ describe('STEP_092 meal dish detail persistence', () => {
         price: Number(row.price),
         currency: row.currency,
         observedAt: row.observedAt,
+        externalSku: row.externalSku,
+        packageQuantity: row.observedPackageWeight,
+        packageUnit: row.observedPackageUnit,
         priceCondition: 'REGULAR',
+        regionId: row.regionId,
+        locationScope: row.locationScope,
+        acquiredAt: row.acquiredAt,
+        acquisitionTimeQuality: row.acquisitionTimeQuality,
       }),
     );
     expect(row.dataClass).toBe('FIXTURE');

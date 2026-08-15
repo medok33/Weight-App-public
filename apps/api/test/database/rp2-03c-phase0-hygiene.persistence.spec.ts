@@ -264,6 +264,8 @@ async function insertFixtureObservation(
     [fixture.retailerId, fixture.productId, `rp2-hygiene-${fixture.productId}`, input.dataClass === 'FIXTURE' ? 'FIXTURE' : 'IMPORT'],
   );
   const retailProductId = retailProduct.rows[0]!.id;
+  const acquiredAt = input.dataClass === 'PRODUCTION' ? observedAt : null;
+  const acquisitionTimeQuality = input.dataClass === 'PRODUCTION' ? 'MEASURED' : null;
   const observationKey = observationIdentity({
     productId: fixture.productId,
     storeId: fixture.storeId,
@@ -276,12 +278,14 @@ async function insertFixtureObservation(
     currency: 'RUB',
     observedAt,
     priceCondition: 'REGULAR',
+    acquiredAt,
+    acquisitionTimeQuality,
   });
   const inserted = await pool.query<{ id: string }>(
     `INSERT INTO "PriceObservation"
       ("productId", "storeId", "retailerId", "retailProductId", price, currency, source, "sourceType", "sourceName",
-       "observedAt", "collectedAt", "dataClass", "observationKey", "observedPackageWeight", "observedPackageUnit")
-     VALUES ($1, $2, $10, $11, $3, 'RUB', $4, $5, $6, $8, $8, $7, $9, 100, 'g')
+       "observedAt", "collectedAt", "dataClass", "observationKey", "observedPackageWeight", "observedPackageUnit", "acquiredAt", "acquisitionTimeQuality")
+     VALUES ($1, $2, $10, $11, $3, 'RUB', $4, $5, $6, $8, $8, $7, $9, 100, 'g', $12::timestamptz, $13)
      RETURNING id`,
     [
       fixture.productId,
@@ -295,6 +299,8 @@ async function insertFixtureObservation(
       observationKey,
       fixture.retailerId,
       retailProductId,
+      acquiredAt,
+      acquisitionTimeQuality,
     ],
   );
   const id = inserted.rows[0]!.id;

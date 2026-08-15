@@ -38,7 +38,7 @@ export type LatestPriceQuote = {
   retailerId?: string;
   retailerName?: string;
   retailerCode?: string;
-  status?: 'CURRENT' | 'STALE' | 'UNKNOWN' | 'APPROXIMATE';
+  status?: 'CURRENT' | 'STALE' | 'EXPIRED' | 'UNKNOWN' | 'APPROXIMATE';
   normalizedUnitPrice?: number;
   normalizedUnit?: string;
   priceCondition?: PriceCondition;
@@ -676,13 +676,15 @@ export class PriceIntelligenceRepository {
           AND "quantityRequirement" IS NOT DISTINCT FROM $18::numeric
           AND "sourceUrl" IS NOT DISTINCT FROM $19
           AND "evidenceSha256" IS NOT DISTINCT FROM $20
+          AND "acquiredAt" IS NOT DISTINCT FROM $21::timestamptz
+          AND "acquisitionTimeQuality" IS NOT DISTINCT FROM $22
         ORDER BY id LIMIT 1`,
       [input.productId, input.storeId, input.retailerId ?? null, retailProductId,
         input.price, currency, input.sourceType, input.sourceName, input.collectedAt, condition,
         pack?.quantity ?? null, pack?.unit ?? null, input.regularPrice ?? input.price,
         input.conditionDescription ?? null, input.validFrom ?? null, input.validTo ?? null,
         input.loyaltyRequired ?? null, input.quantityRequirement ?? null,
-        input.sourceUrl ?? null, input.evidenceSha256 ?? null],
+        input.sourceUrl ?? null, input.evidenceSha256 ?? null, input.acquiredAt ?? null, input.acquisitionTimeQuality ?? null],
     );
     if (logicalDuplicate.rows[0]) {
       return { inserted: false, observationId: logicalDuplicate.rows[0].id, observationKey };
@@ -717,6 +719,8 @@ export class PriceIntelligenceRepository {
          AND rp.id IS NOT NULL AND rp.status = 'ACTIVE' AND rp."mappingStatus" = 'MAPPED' AND rp."canonicalProductId" = po."productId"
          AND po.price >= 0 AND upper(trim(po.currency)) = 'RUB'
          AND COALESCE(po."dataClass", 'PRODUCTION') = 'PRODUCTION'
+         AND po."acquisitionTimeQuality" = 'MEASURED'
+         AND po."acquiredAt" IS NOT NULL
          AND po."priceCondition" IN ('REGULAR','PROMOTIONAL')
          AND (po."validFrom" IS NULL OR po."validFrom" <= now())
          AND (po."validTo" IS NULL OR po."validTo" >= now())

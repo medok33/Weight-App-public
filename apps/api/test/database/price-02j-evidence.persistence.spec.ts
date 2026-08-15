@@ -90,7 +90,8 @@ describeDb('PRICE-02J canonical evidence persistence', () => {
     const product = await repo.ensureNormalizedProduct({ productKey: `magnit:9072651501:${suffix}`, name: 'Бананы', category: 'evidence', unit: 'item' });
     const externalSku = `9072651501-${suffix}`;
     await expect(repo.insertObservation({ productId: product.id, storeId, retailerId: ensured.retailerId, externalSku: `9072651501-${suffix}`, productTitle: 'Бананы', price: 149, currency: 'EUR', sourceType: 'PARSER', sourceName: 'Magnit evidence', collectedAt: new Date().toISOString(), legacySource: 'fixture', dataClass: 'FIXTURE' })).rejects.toThrow('PRICE_CURRENCY_UNSUPPORTED');
-    const accepted = await repo.insertObservation({ productId: product.id, storeId, retailerId: ensured.retailerId, externalSku, productTitle: 'Бананы', price: 149, currency: 'RUB', sourceType: 'API', sourceName: 'Magnit accepted test', collectedAt: new Date().toISOString(), legacySource: 'api', dataClass: 'PRODUCTION', sourceUrl: 'https://magnit.ru/product/9072651501', evidenceSha256: 'sha-prod', acquisitionTimeQuality: 'MEASURED' });
+    const acceptedAt = new Date().toISOString();
+    const accepted = await repo.insertObservation({ productId: product.id, storeId, retailerId: ensured.retailerId, externalSku, productTitle: 'Бананы', price: 149, currency: 'RUB', sourceType: 'API', sourceName: 'Magnit accepted test', collectedAt: acceptedAt, acquiredAt: acceptedAt, legacySource: 'api', dataClass: 'PRODUCTION', sourceUrl: 'https://magnit.ru/product/9072651501', evidenceSha256: 'sha-prod', acquisitionTimeQuality: 'MEASURED' });
     const retailProduct = await db.query<{ id: string }>('SELECT id FROM "RetailProduct" WHERE "retailerId"=$1 AND "externalSku"=$2', [ensured.retailerId, externalSku]);
     expect(accepted.observationId).toBeTruthy();
     expect(retailProduct.rows[0]?.id).toBeTruthy();
@@ -107,8 +108,8 @@ describeDb('PRICE-02J canonical evidence persistence', () => {
     const pyMoscow = await write({ productId: pyProduct.id, retailer: 'PYATEROCHKA', city: 'Москва', region: 'MOW', address: 'Первомайская улица, 17', externalSku: '3645971', title: 'Смесь', price: 1299, currency: 'RUB', scope: 'DELIVERY_ADDRESS', capturedAt, sourceUrl: 'https://5ka.ru/product/3645971', evidenceSha256: 'sha-py-moscow', acquiredAt: capturedAt, acquisitionTimeQuality: 'NORMALIZED_ONLY', sourceType: 'API', dataClass: 'PRODUCTION' });
     const pyKovrov = await write({ productId: pyProduct.id, retailer: 'PYATEROCHKA', city: 'Ковров', region: 'VLA', address: 'улица Шмидта, 14', externalSku: '3645971', title: 'Смесь', price: 1299, currency: 'RUB', scope: 'DELIVERY_ADDRESS', capturedAt, sourceUrl: 'https://5ka.ru/product/3645971', evidenceSha256: 'sha-py-kovrov', acquiredAt: capturedAt, acquisitionTimeQuality: 'NORMALIZED_ONLY', sourceType: 'API', dataClass: 'PRODUCTION' });
     expect(pyMoscow.storeId).not.toBe(pyKovrov.storeId);
-    expect((await repo.readReferencePrice(pyProduct.id, { storeId: pyMoscow.storeId, locationScope: 'DELIVERY_ADDRESS' })).storeId).toBe(pyMoscow.storeId);
-    expect((await repo.readReferencePrice(pyProduct.id, { storeId: pyKovrov.storeId, locationScope: 'DELIVERY_ADDRESS' })).storeId).toBe(pyKovrov.storeId);
+    expect((await repo.readReferencePrice(pyProduct.id, { storeId: pyMoscow.storeId, locationScope: 'DELIVERY_ADDRESS' })).status).toBe('UNKNOWN');
+    expect((await repo.readReferencePrice(pyProduct.id, { storeId: pyKovrov.storeId, locationScope: 'DELIVERY_ADDRESS' })).status).toBe('UNKNOWN');
     expect((await repo.readReferencePrice(pyProduct.id, { storeId: pyMoscow.storeId, locationScope: 'STORE' }).then((value) => value.status))).toBe('UNKNOWN');
 
     const cityProduct = await repo.ensureNormalizedProduct({ productKey: `city-promo:3645971:${suffix}`, name: 'Городской каталог', category: 'evidence', unit: 'item', externalId: 'city-3645971' });

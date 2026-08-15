@@ -45,9 +45,25 @@ export class PriceIntelligenceController {
   }
 
   @Get('evidence/:productId')
-  async readReferencePrice(@Param('productId') productId: string, @Query('storeId') storeId?: string, @Query('regionId') regionId?: string) {
+  async readReferencePrice(
+    @Param('productId') productId: string,
+    @Query('storeId') storeId?: string,
+    @Query('regionId') regionId?: string,
+    @Query('regionCode') regionCode?: string,
+    @Query('locationScope') locationScope?: string,
+  ) {
     if (!productId?.trim()) throw new BadRequestException('PRODUCT_INVALID');
-    return this.service.readReferencePrice(productId, { storeId, regionId });
+    if (!locationScope?.trim()) throw new BadRequestException('LOCATION_SCOPE_REQUIRED');
+    const allowed = ['STORE', 'DELIVERY_ADDRESS', 'CITY', 'CITY_PROMO', 'REGION'] as const;
+    if (locationScope && !allowed.includes(locationScope as (typeof allowed)[number])) throw new BadRequestException('LOCATION_SCOPE_INVALID');
+    const normalizedScope = locationScope === 'CITY_PROMO' ? 'CITY' : locationScope as Exclude<(typeof allowed)[number], 'CITY_PROMO'>;
+    if (['STORE', 'DELIVERY_ADDRESS', 'CITY'].includes(normalizedScope) && !storeId?.trim()) {
+      throw new BadRequestException('LOCATION_STORE_REQUIRED');
+    }
+    if (normalizedScope === 'REGION' && !regionId?.trim() && !regionCode?.trim()) {
+      throw new BadRequestException('LOCATION_REGION_REQUIRED');
+    }
+    return this.service.readReferencePrice(productId, { storeId, regionId, regionCode, locationScope: normalizedScope });
   }
 
   @Post('import')

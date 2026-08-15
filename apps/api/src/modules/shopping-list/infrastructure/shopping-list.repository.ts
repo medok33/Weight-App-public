@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { PrismaService, type SqlQuery } from '../../../infrastructure/database/prisma.service';
 import type {
   ShoppingItemRecord,
@@ -6,8 +6,8 @@ import type {
   ShoppingListRecord,
 } from '../domain/shopping-list.types';
 import type { AggregatedShoppingItem } from '../domain/shopping-list.policy';
-import { observationIdentity } from '../../price-intelligence/domain/reference-price.core';
 import { readReferencePriceWithQuery } from '../../price-intelligence/infrastructure/reference-price.reader';
+import { PriceIntelligenceRepository } from '../../price-intelligence/infrastructure/price-intelligence.repository';
 
 type ItemRow = {
   id: string;
@@ -44,7 +44,14 @@ type PricedItem = AggregatedShoppingItem & {
 
 @Injectable()
 export class ShoppingListRepository {
-  constructor(@Inject(PrismaService) private readonly db: PrismaService) {}
+  private readonly prices: PriceIntelligenceRepository;
+
+  constructor(
+    @Inject(PrismaService) private readonly db: PrismaService,
+    @Optional() @Inject(PriceIntelligenceRepository) prices?: PriceIntelligenceRepository,
+  ) {
+    this.prices = prices ?? new PriceIntelligenceRepository(db);
+  }
 
   private q(query?: SqlQuery): SqlQuery {
     return query ?? ((text, values = []) => this.db.query(text, values));
@@ -136,25 +143,12 @@ export class ShoppingListRepository {
         dataClass: latest.dataClass ?? 'PRODUCTION', status: 'CURRENT',
       };
     }
-    const collectedAt = new Date().toISOString();
     const sourceName = 'Каталог (fallback)';
-    const observationKey = observationIdentity({
-      productId,
-      storeId,
-      sourceType: 'MANUAL',
-      sourceName,
-      price,
-      currency: 'RUB',
-      observedAt: collectedAt,
-      priceCondition: 'UNKNOWN_CONDITION',
-    });
-    await run(
-      `INSERT INTO "PriceObservation"
-        ("productId", "storeId", price, "observedAt", source, currency, "sourceType", "sourceName", "collectedAt", "observationKey", "dataClass", "priceCondition")
-       VALUES ($1, $2, $3, $4, 'catalog', 'RUB', 'MANUAL', $5, $4, $6, 'TEST_ONLY', 'UNKNOWN_CONDITION')
-       ON CONFLICT ("observationKey") DO NOTHING`,
-      [productId, storeId, price, collectedAt, sourceName, observationKey],
-    );
+    const collectedAt = new Date().toISOString();
+    await this.prices.insertObservation({
+      productId, storeId, price, currency: 'RUB', sourceType: 'MANUAL', sourceName,
+      collectedAt, legacySource: 'catalog', dataClass: 'TEST_ONLY', priceCondition: 'UNKNOWN_CONDITION',
+    }, query);
     return {
       price,
       sourceType: 'MANUAL',
@@ -279,40 +273,30 @@ export class ShoppingListRepository {
     );
     const row = list.rows[0];
     if (!row) return null;
-    const items = await run<
-      ItemRow & {
-        priceSourceType: string | null;
-        priceSourceName: string | null;
-        priceCollectedAt: string | null;
-        retailerName: string | null;
-        retailerCode: string | null;
-        dataClass: string | null;
-      }
-    >(
+    const items = await run<ItemRow>(
       `SELECT si.id, si."productId", si.name, si.category, si.quantity::text AS quantity, si.unit, si.purchased,
-              si."estimatedUnitPrice"::text AS "estimatedUnitPrice", si."estimatedCost"::text AS "estimatedCost",
-              po."sourceType" AS "priceSourceType",
-              po."sourceName" AS "priceSourceName",
-              COALESCE(po."collectedAt", po."observedAt")::text AS "priceCollectedAt",
-              po."retailerName" AS "retailerName",
-              po."retailerCode" AS "retailerCode",
-              po."dataClass" AS "dataClass"
+              si."estimatedUnitPrice"::text AS "estimatedUnitPrice", si."estimatedCost"::text AS "estimatedCost"
        FROM "ShoppingItem" si
-       LEFT JOIN LATERAL (
-         SELECT obs."sourceType", obs."sourceName", obs."collectedAt", obs."observedAt",
-                r.name AS "retailerName", r.code AS "retailerCode",
-                COALESCE(obs."dataClass", 'PRODUCTION') AS "dataClass"
-         FROM "PriceObservation" obs
-         LEFT JOIN "Retailer" r ON r.id = obs."retailerId"
-         WHERE obs."productId" = si."productId"
-         ORDER BY COALESCE(obs."collectedAt", obs."observedAt") DESC
-         LIMIT 1
-       ) po ON true
        WHERE si."shoppingListId" = $1
        ORDER BY si.category, si.name`,
       [listId],
     );
-    const mapped = items.rows.map((item) => this.mapItem(item));
+    const enriched = await Promise.all(items.rows.map(async (item) => {
+      if (!item.productId) return item;
+      const evidence = await readReferencePriceWithQuery(run, item.productId);
+      return {
+        ...item,
+        priceSourceType: evidence.sourceType,
+        priceSourceName: evidence.sourceName,
+        priceCollectedAt: evidence.observedAt,
+        retailerName: evidence.retailerName,
+        retailerCode: evidence.retailerCode,
+        // Preserve the canonical reader's absence as non-production metadata so
+        // a USER read cannot resurrect the persisted generation-time estimate.
+        dataClass: evidence.status === 'UNKNOWN' ? 'UNKNOWN' : evidence.dataClass,
+      };
+    }));
+    const mapped = enriched.map((item) => this.mapItem(item));
     const estimatedTotal = mapped.reduce((sum, item) => sum + item.estimatedCost, 0);
     const purchasedTotal = mapped.filter((item) => item.purchased).reduce((sum, item) => sum + item.estimatedCost, 0);
     return {

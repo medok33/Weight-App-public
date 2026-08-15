@@ -51,6 +51,19 @@ function sourceIdentity(sourceUrl: string, catalogId?: string): string {
   }
 }
 
+function stableRetailerProductIdentity(row: PyaterochkaPilotRow): string {
+  const identifier = row.plu?.trim() || row.gtin?.trim() || row.catalogId?.trim();
+  if (!identifier) {
+    if (row.scope === 'STORE' || row.scope === 'DELIVERY_ADDRESS') throw new Error('PRICE_PRECISE_SCOPE_IDENTIFIER_REQUIRED');
+    throw new Error('PRICE_RETAILER_PRODUCT_IDENTIFIER_REQUIRED');
+  }
+  return identifier;
+}
+
+function retailerProductExternalId(row: PyaterochkaPilotRow): string | undefined {
+  return row.plu?.trim() || row.gtin?.trim() || row.catalogId?.trim();
+}
+
 export function buildCityPromoIdentity(row: PyaterochkaPilotRow): string {
   if (row.scope !== 'CITY_PROMO') throw new Error('PRICE_CITY_PROMO_IDENTITY_SCOPE_REQUIRED');
   return [
@@ -100,6 +113,8 @@ export function assertRegionalIsolation(rows: PyaterochkaPilotRow[]): void {
   if (cities.size > 1 && rows.some((row) => !row.city || !row.region)) throw new Error('PRICE_REGION_CONTEXT_MISSING');
   const duplicate = new Set<string>();
   for (const row of rows) {
+    if (row.scope === 'CITY_PROMO') buildCityPromoIdentity(row);
+    else stableRetailerProductIdentity(row);
     const key = `${row.city}:${row.plu ?? row.gtin ?? row.title}`;
     if (duplicate.has(key) && row.scope === 'STORE') throw new Error('PRICE_STORE_DUPLICATE_PLU');
     duplicate.add(key);
@@ -134,15 +149,15 @@ abstract class PyaterochkaRowsProvider implements RetailerPriceProvider {
   }
 
   async syncProducts(): Promise<SyncProduct[]> {
-    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, name: row.title, category: row.scope, unit: row.unitPriceBasis ? '100g' : row.unit ?? 'item' }));
+    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : stableRetailerProductIdentity(row), externalId: retailerProductExternalId(row), name: row.title, category: row.scope, unit: row.unitPriceBasis ? '100g' : row.unit ?? 'item' }));
   }
 
   async syncPrices(): Promise<SyncPrice[]> {
-    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, price: row.currentPrice, regularPrice: row.regularPrice, promoPrice: row.promoPrice, currency: row.currency, collectedAt: row.capturedAt, validFrom: row.validFrom, validTo: row.validTo, unitPriceBasis: row.unitPriceBasis, location: { scope: row.scope === 'STORE' ? 'STORE' : row.scope === 'DELIVERY_ADDRESS' ? 'DELIVERY_ADDRESS' : 'CITY', city: row.city, regionCode: row.region, address: row.address, externalStoreId: row.storeId }, sourceUrl: row.sourceUrl, evidenceSha256: row.hash, acquiredAt: row.acquiredAt, acquisitionTimeQuality: row.acquisitionTimeQuality, dataClass: row.dataClass }));
+    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : stableRetailerProductIdentity(row), externalId: retailerProductExternalId(row), price: row.currentPrice, regularPrice: row.regularPrice, promoPrice: row.promoPrice, currency: row.currency, collectedAt: row.capturedAt, validFrom: row.validFrom, validTo: row.validTo, unitPriceBasis: row.unitPriceBasis, location: { scope: row.scope === 'STORE' ? 'STORE' : row.scope === 'DELIVERY_ADDRESS' ? 'DELIVERY_ADDRESS' : 'CITY', city: row.city, regionCode: row.region, address: row.address, externalStoreId: row.storeId }, sourceUrl: row.sourceUrl, evidenceSha256: row.hash, acquiredAt: row.acquiredAt, acquisitionTimeQuality: row.acquisitionTimeQuality, dataClass: row.dataClass }));
   }
 
   async syncAvailability(): Promise<SyncAvailability[]> {
-    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, available: row.availability ?? true }));
+    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : stableRetailerProductIdentity(row), externalId: retailerProductExternalId(row), available: row.availability ?? true }));
   }
 }
 
