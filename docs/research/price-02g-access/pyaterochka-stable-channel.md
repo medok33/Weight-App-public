@@ -93,16 +93,48 @@ path (176.112.71.211). The VPN app itself was never disabled or reconfigured
 by this task (only two /32 host routes were added/deleted). Owner should
 re-check ZoogVPN state if Armenian egress is still desired for other traffic.
 
+## Post-reconnect verification (VPN rotated AM→EE on its own; VPN untouched)
+
+After cleanup the ZoogVPN client reconnected by itself (new session, ifIndex
+29, exit 185.155.97.59 Tallinn/EE — the adapter and its /1 routes restored
+without any intervention; the VPN was never disabled or reconfigured by this
+task).
+
+Key finding: through the EE exit the browser opens 5ka.ru with NO routes and
+NO CAPTCHA (the earlier hard block page was specific to the AM exit IP
+178.160.211.148). The persistent anonymous profile kept the Kovrov address
+binding and returned live prices (Kovrov run-4, 12 priced products, no
+challenge). Direct Node/curl API calls remain cookie-gated (403) on any exit.
+
+Channel matrix after rotation (all verified 2026-08-15 ~06:50 UTC):
+
+| Retailer | Channel | Status now |
+|---|---|---|
+| Pyaterochka | browser + RU /32 route | PASS (6/6 canonical runs) |
+| Pyaterochka | browser, EE VPN exit, no routes | PASS (no CAPTCHA; run-4) |
+| Magnit | r.jina.ai + shopCode cookie | PASS (200; 32 products; «г Ковров, пр-кт Ленина, д 29») |
+| Yarche | direct SSR catalog | PASS (200; RUB prices in HTML) |
+
+Route tooling committed at tools/price-research/5ka-ru-route-setup.md
+(idempotent add/remove /32 scripts, re-resolving A-records). Non-persistent
+routes: re-run setup after reboot; needed only when the current VPN exit hits
+the hard block page.
+
 ## Verdict
 
-PRIMARY_CHANNEL=browser collector over RU-native IPv4 (no CAPTCHA, no manual
-action, 6/6 runs pass)
-SECONDARY_CHANNEL=same browser flow over AM VPN (needs one manual «Я не
-робот» per fresh session)
-OPERATOR_FALLBACK=manual bootstrap (block page → reload → checkbox)
-MOSCOW_RUNS=3/3 PASS; KOVROV_RUNS=3/3 PASS; LIVE_PRICE_COUNT_PER_RUN=24
+PRIMARY_CHANNEL=anonymous browser collector (persistent profile) — RU /32
+route when the VPN exit is hard-blocked, any exit otherwise; NO manual action
+in 7/7 post-bootstrap runs
+SECONDARY_CHANNEL=Magnit-style text-proxy transport (works from any exit)
+OPERATOR_FALLBACK=manual CAPTCHA bootstrap (only if a fresh profile meets the
+hard block page)
+MOSCOW_RUNS=3/3 PASS; KOVROV_RUNS=3/3 PASS (+1 bonus cross-exit run);
+LIVE_PRICE_COUNT_PER_RUN=24 (canonical runs)
 REGIONAL_ISOLATION=PASS; NEW_SESSION(new tab)=PASS; TIME_INTERVAL=PASS
-CAPTCHA_FIRST_RUN=NO (RU route); CAPTCHA_EVERY_RUN=NO (RU route)
-REPRODUCIBLE_COLLECTOR=YES (contract above); SECRETS_COMMITTED=NO;
-PURCHASES=0; MUTATING_CALLS=0; REAL_RETAILER_REQUESTS≈40
+COLLECTOR_RESTART(same profile, new tab/process)=PASS
+CAPTCHA_FIRST_RUN=NO; CAPTCHA_EVERY_RUN=NO (7/7 after bootstrap)
+REPRODUCIBLE_COLLECTOR=YES (contract + route tooling); SECRETS_COMMITTED=NO;
+PURCHASES=0; MUTATING_CALLS=0; REAL_RETAILER_REQUESTS≈55
+VPN_PRESERVED=YES (owner directive honored: VPN app untouched, only two /32
+host routes added/removed; VPN self-rotated AM→EE and stayed functional)
 FINAL_VERDICT=PRICE_02G_PYATEROCHKA_STABLE_CHANNEL_PASS
