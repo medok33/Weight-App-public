@@ -25,6 +25,12 @@ export type SyncPrice = {
   weight?: string;
   unit?: string;
   location?: PriceLocation;
+  regularPrice?: number;
+  promoPrice?: number;
+  unitPriceBasis?: boolean;
+  validFrom?: string;
+  validTo?: string;
+  sourceUrl?: string;
 };
 
 export type PriceLocation = {
