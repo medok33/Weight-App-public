@@ -30,6 +30,10 @@ export type PriceObservation = {
   unitPriceUnit?: string;
   priceCondition?: PriceCondition;
   dataClass?: string;
+  sourceUrl?: string;
+  evidenceSha256?: string;
+  acquiredAt?: string;
+  acquisitionTimeQuality?: 'MEASURED' | 'FILESYSTEM_ONLY' | 'NORMALIZED_ONLY' | 'UNKNOWN';
 };
 
 export type PriceSnapshot = {

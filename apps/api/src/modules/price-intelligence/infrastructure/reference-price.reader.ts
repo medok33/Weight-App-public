@@ -30,6 +30,10 @@ type ReferenceRow = {
   availability: string | null;
   confidence: string | null;
   dataClass: string | null;
+  sourceUrl: string | null;
+  evidenceSha256: string | null;
+  acquiredAt: string | null;
+  acquisitionTimeQuality: string | null;
 };
 
 export type ReferencePriceReadOptions = {
@@ -38,6 +42,7 @@ export type ReferencePriceReadOptions = {
   regionCode?: string;
   retailerId?: string;
   now?: Date;
+  locationScope?: 'STORE' | 'DELIVERY_ADDRESS' | 'CITY' | 'REGION' | 'UNKNOWN';
 };
 
 function unknown(productId: string): ReferencePriceEvidence {
@@ -63,7 +68,8 @@ export async function readReferencePriceWithQuery(
             ps."priceCondition", ps."retailerId", r.name AS "retailerName", r.code AS "retailerCode",
             ps."storeId", rs."locationScope", ps."sourceType", ps."sourceName",
             ps."evidenceObservationId", po."retailProductId", po."observedPackageWeight"::text,
-            po."observedPackageUnit", po.availability, po.confidence::text, po."dataClass"
+            po."observedPackageUnit", po.availability, po.confidence::text, po."dataClass",
+            po."sourceUrl", po."evidenceSha256", po."acquiredAt"::text, po."acquisitionTimeQuality"
        FROM "PriceSnapshot" ps
        JOIN "PriceObservation" po ON po.id = ps."evidenceObservationId"
        JOIN "RetailProduct" rp ON rp.id = po."retailProductId"
@@ -80,12 +86,13 @@ export async function readReferencePriceWithQuery(
         AND ($3::uuid IS NULL OR ps."regionId" = $3)
         AND ($4::text IS NULL OR reg.code = $4)
         AND ($5::uuid IS NULL OR ps."retailerId" = $5)
+        AND ($7::text IS NULL OR rs."locationScope" = $7)
         AND (po."validFrom" IS NULL OR po."validFrom" <= $6::timestamptz)
         AND (po."validTo" IS NULL OR po."validTo" >= $6::timestamptz)
-      ORDER BY CASE rs."locationScope" WHEN 'STORE' THEN 3 WHEN 'CITY' THEN 2 WHEN 'REGION' THEN 1 ELSE 0 END DESC,
+      ORDER BY CASE rs."locationScope" WHEN 'STORE' THEN 4 WHEN 'DELIVERY_ADDRESS' THEN 3 WHEN 'CITY' THEN 2 WHEN 'REGION' THEN 1 ELSE 0 END DESC,
                ps."observedAt" DESC, ps.id ASC
       LIMIT 1`,
-    [productId, options.storeId ?? null, options.regionId ?? null, options.regionCode ?? null, options.retailerId ?? null, effectiveNow],
+    [productId, options.storeId ?? null, options.regionId ?? null, options.regionCode ?? null, options.retailerId ?? null, effectiveNow, options.locationScope ?? null],
   );
   const row = result.rows[0];
   if (row) {
@@ -100,6 +107,8 @@ export async function readReferencePriceWithQuery(
       retailerCode: row.retailerCode, packageQuantity: row.observedPackageWeight == null ? null : Number(row.observedPackageWeight),
       packageUnit: row.observedPackageUnit, availability: row.availability,
       confidence: row.confidence == null ? null : Number(row.confidence), dataClass: row.dataClass,
+      sourceUrl: row.sourceUrl, evidenceSha256: row.evidenceSha256, acquiredAt: row.acquiredAt,
+      acquisitionTimeQuality: row.acquisitionTimeQuality,
     };
   }
 
@@ -113,7 +122,8 @@ export async function readReferencePriceWithQuery(
             po."priceCondition", po."retailerId", r.name AS "retailerName", r.code AS "retailerCode",
             po."storeId", rs."locationScope", po."sourceType", po."sourceName",
             po.id AS "evidenceObservationId", po."retailProductId", po."observedPackageWeight"::text,
-            po."observedPackageUnit", po.availability, po.confidence::text, po."dataClass"
+            po."observedPackageUnit", po.availability, po.confidence::text, po."dataClass",
+            po."sourceUrl", po."evidenceSha256", po."acquiredAt"::text, po."acquisitionTimeQuality"
        FROM "PriceObservation" po
        JOIN "RetailProduct" rp ON rp.id = po."retailProductId"
        JOIN "RetailStore" rs ON rs.id = po."storeId"
@@ -130,10 +140,11 @@ export async function readReferencePriceWithQuery(
         AND ($3::uuid IS NULL OR rs."regionId" = $3)
         AND ($4::text IS NULL OR reg.code = $4)
         AND ($5::uuid IS NULL OR po."retailerId" = $5)
+        AND ($7::text IS NULL OR rs."locationScope" = $7)
         AND (po."validFrom" IS NULL OR po."validFrom" <= $6::timestamptz)
         AND (po."validTo" IS NULL OR po."validTo" >= $6::timestamptz)
       ORDER BY po."observedAt" DESC, po.id ASC LIMIT 1`,
-    [productId, options.storeId ?? null, options.regionId ?? null, options.regionCode ?? null, options.retailerId ?? null, effectiveNow],
+    [productId, options.storeId ?? null, options.regionId ?? null, options.regionCode ?? null, options.retailerId ?? null, effectiveNow, options.locationScope ?? null],
   );
   const eligibleRow = eligible.rows[0];
   if (eligibleRow) {
@@ -152,6 +163,8 @@ export async function readReferencePriceWithQuery(
       packageUnit: eligibleRow.observedPackageUnit, availability: eligibleRow.availability,
       confidence: eligibleRow.confidence == null ? null : Number(eligibleRow.confidence),
       dataClass: eligibleRow.dataClass,
+      sourceUrl: eligibleRow.sourceUrl, evidenceSha256: eligibleRow.evidenceSha256, acquiredAt: eligibleRow.acquiredAt,
+      acquisitionTimeQuality: eligibleRow.acquisitionTimeQuality,
     };
   }
 
@@ -163,7 +176,8 @@ export async function readReferencePriceWithQuery(
             po."priceCondition", po."retailerId", r.name AS "retailerName", r.code AS "retailerCode",
             po."storeId", rs."locationScope", po."sourceType", po."sourceName",
             po.id AS "evidenceObservationId", po."retailProductId", po."observedPackageWeight"::text,
-            po."observedPackageUnit", po.availability, po.confidence::text, po."dataClass"
+            po."observedPackageUnit", po.availability, po.confidence::text, po."dataClass",
+            po."sourceUrl", po."evidenceSha256", po."acquiredAt"::text, po."acquisitionTimeQuality"
        FROM "PriceObservation" po
        JOIN "RetailProduct" rp ON rp.id = po."retailProductId"
        JOIN "RetailStore" rs ON rs.id = po."storeId"
@@ -180,10 +194,11 @@ export async function readReferencePriceWithQuery(
         AND ($3::uuid IS NULL OR rs."regionId" = $3)
         AND ($4::text IS NULL OR reg.code = $4)
         AND ($5::uuid IS NULL OR po."retailerId" = $5)
+        AND ($7::text IS NULL OR rs."locationScope" = $7)
         AND (po."validFrom" IS NULL OR po."validFrom" <= $6::timestamptz)
         AND (po."validTo" IS NULL OR po."validTo" >= $6::timestamptz)
       ORDER BY po."observedAt" DESC, po.id ASC LIMIT 1`,
-    [productId, options.storeId ?? null, options.regionId ?? null, options.regionCode ?? null, options.retailerId ?? null, effectiveNow],
+    [productId, options.storeId ?? null, options.regionId ?? null, options.regionCode ?? null, options.retailerId ?? null, effectiveNow, options.locationScope ?? null],
   );
   const conditionalRow = conditional.rows[0];
   if (!conditionalRow) return unknown(productId);
@@ -201,5 +216,7 @@ export async function readReferencePriceWithQuery(
     packageUnit: conditionalRow.observedPackageUnit, availability: conditionalRow.availability,
     confidence: conditionalRow.confidence == null ? null : Number(conditionalRow.confidence),
     dataClass: conditionalRow.dataClass,
+    sourceUrl: conditionalRow.sourceUrl, evidenceSha256: conditionalRow.evidenceSha256, acquiredAt: conditionalRow.acquiredAt,
+    acquisitionTimeQuality: conditionalRow.acquisitionTimeQuality,
   };
 }

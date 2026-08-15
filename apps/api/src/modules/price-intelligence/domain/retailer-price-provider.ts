@@ -31,10 +31,14 @@ export type SyncPrice = {
   validFrom?: string;
   validTo?: string;
   sourceUrl?: string;
+  evidenceSha256?: string;
+  acquiredAt?: string;
+  acquisitionTimeQuality?: 'MEASURED' | 'FILESYSTEM_ONLY' | 'NORMALIZED_ONLY' | 'UNKNOWN';
+  dataClass?: 'PRODUCTION' | 'TEST_ONLY' | 'FIXTURE' | 'HISTORICAL_TEST';
 };
 
 export type PriceLocation = {
-  scope: 'STORE' | 'CITY' | 'REGION' | 'UNKNOWN';
+  scope: 'STORE' | 'DELIVERY_ADDRESS' | 'CITY' | 'REGION' | 'UNKNOWN';
   regionCode?: string;
   externalStoreId?: string;
   storeName?: string;

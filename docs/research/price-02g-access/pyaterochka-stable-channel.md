@@ -100,18 +100,19 @@ After cleanup the ZoogVPN client reconnected by itself (new session, ifIndex
 without any intervention; the VPN was never disabled or reconfigured by this
 task).
 
-Key finding: through the EE exit the browser opens 5ka.ru with NO routes and
-NO CAPTCHA (the earlier hard block page was specific to the AM exit IP
-178.160.211.148). The persistent anonymous profile kept the Kovrov address
-binding and returned live prices (Kovrov run-4, 12 priced products, no
-challenge). Direct Node/curl API calls remain cookie-gated (403) on any exit.
+Key finding: through the EE exit the browser was reported to open 5ka.ru with
+NO routes and NO CAPTCHA (the earlier hard block page was specific to the AM
+exit IP 178.160.211.148). The persistent anonymous profile reportedly kept
+the Kovrov address binding. The claimed bonus run is not present as a separate
+evidence artifact, so it is not counted below. Direct Node/curl API calls
+remain cookie-gated (403) on any exit.
 
 Channel matrix after rotation (all verified 2026-08-15 ~06:50 UTC):
 
 | Retailer | Channel | Status now |
 |---|---|---|
 | Pyaterochka | browser + RU /32 route | PASS (6/6 canonical runs) |
-| Pyaterochka | browser, EE VPN exit, no routes | PASS (no CAPTCHA; run-4) |
+| Pyaterochka | browser, EE VPN exit, no routes | REPORTED (artifact not retained) |
 | Magnit | r.jina.ai + shopCode cookie | PASS (200; 32 products; «г Ковров, пр-кт Ленина, д 29») |
 | Yarche | direct SSR catalog | PASS (200; RUB prices in HTML) |
 
@@ -123,16 +124,16 @@ the hard block page.
 ## Verdict
 
 PRIMARY_CHANNEL=anonymous browser collector (persistent profile) — RU /32
-route when the VPN exit is hard-blocked, any exit otherwise; NO manual action
-in 7/7 post-bootstrap runs
+route when the VPN exit is hard-blocked, any exit otherwise; no manual action
+in the six artifact-backed canonical runs
 SECONDARY_CHANNEL=Magnit-style text-proxy transport (works from any exit)
 OPERATOR_FALLBACK=manual CAPTCHA bootstrap (only if a fresh profile meets the
 hard block page)
-MOSCOW_RUNS=3/3 PASS; KOVROV_RUNS=3/3 PASS (+1 bonus cross-exit run);
+MOSCOW_RUNS=3/3 artifact-backed; KOVROV_RUNS=3/3 artifact-backed;
 LIVE_PRICE_COUNT_PER_RUN=24 (canonical runs)
 REGIONAL_ISOLATION=PASS; NEW_SESSION(new tab)=PASS; TIME_INTERVAL=PASS
-COLLECTOR_RESTART(same profile, new tab/process)=PASS
-CAPTCHA_FIRST_RUN=NO; CAPTCHA_EVERY_RUN=NO (7/7 after bootstrap)
+COLLECTOR_RESTART(same profile, new tab/process)=REPORTED (not separately artifact-backed)
+CAPTCHA_FIRST_RUN=NO; CAPTCHA_EVERY_RUN=NO (artifact-backed runs)
 REPRODUCIBLE_COLLECTOR=YES (contract + route tooling); SECRETS_COMMITTED=NO;
 PURCHASES=0; MUTATING_CALLS=0; REAL_RETAILER_REQUESTS≈55
 VPN_PRESERVED=YES (owner directive honored: VPN app untouched, only two /32

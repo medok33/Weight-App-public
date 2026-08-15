@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global fetch, AbortSignal */
 // Delivery catalog may expose prices, but this PoC refuses them without store identity.
 const source = 'https://yarcheplus.ru/';
 try {

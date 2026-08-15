@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global fetch, AbortSignal, URL, Buffer */
 // Read-only Pyaterochka store-mode collector. Challenge/CAPTCHA screens fail closed.
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";

@@ -30,7 +30,10 @@ export type PyaterochkaPilotRow = {
   validTo?: string;
   sourceUrl: string;
   hash: string;
-  scope: 'STORE' | 'CITY_PROMO' | 'RECEIPT_HISTORY';
+  acquiredAt?: string;
+  acquisitionTimeQuality?: 'MEASURED' | 'FILESYSTEM_ONLY' | 'NORMALIZED_ONLY' | 'UNKNOWN';
+  dataClass?: 'PRODUCTION' | 'TEST_ONLY' | 'FIXTURE' | 'HISTORICAL_TEST';
+  scope: 'STORE' | 'DELIVERY_ADDRESS' | 'CITY_PROMO' | 'RECEIPT_HISTORY';
 };
 
 export const CITY_PROMO_DISCLAIMER = 'Цена по городскому каталогу, в конкретном магазине может отличаться';
@@ -135,7 +138,7 @@ abstract class PyaterochkaRowsProvider implements RetailerPriceProvider {
   }
 
   async syncPrices(): Promise<SyncPrice[]> {
-    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, price: row.currentPrice, regularPrice: row.regularPrice, promoPrice: row.promoPrice, currency: row.currency, collectedAt: row.capturedAt, validFrom: row.validFrom, validTo: row.validTo, unitPriceBasis: row.unitPriceBasis, location: { scope: row.scope === 'STORE' ? 'STORE' : 'CITY', city: row.city, regionCode: row.region, address: row.address, externalStoreId: row.storeId }, sourceUrl: row.sourceUrl }));
+    return this.rows.map((row) => ({ productKey: row.scope === 'CITY_PROMO' ? buildCityPromoIdentity(row) : row.plu ?? row.gtin ?? row.title, externalId: row.plu ?? row.gtin, price: row.currentPrice, regularPrice: row.regularPrice, promoPrice: row.promoPrice, currency: row.currency, collectedAt: row.capturedAt, validFrom: row.validFrom, validTo: row.validTo, unitPriceBasis: row.unitPriceBasis, location: { scope: row.scope === 'STORE' ? 'STORE' : row.scope === 'DELIVERY_ADDRESS' ? 'DELIVERY_ADDRESS' : 'CITY', city: row.city, regionCode: row.region, address: row.address, externalStoreId: row.storeId }, sourceUrl: row.sourceUrl, evidenceSha256: row.hash, acquiredAt: row.acquiredAt, acquisitionTimeQuality: row.acquisitionTimeQuality, dataClass: row.dataClass }));
   }
 
   async syncAvailability(): Promise<SyncAvailability[]> {

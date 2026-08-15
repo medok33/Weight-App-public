@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global fetch, AbortSignal, AbortController, URL, setTimeout, clearTimeout */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 

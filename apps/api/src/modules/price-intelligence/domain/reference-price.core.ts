@@ -51,6 +51,8 @@ export function observationIdentity(input: {
   packageQuantity?: number | string | null; packageUnit?: string | null; regularPrice?: number | string | null;
   conditionDescription?: string | null; validFrom?: string | null; validTo?: string | null;
   loyaltyRequired?: boolean | null; quantityRequirement?: number | string | null;
+  sourceUrl?: string | null; evidenceSha256?: string | null;
+  acquiredAt?: string | null; acquisitionTimeQuality?: string | null;
 }) {
   const decimal = (value: number | string | null | undefined) => {
     if (value == null || String(value).trim() === '') return '';
@@ -95,6 +97,10 @@ export function observationIdentity(input: {
     ['validTo', timestamp(input.validTo)],
     ['loyaltyRequired', input.loyaltyRequired == null ? '' : String(input.loyaltyRequired)],
     ['quantityRequirement', decimal(input.quantityRequirement)],
+    ['sourceUrl', text(input.sourceUrl)],
+    ['evidenceSha256', text(input.evidenceSha256)],
+    ['acquiredAt', timestamp(input.acquiredAt)],
+    ['acquisitionTimeQuality', text(input.acquisitionTimeQuality, true)],
   ]);
   return createHash('sha256').update(stable, 'utf8').digest('hex');
 }
@@ -138,4 +144,8 @@ export type ReferencePriceEvidence = {
   availability?: string | null;
   confidence?: number | null;
   dataClass?: string | null;
+  sourceUrl?: string | null;
+  evidenceSha256?: string | null;
+  acquiredAt?: string | null;
+  acquisitionTimeQuality?: string | null;
 };

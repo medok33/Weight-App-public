@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global fetch, AbortSignal */
 // Read-only, bounded store discovery. It never invents store identities.
 const sources = {
   magnit: 'https://r.jina.ai/http://magnit.ru/shops',

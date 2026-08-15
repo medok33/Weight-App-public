@@ -44,6 +44,12 @@ export type LatestPriceQuote = {
   priceCondition?: PriceCondition;
   observationId?: string;
   retailProductId?: string;
+  locationScope?: string;
+  city?: string;
+  sourceUrl?: string;
+  evidenceSha256?: string;
+  acquiredAt?: string;
+  acquisitionTimeQuality?: string;
 };
 
 type SnapshotCandidateRow = {
@@ -234,9 +240,12 @@ export class PriceIntelligenceRepository {
 
     const requestedScope = requested?.scope ?? 'REGION';
     const exactStore = requestedScope === 'STORE' && Boolean(requested?.externalStoreId?.trim());
-    const scope = exactStore ? 'STORE' : requestedScope === 'CITY' && requested?.city?.trim() ? 'CITY' : requestedScope === 'UNKNOWN' ? 'UNKNOWN' : 'REGION';
+    const exactAddress = requestedScope === 'DELIVERY_ADDRESS' && Boolean(requested?.city?.trim() && requested?.address?.trim());
+    const scope = exactStore ? 'STORE' : exactAddress ? 'DELIVERY_ADDRESS' : requestedScope === 'CITY' && requested?.city?.trim() ? 'CITY' : requestedScope === 'UNKNOWN' ? 'UNKNOWN' : 'REGION';
     const externalStoreId = exactStore
       ? requested!.externalStoreId!.trim()
+      : scope === 'DELIVERY_ADDRESS'
+        ? `SCOPE:DELIVERY_ADDRESS:${regionCode}:${requested!.city!.trim().toUpperCase()}:${requested!.address!.trim().toUpperCase()}`
       : scope === 'CITY'
         ? `SCOPE:CITY:${regionCode}:${requested!.city!.trim().toUpperCase()}`
         : scope === 'UNKNOWN'
@@ -562,7 +571,12 @@ export class PriceIntelligenceRepository {
           productTitle: product.name, packageValue: price.weight, packageUnit: price.unit,
           price: price.price, currency: price.currency, sourceType: provider.sourceType,
           sourceName: provider.sourceName, providerId: provider.providerId,
+          sourceUrl: price.sourceUrl, evidenceSha256: price.evidenceSha256,
+          acquiredAt: price.acquiredAt, acquisitionTimeQuality: price.acquisitionTimeQuality,
+          dataClass: price.dataClass,
           collectedAt: price.collectedAt, legacySource: provider.sourceType.toLowerCase(),
+          regularPrice: price.regularPrice, validFrom: price.validFrom, validTo: price.validTo,
+          priceCondition: price.promoPrice != null && price.promoPrice < (price.regularPrice ?? price.price) ? 'PROMOTIONAL' : 'REGULAR',
         }, query);
         if (inserted.inserted) pricesImported += 1;
       }
@@ -599,6 +613,10 @@ export class PriceIntelligenceRepository {
     loyaltyRequired?: boolean;
     quantityRequirement?: number;
     providerId?: string;
+    sourceUrl?: string;
+    evidenceSha256?: string;
+    acquiredAt?: string;
+    acquisitionTimeQuality?: 'MEASURED' | 'FILESYSTEM_ONLY' | 'NORMALIZED_ONLY' | 'UNKNOWN';
   }, query?: SqlQuery) {
     if (!query) return this.db.withTransaction((transaction) => this.insertObservation(input, transaction));
     const run = this.q(query);
@@ -635,6 +653,8 @@ export class PriceIntelligenceRepository {
       conditionDescription: input.conditionDescription, validFrom: input.validFrom,
       validTo: input.validTo, loyaltyRequired: input.loyaltyRequired,
       quantityRequirement: input.quantityRequirement,
+      sourceUrl: input.sourceUrl, evidenceSha256: input.evidenceSha256,
+      acquiredAt: input.acquiredAt, acquisitionTimeQuality: input.acquisitionTimeQuality,
     });
     // Cross-version compatibility: migration 223 rows may carry the former v1 hash.
     // Match the full logical evidence tuple before relying on the v2 unique key.
@@ -654,25 +674,29 @@ export class PriceIntelligenceRepository {
           AND "validTo" IS NOT DISTINCT FROM $16::timestamptz
           AND "loyaltyRequired" IS NOT DISTINCT FROM $17::boolean
           AND "quantityRequirement" IS NOT DISTINCT FROM $18::numeric
+          AND "sourceUrl" IS NOT DISTINCT FROM $19
+          AND "evidenceSha256" IS NOT DISTINCT FROM $20
         ORDER BY id LIMIT 1`,
       [input.productId, input.storeId, input.retailerId ?? null, retailProductId,
         input.price, currency, input.sourceType, input.sourceName, input.collectedAt, condition,
         pack?.quantity ?? null, pack?.unit ?? null, input.regularPrice ?? input.price,
         input.conditionDescription ?? null, input.validFrom ?? null, input.validTo ?? null,
-        input.loyaltyRequired ?? null, input.quantityRequirement ?? null],
+        input.loyaltyRequired ?? null, input.quantityRequirement ?? null,
+        input.sourceUrl ?? null, input.evidenceSha256 ?? null],
     );
     if (logicalDuplicate.rows[0]) {
       return { inserted: false, observationId: logicalDuplicate.rows[0].id, observationKey };
     }
     const inserted = await run<{ id: string }>(
       `INSERT INTO "PriceObservation"
-        ("productId", "storeId", "retailerId", "retailProductId", price, currency, "sourceType", "sourceName", "collectedAt", "observedAt", source, "dataClass", "observationKey", "observedPackageWeight", "observedPackageUnit", "normalizedPackageQuantity", "normalizedPackageUnit", "unitPrice", "unitPriceUnit", "priceCondition", "regularPrice", "conditionDescription", "validFrom", "validTo", "loyaltyRequired", "quantityRequirement")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,$9::timestamptz,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::timestamptz,$23::timestamptz,$24,$25)
+        ("productId", "storeId", "retailerId", "retailProductId", price, currency, "sourceType", "sourceName", "collectedAt", "observedAt", source, "dataClass", "observationKey", "observedPackageWeight", "observedPackageUnit", "normalizedPackageQuantity", "normalizedPackageUnit", "unitPrice", "unitPriceUnit", "priceCondition", "regularPrice", "conditionDescription", "validFrom", "validTo", "loyaltyRequired", "quantityRequirement", "sourceUrl", "evidenceSha256", "acquiredAt", "acquisitionTimeQuality")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,$9::timestamptz,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::timestamptz,$23::timestamptz,$24,$25,$26,$27,$28::timestamptz,$29)
        ON CONFLICT ("observationKey") DO NOTHING RETURNING id`,
       [input.productId, input.storeId, input.retailerId ?? null, retailProductId, input.price, currency, input.sourceType, input.sourceName,
         input.collectedAt, input.legacySource, input.dataClass ?? classifyPriceObservationHeuristics({ source: input.legacySource, sourceName: input.sourceName }), observationKey,
         pack?.sourceQuantity ?? null, pack?.sourceUnit ?? null, pack?.quantity ?? null, pack?.unit ?? null, unitPrice?.value ?? null, unitPrice?.unit ?? null,
-        condition, input.regularPrice ?? input.price, input.conditionDescription ?? null, input.validFrom ?? null, input.validTo ?? null, input.loyaltyRequired ?? null, input.quantityRequirement ?? null],
+        condition, input.regularPrice ?? input.price, input.conditionDescription ?? null, input.validFrom ?? null, input.validTo ?? null, input.loyaltyRequired ?? null, input.quantityRequirement ?? null,
+        input.sourceUrl ?? null, input.evidenceSha256 ?? null, input.acquiredAt ?? null, input.acquisitionTimeQuality ?? null],
     );
     // STEP_210: price changes do not create RecipeRevalidationTask, but may affect cost-constrained coverage.
     await this.markCoverageCostRefreshDirty(input.productId, run);
@@ -696,7 +720,7 @@ export class PriceIntelligenceRepository {
          AND po."priceCondition" IN ('REGULAR','PROMOTIONAL')
          AND (po."validFrom" IS NULL OR po."validFrom" <= now())
          AND (po."validTo" IS NULL OR po."validTo" >= now())
-       ORDER BY CASE WHEN rs."locationScope" = 'STORE' THEN 3 WHEN rs."locationScope" = 'CITY' THEN 2 ELSE 1 END DESC,
+       ORDER BY CASE WHEN rs."locationScope" = 'STORE' THEN 4 WHEN rs."locationScope" = 'DELIVERY_ADDRESS' THEN 3 WHEN rs."locationScope" = 'CITY' THEN 2 ELSE 1 END DESC,
                 CASE WHEN po."sourceType" = 'API' THEN 4 WHEN po."sourceType" = 'CSV' THEN 3 WHEN po."sourceType" = 'MANUAL' THEN 2 ELSE 1 END DESC,
                 po."observedAt" DESC, po.id ASC LIMIT 1`, [productId, storeId]);
     const row = candidate.rows[0];
@@ -713,7 +737,7 @@ export class PriceIntelligenceRepository {
     return row.id;
   }
 
-  async readReferencePrice(productId: string, options: { storeId?: string; regionId?: string; now?: Date } = {}): Promise<ReferencePriceEvidence> {
+  async readReferencePrice(productId: string, options: { storeId?: string; regionId?: string; regionCode?: string; retailerId?: string; locationScope?: 'STORE' | 'DELIVERY_ADDRESS' | 'CITY' | 'REGION' | 'UNKNOWN'; now?: Date } = {}): Promise<ReferencePriceEvidence> {
     return readReferencePriceWithQuery(this.q(), productId, options);
   }
 
@@ -787,6 +811,11 @@ export class PriceIntelligenceRepository {
       priceCondition: row.priceCondition,
       observationId: row.observationId ?? undefined,
       retailProductId: row.retailProductId ?? undefined,
+      locationScope: row.locationScope ?? undefined,
+      sourceUrl: row.sourceUrl ?? undefined,
+      evidenceSha256: row.evidenceSha256 ?? undefined,
+      acquiredAt: row.acquiredAt ?? undefined,
+      acquisitionTimeQuality: row.acquisitionTimeQuality ?? undefined,
     };
   }
 

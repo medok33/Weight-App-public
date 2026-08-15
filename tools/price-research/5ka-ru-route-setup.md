@@ -27,7 +27,10 @@ foreach ($h in $hosts) {
 ## remove-5ka-ru-route.ps1
 
 ```powershell
-# Run elevated. Removes ONLY the /32 routes this toolset created.
+# Run elevated. Removes /32 routes for the current retailer A-records.
+# LIMITATION: this helper does not persist a per-session route marker; review
+# the route table before cleanup if another route for the same address may
+# pre-exist. Research/operator tooling only.
 $hosts = "5ka.ru", "5d.5ka.ru", "api.5ka.ru"
 foreach ($h in $hosts) {
   $ips = (Resolve-DnsName $h -Type A | Where-Object {$_.IPAddress}).IPAddress
