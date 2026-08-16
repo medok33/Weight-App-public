@@ -44,7 +44,7 @@ export type ShoppingItemRecord = {
   priceCollectedAt?: string;
   retailerName?: string;
   retailerCode?: string;
-  /** From latest PriceObservation when joined on read. */
+  /** From the canonical reference-price reader when joined on read. */
   priceDataClass?: string;
 };
 

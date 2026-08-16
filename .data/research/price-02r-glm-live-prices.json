@@ -1,0 +1,539 @@
+{
+  "schemaVersion": 1,
+  "retailer": "Magnit",
+  "sourceUrl": "https://magnit.ru/catalog?shopCode=992301",
+  "fetchUrl": "https://r.jina.ai/http://magnit.ru/catalog?shopCode=992301&nocache=1786714133191",
+  "store": {
+    "code": "992301",
+    "city": "Krasnodar",
+    "region": "Krasnodar Krai",
+    "address": null
+  },
+  "observedAt": "2026-08-14T13:29:02.581Z",
+  "requestMs": 9395,
+  "rawSha256": "2df1dfeccca2693620e02a2c208794d6d5f8ec391de4089d520f8fe8bd73f120",
+  "prices": [
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Мармелад Чудо-ягода яркий вкус малины брусники черной смородины 250г",
+      "productId": "1000140414",
+      "regularPrice": 107.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "250г",
+      "sourceUrl": "http://magnit.ru/product/1000140414-chudo_yagoda_marmelad_mal_brus_cher_250g_fl_p_yasnaya_polyana_12?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Печенье Яшкино Дженс сдобное 180г",
+      "productId": "1000087524",
+      "regularPrice": 89.99,
+      "promoPrice": 79.99,
+      "currency": "RUB",
+      "unit": "180г",
+      "sourceUrl": "http://magnit.ru/product/1000087524-yashkino_pechene_sdobnoe_dzhens_180g_kdv_minusinsk?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Печенье Бархатный вечер сдобное 300г",
+      "productId": "1000287805",
+      "regularPrice": 359.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "300г",
+      "sourceUrl": "http://magnit.ru/product/1000287805-pechene_sdobnoe_barkhatnyy_vecher_0_3kg_0_3kg_korreks_sp_gm?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Хлебцы Baker House Итальянские с семенами тыквы 250г",
+      "productId": "1000294703",
+      "regularPrice": 169.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "250г",
+      "sourceUrl": "http://magnit.ru/product/1000294703-khlebtsy_baker_house_italyanskie_khlebtsy_s_semenami_tykvy_250g?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Печенье овсяное к кофе Домашнее 350г",
+      "productId": "1000336745",
+      "regularPrice": 169.99,
+      "promoPrice": 469.99,
+      "currency": "RUB",
+      "unit": "350г",
+      "sourceUrl": "http://magnit.ru/product/1000336745-pechene_sladkaya_sloboda_domashnee_ovsyanoe_k_kofe_350g?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Печенье Овсяное 5 злаков 250г",
+      "productId": "1000336273",
+      "regularPrice": 149.99,
+      "promoPrice": 132.99,
+      "currency": "RUB",
+      "unit": "250г",
+      "sourceUrl": "http://magnit.ru/product/1000336273-polet_pechene_ovsyanoe_ovsyanoe_5_zlakov_250g_floupak_ooo_konditerskoe_predpriyatie_polet_16?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Крем для тела Sos Aevit By Librederm восстанавливающий 200мл",
+      "productId": "1000461989",
+      "regularPrice": 529.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "200мл",
+      "sourceUrl": "http://magnit.ru/product/1000461989-aevit_by_librederm_krem_sos_vosstanavlivayushchiy_200ml?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Паста Санта Бремор Антарктик Криль сладкий чили 150г",
+      "productId": "1000576832",
+      "regularPrice": 146.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "150г",
+      "sourceUrl": "http://magnit.ru/product/1000576832-santa_bremor_pasta_antarktik_kril_slad_chili_150g_pl_ban?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Открытка двойная Арт дизайн",
+      "productId": "1018443148",
+      "regularPrice": 79.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/1018443148-otkrytka_dvoynaya_kod_n_art_dizayn?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Косметический вазелин для смягчения и защиты кожи Fito 10г",
+      "productId": "1000549170",
+      "regularPrice": 42.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "10г",
+      "sourceUrl": "http://magnit.ru/product/1000549170-fito_vazelin_kosmeticheskiy_dlya_smyagcheniya_i_zashchity_kozhi_10g?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Капуста морская Русское море маринованная по-корейски с грибами 200г",
+      "productId": "1000482341",
+      "regularPrice": 79.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "200г",
+      "sourceUrl": "http://magnit.ru/product/1000482341-russkoe_more_kapusta_morskaya_marin_po_kor_grib_200g_m_vak?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Декоративный бант Звезда Радуга d-6.35см в ассортименте",
+      "productId": "4000029038",
+      "regularPrice": 8.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000029038-bant_zvezda_raduga_1_sht_d_6_35sm_si_30_150?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Открытка двойная Арт дизайн",
+      "productId": "4000088931",
+      "regularPrice": 139.99,
+      "promoPrice": 89.99,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000088931-otkrytka_dvoynaya_kod_250_art_dizayn?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Пакет Пакетико подарочный матовая ламинация S ПДЛ M 14.6*11.4см в ассортименте",
+      "productId": "4000091727",
+      "regularPrice": 49.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000091727-paket_podar_14_6kh11_4_sm_mat_lam_s_pdl_m_paketiko?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Клей Staff канцелярский аппликатор 30мл",
+      "productId": "4000092987",
+      "regularPrice": 29.99,
+      "promoPrice": 19.99,
+      "currency": "RUB",
+      "unit": "30мл",
+      "sourceUrl": "http://magnit.ru/product/4000092987-kley_kantselyarskiy_staff_30ml_applikator?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Ластик + точилка Ebot 2в1",
+      "productId": "4000098868",
+      "regularPrice": 269.99,
+      "promoPrice": 149.99,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000098868-lastik_tochilka_skrepyshi_ebot_2v1_shb_si?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Настольное покрытие Проф-пресс А4+ пластик в ассортименте",
+      "productId": "4000086929",
+      "regularPrice": 44.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000086929-nastolnoe_pokrytie_a4_plastik_v_ass_prof_press?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Открытка двойная Арт Дизайн 230",
+      "productId": "4000088932",
+      "regularPrice": 79.99,
+      "promoPrice": 49.99,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000088932-otkrytka_dvoynaya_kod_230_art_dizayn?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Грифели для механических карандашей Комус Pilot 0.5мм HB 12шт",
+      "productId": "4000102719",
+      "regularPrice": 79.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "12шт",
+      "sourceUrl": "http://magnit.ru/product/4000102719-grifeli_d_mekhanich_karand_pilot_12sht_0_5mm_hb_komus?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Пакет Пакетико подарочный LV Милашки 31.5*25.5*11см в ассортименте",
+      "productId": "4000105015",
+      "regularPrice": 115.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000105015-paket_podar_32_7kh26_4kh13_6_lv_milashki_paketiko?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Пакет Пакетико подарочный для бутылок с тиснением Вечеринка 36*12*9.5см в ассортименте",
+      "productId": "4000105018",
+      "regularPrice": 129.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000105018-paket_podar_d_but_36kh12kh7_tisn_vecherinka_paketiko?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Пакет подарочный Пакетико с блестками СББ08 Милашки 14*19*11см в ассортименте",
+      "productId": "4000105020",
+      "regularPrice": 89.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000105020-paket_podar_14kh19kh11_s_blest_sbb08_milashki_paketiko?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Пакет Пакетико подарочный LV Лунапарк 32.7*26.4*13.6см в ассортименте",
+      "productId": "4000105039",
+      "regularPrice": 129.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000105039-paket_podar_32_7kh26_4kh13_6_lv_lunapark_paketiko?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Пакет подарочный Пакетико Лунапарк XL 41*31*10см в ассортименте",
+      "productId": "4000105041",
+      "regularPrice": 139.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000105041-paket_podar_41kh31kh10_xl_lunapark_paketiko?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Стельки Salton Thermo Control зимние трехслойные с повышенной теплоизоляцией",
+      "productId": "4000061749",
+      "regularPrice": 499.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000061749-salton_stelki_zimnie_trekhsloynye_yunibrend_6_24?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Шнурки для обуви Salton 90см",
+      "productId": "4000061750",
+      "regularPrice": 129,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000061750-salton_shnurki_dlya_obuvi_90_sm_ros_distr_6_36?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Ластик + точилка Кольцо 2в1 SV-RING8KTKR",
+      "productId": "4000098869",
+      "regularPrice": 299.99,
+      "promoPrice": 169.99,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000098869-lastik_tochilka_skrepyshi_koltso_2v1_shb_si?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Точилка Моя цена в ассортименте",
+      "productId": "4000078737",
+      "regularPrice": 4.99,
+      "promoPrice": null,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/4000078737-tochilka_moya_tsena_1_sht_si?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    },
+    {
+      "retailer": "Magnit",
+      "store": {
+        "code": "992301",
+        "city": "Krasnodar",
+        "region": "Krasnodar Krai",
+        "address": null
+      },
+      "product": "Открытка двойная Артицентр 230",
+      "productId": "8000009017",
+      "regularPrice": 79.99,
+      "promoPrice": 4.99,
+      "currency": "RUB",
+      "unit": "package",
+      "sourceUrl": "http://magnit.ru/product/8000009017-otkrytka_dvoynaya_kod_230_artitsentr?shopCode=992301&shopType=dostavka",
+      "observedAt": "2026-08-14T13:29:02.581Z",
+      "method": "public HTML via bounded text extraction proxy"
+    }
+  ]
+}

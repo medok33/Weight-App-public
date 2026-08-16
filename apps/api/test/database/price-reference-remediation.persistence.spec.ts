@@ -29,7 +29,7 @@ describe('PRICE-01A review-30 remediation persistence', () => {
       const at = new Date().toISOString();
       const base = { productId: identityProduct, storeId: storeA, retailerId: retailer.retailerId,
         externalSku: `sku_${suffix}`, productTitle: 'Identity', price: 100, currency: 'RUB',
-        sourceType: 'CSV' as const, sourceName: 'provider', providerId: 'provider-a', collectedAt: at, legacySource: 'csv' };
+        sourceType: 'CSV' as const, sourceName: 'provider', providerId: 'provider-a', collectedAt: at, acquiredAt: at, acquisitionTimeQuality: 'MEASURED' as const, legacySource: 'csv' };
       expect((await repo.insertObservation({ ...base, packageValue: 500, packageUnit: 'g' })).inserted).toBe(true);
       expect((await repo.insertObservation({ ...base, packageValue: 1, packageUnit: 'kg' })).inserted).toBe(true);
       expect((await repo.insertObservation({ ...base, packageValue: 0.5, packageUnit: 'kg' })).inserted).toBe(false);
@@ -76,7 +76,7 @@ describe('PRICE-01A review-30 remediation persistence', () => {
       const oldAt = new Date(Date.now() - 60_000).toISOString();
       await repo.insertObservation({ productId, storeId: retailer.storeId, retailerId: retailer.retailerId,
         externalSku: `sku_${suffix}`, productTitle: 'Race', price: 10, currency: 'RUB', sourceType: 'CSV',
-        sourceName: 'provider', collectedAt: oldAt, legacySource: 'csv' });
+        sourceName: 'provider', collectedAt: oldAt, acquiredAt: oldAt, acquisitionTimeQuality: 'MEASURED', legacySource: 'csv' });
 
       let selected!: () => void;
       let release!: () => void;
@@ -95,7 +95,7 @@ describe('PRICE-01A review-30 remediation persistence', () => {
       const newAt = new Date().toISOString();
       await repo.insertObservation({ productId, storeId: retailer.storeId, retailerId: retailer.retailerId,
         externalSku: `sku_${suffix}`, productTitle: 'Race', price: 20, currency: 'RUB', sourceType: 'CSV',
-        sourceName: 'provider', collectedAt: newAt, legacySource: 'csv' });
+        sourceName: 'provider', collectedAt: newAt, acquiredAt: newAt, acquisitionTimeQuality: 'MEASURED', legacySource: 'csv' });
       release();
       await olderFinishesLast;
       const reference = await repo.readReferencePrice(productId, { storeId: retailer.storeId });
@@ -122,7 +122,7 @@ describe('PRICE-01A review-30 remediation persistence', () => {
         syncCategories: async () => [],
         syncProducts: async () => [{ productKey: `${id}_${suffix}`, name: id, category: 'other', unit: 'g' }],
         syncPrices: async () => delayed ? latePrices : [{ productKey: `${id}_${suffix}`, externalId: `${id}_${suffix}`,
-          price: 42, currency: 'RUB', collectedAt: new Date().toISOString(), weight: '500', unit: 'g' }],
+          price: 42, currency: 'RUB', collectedAt: new Date().toISOString(), acquiredAt: new Date().toISOString(), acquisitionTimeQuality: 'MEASURED', weight: '500', unit: 'g' }],
         syncAvailability: async () => [],
       });
       const results = await engine.syncProviders([provider(`late${suffix}`, true), provider(`good${suffix}`, false)]);
@@ -137,6 +137,30 @@ describe('PRICE-01A review-30 remediation persistence', () => {
       expect((await repo.readReferencePrice(goodProduct.rows[0]!.id)).status).toBe('CURRENT');
     } finally {
       if (previous === undefined) delete process.env.PRICE_PROVIDER_TIMEOUT_MS; else process.env.PRICE_PROVIDER_TIMEOUT_MS = previous;
+      await db.onModuleDestroy();
+    }
+  }, 60_000);
+
+  it('deduplicates concurrent equivalent observations through the canonical writer', async () => {
+    const db = new PrismaService();
+    await db.onModuleInit();
+    try {
+      const repo = new PriceIntelligenceRepository(db);
+      const suffix = `concurrent_${Date.now()}`;
+      const retailer = await repo.ensureRetailerByCode({ code: `R${suffix}`, name: suffix, region: `RG${suffix}` });
+      const productId = await product(db, `product_${suffix}`);
+      const observedAt = new Date().toISOString();
+      const input = {
+        productId, storeId: retailer.storeId, retailerId: retailer.retailerId, externalSku: `sku_${suffix}`,
+        productTitle: 'Concurrent', price: 33, currency: 'RUB' as const, sourceType: 'CSV' as const,
+        sourceName: 'provider', collectedAt: observedAt, acquiredAt: observedAt,
+        acquisitionTimeQuality: 'MEASURED' as const, legacySource: 'csv',
+      };
+      const results = await Promise.all([repo.insertObservation(input), repo.insertObservation(input)]);
+      expect(results.filter((result) => result.inserted)).toHaveLength(1);
+      const count = await db.query<{ count: string }>('SELECT count(*)::text FROM "PriceObservation" WHERE "productId"=$1', [productId]);
+      expect(Number(count.rows[0]!.count)).toBe(1);
+    } finally {
       await db.onModuleDestroy();
     }
   }, 60_000);

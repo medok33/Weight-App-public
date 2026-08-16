@@ -1795,6 +1795,10 @@ model PriceObservation {
   collectedAt            DateTime?
   observedAt             DateTime
   source                 String
+  sourceUrl              String?
+  evidenceSha256         String?
+  acquiredAt             DateTime?
+  acquisitionTimeQuality String?
   store                  RetailStore    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   retailer               Retailer?      @relation(fields: [retailerId], references: [id], onDelete: SetNull)
   retailProduct          RetailProduct? @relation(fields: [retailProductId], references: [id], onDelete: Restrict)

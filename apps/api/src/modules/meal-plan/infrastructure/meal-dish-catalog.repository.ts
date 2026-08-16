@@ -1,8 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { STEP092_PRODUCTS, STEP092_RECIPES } from '../domain/meal-dish.fixture';
 import { STEP093_PRODUCTS, STEP093_RECIPES } from '../domain/substitution.fixture';
-import { observationIdentity } from '../../price-intelligence/domain/reference-price.core';
+import { PriceIntelligenceRepository } from '../../price-intelligence/infrastructure/price-intelligence.repository';
 
 type FixtureProduct = {
   id: string;
@@ -70,7 +70,14 @@ export class MealDishCatalogRepository {
   private seeded = false;
   private seedInFlight: Promise<void> | null = null;
 
-  constructor(@Inject(PrismaService) private readonly db: PrismaService) {}
+  private readonly prices: PriceIntelligenceRepository;
+
+  constructor(
+    @Inject(PrismaService) private readonly db: PrismaService,
+    @Optional() @Inject(PriceIntelligenceRepository) prices?: PriceIntelligenceRepository,
+  ) {
+    this.prices = prices ?? new PriceIntelligenceRepository(db);
+  }
 
   async ensureCatalog(): Promise<void> {
     if (this.seeded) return;
@@ -176,80 +183,14 @@ export class MealDishCatalogRepository {
         }
       }
 
-      const existing = await this.db.query<{ id: string; retailProductId: string | null }>(
-        `SELECT id, ${
-          retailProductId != null
-            ? '"retailProductId"::text AS "retailProductId"'
-            : 'NULL::text AS "retailProductId"'
-        }
-         FROM "PriceObservation" WHERE "productId" = $1
-         ORDER BY COALESCE("collectedAt","observedAt") DESC LIMIT 1`,
-        [productId],
-      );
-      if (existing.rows[0]) {
-        if (retailProductId && !existing.rows[0].retailProductId) {
-          await this.db.query(
-            `UPDATE "PriceObservation"
-             SET "retailProductId" = $2,
-                 "observedPackageWeight" = COALESCE("observedPackageWeight", $3),
-                 "observedPackageUnit" = COALESCE("observedPackageUnit", $4)
-             WHERE id = $1 AND "retailProductId" IS NULL`,
-            [existing.rows[0].id, retailProductId, product.packageSize, product.packageUnit],
-          ).catch(() => undefined);
-        }
-        continue;
-      }
-      if (retailProductId) {
-        const observedAt = new Date().toISOString();
-        const observationKey = observationIdentity({
-          productId,
-          storeId,
-          retailerId,
-          retailProductId,
-          sourceType: 'MANUAL',
-          sourceName: 'STEP092/093 fixture',
-          price: product.unitPriceRub,
-          currency: 'RUB',
-          observedAt,
-          priceCondition: 'REGULAR',
-        });
-        await this.db.query(
-          `INSERT INTO "PriceObservation"
-            ("productId", "storeId", price, "observedAt", source, currency, "sourceType", "sourceName",
-             "retailerId", "collectedAt", "retailProductId", "observedPackageWeight", "observedPackageUnit", availability, "dataClass", "observationKey")
-           VALUES ($1,$2,$3,$4, 'step092_fixture', 'RUB', 'MANUAL', 'STEP092/093 fixture',
-                   $5, $4, $6, $7, $8, 'IN_STOCK', 'FIXTURE', $9)`,
-          [
-            productId,
-            storeId,
-            product.unitPriceRub,
-            observedAt,
-            retailerId,
-            retailProductId,
-            product.packageSize,
-            product.packageUnit,
-            observationKey,
-          ],
-        );
-      } else {
-        const observedAt = new Date().toISOString();
-        const observationKey = observationIdentity({
-          productId,
-          storeId,
-          sourceType: 'MANUAL',
-          sourceName: 'STEP092/093 fixture',
-          price: product.unitPriceRub,
-          currency: 'RUB',
-          observedAt,
-          priceCondition: 'REGULAR',
-        });
-        await this.db.query(
-          `INSERT INTO "PriceObservation"
-            ("productId", "storeId", price, "observedAt", source, currency, "sourceType", "sourceName", "retailerId", "collectedAt", "dataClass", "observationKey")
-           VALUES ($1,$2,$3,$4, 'step092_fixture', 'RUB', 'MANUAL', 'STEP092/093 fixture', $5, $4, 'FIXTURE', $6)`,
-          [productId, storeId, product.unitPriceRub, observedAt, retailerId, observationKey],
-        );
-      }
+      await this.prices.insertObservation({
+        productId, storeId, retailerId: retailerId ?? undefined, retailProductId: retailProductId ?? undefined,
+        externalSku: `FIX-${product.productKey}`, productTitle: product.canonicalName,
+        packageValue: product.packageSize, packageUnit: product.packageUnit,
+        price: product.unitPriceRub, currency: 'RUB', sourceType: 'MANUAL', sourceName: 'STEP092/093 fixture',
+        collectedAt: '2026-01-01T00:00:00.000Z', legacySource: 'step092_fixture', dataClass: 'FIXTURE',
+        priceCondition: 'REGULAR',
+      });
     }
 
     await this.syncCulinaryRolesAndSubstitutions(ALL_PRODUCTS);

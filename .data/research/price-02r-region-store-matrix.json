@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "status": "no-accepted-store-bound-evidence",
+  "entries": [],
+  "historicalDiagnostics": [
+    {
+      "retailer": "Magnit",
+      "storeId": "992301",
+      "accepted": false,
+      "reason": "text proxy was non-discriminating across distinct requested shopCode values"
+    }
+  ],
+  "requiredButUnproven": ["Magnit", "Pyaterochka", "Yarche"]
+}

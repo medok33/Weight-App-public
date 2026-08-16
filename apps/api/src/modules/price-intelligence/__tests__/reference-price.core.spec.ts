@@ -38,6 +38,8 @@ describe('dependable reference price core', () => {
       .not.toBe(observationIdentity({ ...base, storeId: 'store-b', regionId: 'region-b' }));
     expect(observationIdentity({ ...base, observedAt: '2026-01-01T03:00:00+03:00', packageQuantity: 0.5, packageUnit: 'kg' }))
       .toBe(observationIdentity({ ...base, observedAt: '2026-01-01T00:00:00.000Z', packageQuantity: 500, packageUnit: 'g' }));
+    expect(observationIdentity({ ...base, acquiredAt: '2026-01-01T00:00:00.000Z', acquisitionTimeQuality: 'MEASURED' }))
+      .not.toBe(observationIdentity({ ...base, acquiredAt: '2026-01-01T00:00:00.000Z', acquisitionTimeQuality: 'NORMALIZED_ONLY' }));
   });
 
   it('fails closed for unsupported or missing currencies', () => {
@@ -49,12 +51,16 @@ describe('dependable reference price core', () => {
 
   it('never treats stale, conditional, or fixture evidence as current', () => {
     const now = new Date('2026-01-08T00:00:00.000Z');
-    expect(freshnessStatus({ observedAt: '2026-01-07T00:00:00.000Z', now })).toBe('CURRENT');
-    expect(freshnessStatus({ observedAt: new Date(now.getTime() - DEFAULT_FRESHNESS_WINDOW_MS - 1), now })).toBe('STALE');
-    expect(freshnessStatus({ observedAt: new Date(now.getTime() - DEFAULT_FRESHNESS_WINDOW_MS), now })).toBe('CURRENT');
-    expect(freshnessStatus({ observedAt: new Date(now.getTime() + MAX_FUTURE_CLOCK_SKEW_MS), now })).toBe('CURRENT');
-    expect(freshnessStatus({ observedAt: new Date(now.getTime() + MAX_FUTURE_CLOCK_SKEW_MS + 1), now })).toBe('UNKNOWN');
-    expect(freshnessStatus({ observedAt: now, now, condition: 'LOYALTY_ONLY' })).toBe('APPROXIMATE');
-    expect(freshnessStatus({ observedAt: now, now, dataClass: 'FIXTURE' })).toBe('APPROXIMATE');
+    const trusted = { acquiredAt: now, acquisitionTimeQuality: 'MEASURED' as const };
+    expect(freshnessStatus({ observedAt: '2026-01-07T00:00:00.000Z', now, ...trusted })).toBe('CURRENT');
+    expect(freshnessStatus({ observedAt: new Date(now.getTime() - DEFAULT_FRESHNESS_WINDOW_MS - 1), now, ...trusted })).toBe('STALE');
+    expect(freshnessStatus({ observedAt: new Date(now.getTime() - DEFAULT_FRESHNESS_WINDOW_MS), now, ...trusted })).toBe('CURRENT');
+    expect(freshnessStatus({ observedAt: new Date(now.getTime() + MAX_FUTURE_CLOCK_SKEW_MS), now, ...trusted })).toBe('CURRENT');
+    expect(freshnessStatus({ observedAt: new Date(now.getTime() + MAX_FUTURE_CLOCK_SKEW_MS + 1), now, ...trusted })).toBe('UNKNOWN');
+    expect(freshnessStatus({ observedAt: now, now, condition: 'LOYALTY_ONLY', ...trusted })).toBe('APPROXIMATE');
+    expect(freshnessStatus({ observedAt: now, now, dataClass: 'FIXTURE', ...trusted })).toBe('APPROXIMATE');
+    expect(freshnessStatus({ observedAt: now, now, dataClass: 'PRODUCTION', acquiredAt: now, acquisitionTimeQuality: 'NORMALIZED_ONLY' })).toBe('UNKNOWN');
+    expect(freshnessStatus({ observedAt: now, now, dataClass: 'PRODUCTION' })).toBe('UNKNOWN');
+    expect(freshnessStatus({ observedAt: now, now, validTo: new Date(now.getTime() - 1), ...trusted })).toBe('EXPIRED');
   });
 });

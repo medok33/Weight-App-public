@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 export const PRICE_CONDITIONS = ['REGULAR', 'PROMOTIONAL', 'LOYALTY_ONLY', 'CONDITIONAL', 'UNKNOWN_CONDITION'] as const;
 export type PriceCondition = (typeof PRICE_CONDITIONS)[number];
 export type NormalizedUnit = 'GRAM' | 'MILLILITER' | 'PIECE';
-export type FreshnessStatus = 'CURRENT' | 'STALE' | 'UNKNOWN' | 'APPROXIMATE';
+export type FreshnessStatus = 'CURRENT' | 'STALE' | 'EXPIRED' | 'UNKNOWN' | 'APPROXIMATE';
 
 export const DEFAULT_FRESHNESS_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export const MAX_FUTURE_CLOCK_SKEW_MS = 5 * 60 * 1000;
@@ -51,6 +51,8 @@ export function observationIdentity(input: {
   packageQuantity?: number | string | null; packageUnit?: string | null; regularPrice?: number | string | null;
   conditionDescription?: string | null; validFrom?: string | null; validTo?: string | null;
   loyaltyRequired?: boolean | null; quantityRequirement?: number | string | null;
+  sourceUrl?: string | null; evidenceSha256?: string | null;
+  acquiredAt?: string | null; acquisitionTimeQuality?: string | null;
 }) {
   const decimal = (value: number | string | null | undefined) => {
     if (value == null || String(value).trim() === '') return '';
@@ -95,6 +97,10 @@ export function observationIdentity(input: {
     ['validTo', timestamp(input.validTo)],
     ['loyaltyRequired', input.loyaltyRequired == null ? '' : String(input.loyaltyRequired)],
     ['quantityRequirement', decimal(input.quantityRequirement)],
+    ['sourceUrl', text(input.sourceUrl)],
+    ['evidenceSha256', text(input.evidenceSha256)],
+    ['acquiredAt', timestamp(input.acquiredAt)],
+    ['acquisitionTimeQuality', text(input.acquisitionTimeQuality, true)],
   ]);
   return createHash('sha256').update(stable, 'utf8').digest('hex');
 }
@@ -103,13 +109,24 @@ export function isGenericCurrentCondition(condition: PriceCondition) {
   return condition === 'REGULAR' || condition === 'PROMOTIONAL';
 }
 
-export function freshnessStatus(input: { observedAt?: string | Date | null; dataClass?: string | null; now?: Date; windowMs?: number; condition?: PriceCondition }): FreshnessStatus {
+export function freshnessStatus(input: { observedAt?: string | Date | null; dataClass?: string | null; acquiredAt?: string | Date | null; acquisitionTimeQuality?: string | null; validFrom?: string | Date | null; validTo?: string | Date | null; now?: Date; windowMs?: number; condition?: PriceCondition }): FreshnessStatus {
   if (!input.observedAt) return 'UNKNOWN';
   if (input.dataClass && input.dataClass !== 'PRODUCTION') return 'APPROXIMATE';
+  // A normalization timestamp is not evidence of when the retailer price was acquired.
+  // Confirmed CURRENT requires an explicit, measured acquisition timestamp.
+  if (input.acquisitionTimeQuality !== 'MEASURED' || !input.acquiredAt) return 'UNKNOWN';
+  const acquiredAt = new Date(input.acquiredAt).getTime();
+  if (!Number.isFinite(acquiredAt) || acquiredAt > (input.now ?? new Date()).getTime() + MAX_FUTURE_CLOCK_SKEW_MS) return 'UNKNOWN';
   if (input.condition && !isGenericCurrentCondition(input.condition)) return 'APPROXIMATE';
   const observedAt = new Date(input.observedAt).getTime();
   if (!Number.isFinite(observedAt)) return 'UNKNOWN';
-  const age = (input.now ?? new Date()).getTime() - observedAt;
+  const now = (input.now ?? new Date()).getTime();
+  const validFrom = input.validFrom == null ? null : new Date(input.validFrom).getTime();
+  const validTo = input.validTo == null ? null : new Date(input.validTo).getTime();
+  if ((validFrom != null && !Number.isFinite(validFrom)) || (validTo != null && !Number.isFinite(validTo))) return 'UNKNOWN';
+  if (validTo != null && validTo < now) return 'EXPIRED';
+  if (validFrom != null && validFrom > now) return 'UNKNOWN';
+  const age = now - observedAt;
   if (age < -MAX_FUTURE_CLOCK_SKEW_MS) return 'UNKNOWN';
   return age <= (input.windowMs ?? DEFAULT_FRESHNESS_WINDOW_MS) ? 'CURRENT' : 'STALE';
 }
@@ -138,4 +155,8 @@ export type ReferencePriceEvidence = {
   availability?: string | null;
   confidence?: number | null;
   dataClass?: string | null;
+  sourceUrl?: string | null;
+  evidenceSha256?: string | null;
+  acquiredAt?: string | null;
+  acquisitionTimeQuality?: string | null;
 };

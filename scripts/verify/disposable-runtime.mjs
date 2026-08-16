@@ -2,7 +2,7 @@
 import { randomBytes } from 'node:crypto';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { dirname, relative, resolve } from 'node:path';
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { fileURLToPath } from 'node:url';
 import {
@@ -26,6 +26,7 @@ const REDIS_MARKER = 'weight-app:disposable:runtime-id';
 const SAFE_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 const STAGE_BOUNDS = Object.freeze({
   topology: 120_000,
+  dependencyPrep: 600_000,
   markers: 30_000,
   migration: 180_000,
   static: 300_000,
@@ -374,6 +375,20 @@ function pnpmCommand(args, env, timeoutMs, label) {
   });
 }
 
+async function prepareWorkspaceDependencies(env) {
+  const modulesMarker = resolve(root, 'node_modules/.modules.yaml');
+  if (existsSync(modulesMarker)) {
+    return { exitCode: 0, reason: 'workspace node_modules metadata already present' };
+  }
+  const runner = resolvePnpmInvocation(env);
+  return runBoundedProcess(runner.command, [...runner.argsPrefix, 'install', '--offline', '--prefer-offline', '--frozen-lockfile'], {
+    cwd: root,
+    env: createPnpmEnv(env),
+    timeoutMs: STAGE_BOUNDS.dependencyPrep,
+    label: 'dependency preparation',
+  });
+}
+
 async function preparePersistenceTemplate(env) {
   assertDisposableConfig(env);
   const expectedTemplate = `wt_cat_${env.WEIGHT_APP_RUNTIME_ID.slice(3).replaceAll('-', '_')}_template`;
@@ -594,6 +609,11 @@ async function ensureE2EServices(env, serviceState) {
   const webPort = env.DISPOSABLE_WEB_PORT;
   const runtimeEnv = {
     ...env,
+    // E2E services are started through pnpm without an interactive TTY. Keep
+    // pnpm's dependency-state check non-interactive and frozen, just like the
+    // canonical migration/static stages.
+    CI: 'true',
+    npm_config_frozen_lockfile: 'true',
     PORT: apiPort,
     NODE_ENV: 'production',
     APP_ENV: 'LOCAL',
@@ -680,6 +700,11 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     return result;
   };
   const stages = [
+    {
+      name: 'dependency preparation', timeoutMs: STAGE_BOUNDS.dependencyPrep,
+      command: 'pnpm install --offline --prefer-offline --frozen-lockfile (only when node_modules metadata is missing)',
+      action: () => prepareWorkspaceDependencies(env),
+    },
     { name: 'disposable topology startup', timeoutMs: STAGE_BOUNDS.topology, command: 'docker compose up -d --wait --wait-timeout 90 postgres redis', action: () => startTopology(env) },
     { name: 'PostgreSQL/Redis marker verification', timeoutMs: STAGE_BOUNDS.markers, command: 'owned marker probes', action: () => verifyRuntimeMarkers(env) },
     { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect all migrations applied)', action: migrationAction('first') },
