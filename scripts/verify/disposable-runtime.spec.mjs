@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
-import { assertDisposableConfig, classifyMarkerValue, createRuntimeEnv, diagnostics, isTransientMarkerProbeError, parseDatabaseUrl, parseRedisUrl, redactConnection } from './disposable-runtime.mjs';
+import { assertDisposableConfig, classifyMarkerValue, createRuntimeEnv, diagnostics, isTransientMarkerProbeError, migrationChildInvocation, parseDatabaseUrl, parseRedisUrl, redactConnection } from './disposable-runtime.mjs';
 
 const base = { WEIGHT_APP_DISPOSABLE_MODE: '1', WEIGHT_APP_RUNTIME_ID: 'wa-test-12345678', DISPOSABLE_POSTGRES_MARKER: 'wa-test-12345678', DISPOSABLE_REDIS_MARKER: 'wa-test-12345678', DATABASE_URL: 'postgresql://user:secret@127.0.0.1:55432/weight_app_disposable_test_12345678', REDIS_URL: 'redis://127.0.0.1:56379' };
 
@@ -29,6 +29,12 @@ test('only startup probe errors are retryable', () => {
   assert.equal(isTransientMarkerProbeError(new Error('connection refused')), true);
   assert.equal(isTransientMarkerProbeError(new Error('relation weight_app_runtime_metadata.runtime_identity does not exist')), true);
   assert.equal(isTransientMarkerProbeError(new Error('POSTGRES_SERVER_MARKER_IDENTITY_MISMATCH')), false);
+});
+test('migration child bypasses package-manager bootstrap after dependency preparation', () => {
+  const child = migrationChildInvocation();
+  assert.equal(child.command, process.execPath);
+  assert.ok(child.args.at(-1).replaceAll('\\', '/').endsWith('/apps/api/scripts/migrate.mjs'));
+  assert.ok(!child.args.some((arg) => arg === 'db:migrate' || arg === 'install'));
 });
 test('diagnostics redact database and redis credentials', () => {
   const out = JSON.stringify(diagnostics({ ...base, REDIS_URL: 'redis://:redis-secret@127.0.0.1:56379' }));

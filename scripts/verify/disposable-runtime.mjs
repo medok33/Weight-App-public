@@ -355,7 +355,7 @@ export function stopRuntime(env) {
 export async function migrate(env) {
   assertDisposableConfig(env);
   await assertServerMarkers(env);
-  run('pnpm', ['db:migrate'], env);
+  run(process.execPath, [resolve(root, 'apps/api/scripts/migrate.mjs')], env);
 }
 
 export async function fullVerify(env) {
@@ -373,6 +373,19 @@ function pnpmCommand(args, env, timeoutMs, label) {
     timeoutMs,
     label,
   });
+}
+
+/**
+ * Migration is deliberately launched with Node after the dedicated dependency
+ * preparation stage. Calling `pnpm db:migrate` here lets pnpm silently repair a
+ * partial workspace install left by an earlier timeout, consuming the migration
+ * stage budget before the migration process starts.
+ */
+export function migrationChildInvocation() {
+  return {
+    command: process.execPath,
+    args: [resolve(root, 'apps/api/scripts/migrate.mjs')],
+  };
 }
 
 async function prepareWorkspaceDependencies(env) {
@@ -689,7 +702,13 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
   process.once('SIGTERM', sigterm);
   const migrationAction = (expected) => async () => {
     await assertServerMarkers(env);
-    const result = await pnpmCommand(['db:migrate'], env, STAGE_BOUNDS.migration, `migration ${expected}`);
+    const child = migrationChildInvocation();
+    const result = await runBoundedProcess(child.command, child.args, {
+      cwd: root,
+      env,
+      timeoutMs: STAGE_BOUNDS.migration,
+      label: `migration ${expected}`,
+    });
     if (result.exitCode === 0 && !result.timedOut) {
       const expectedCount = migrationCount();
       const expectedPattern = expected === 'first'
@@ -707,8 +726,8 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     },
     { name: 'disposable topology startup', timeoutMs: STAGE_BOUNDS.topology, command: 'docker compose up -d --wait --wait-timeout 90 postgres redis', action: () => startTopology(env) },
     { name: 'PostgreSQL/Redis marker verification', timeoutMs: STAGE_BOUNDS.markers, command: 'owned marker probes', action: () => verifyRuntimeMarkers(env) },
-    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect all migrations applied)', action: migrationAction('first') },
-    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 0 applied / all skipped)', action: migrationAction('second') },
+    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'node apps/api/scripts/migrate.mjs (expect all migrations applied)', action: migrationAction('first') },
+    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'node apps/api/scripts/migrate.mjs (expect 0 applied / all skipped)', action: migrationAction('second') },
     {
       name: 'static/lint/type validation', timeoutMs: STAGE_BOUNDS.static,
       command: 'root ESLint; migration/UI/workflow checks; direct API/Web/Worker typechecks; support package tests',
