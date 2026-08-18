@@ -113,7 +113,8 @@ describeDb('PRICE-02J canonical evidence persistence', () => {
     expect((await repo.readReferencePrice(pyProduct.id, { storeId: pyMoscow.storeId, locationScope: 'STORE' }).then((value) => value.status))).toBe('UNKNOWN');
 
     const cityProduct = await repo.ensureNormalizedProduct({ productKey: `city-promo:3645971:${suffix}`, name: 'Городской каталог', category: 'evidence', unit: 'item', externalId: 'city-3645971' });
-    const cityPromo = await write({ productId: cityProduct.id, retailer: 'PYATEROCHKA', city: 'Москва', region: 'MOW', address: 'Москва', externalSku: 'city-3645971', title: 'Городской каталог', price: 99, currency: 'RUB', scope: 'CITY', capturedAt, sourceUrl: 'https://proshoper.ru/moskva/actions/pyaterochka/329728/', evidenceSha256: 'sha-city-promo', acquiredAt: capturedAt, acquisitionTimeQuality: 'MEASURED', sourceType: 'CSV', dataClass: 'PRODUCTION', validFrom: '2026-08-11', validTo: '2026-08-17' });
+    const cityPromoValidTo = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const cityPromo = await write({ productId: cityProduct.id, retailer: 'PYATEROCHKA', city: 'Москва', region: 'MOW', address: 'Москва', externalSku: 'city-3645971', title: 'Городской каталог', price: 99, currency: 'RUB', scope: 'CITY', capturedAt, sourceUrl: 'https://proshoper.ru/moskva/actions/pyaterochka/329728/', evidenceSha256: 'sha-city-promo', acquiredAt: capturedAt, acquisitionTimeQuality: 'MEASURED', sourceType: 'CSV', dataClass: 'PRODUCTION', validFrom: '2026-08-11', validTo: cityPromoValidTo });
     expect((await repo.readReferencePrice(cityProduct.id, { storeId: cityPromo.storeId, locationScope: 'CITY' })).price).toBe(99);
     expect((await repo.readReferencePrice(cityProduct.id, { storeId: cityPromo.storeId, locationScope: 'STORE' })).status).toBe('UNKNOWN');
 
