@@ -6,6 +6,9 @@ import {
   evaluateSourceExecutionEligibility,
   listAllowedRightsTransitions,
   RECIPE_SOURCE_ADAPTER_CONTRACT_VERSION,
+  resolveRecipeSourcePolicy,
+  assertRecipeSourceLiveAllowed,
+  assertRecipeSourceDirectPublicationDenied,
 } from '../domain/recipe-external-source.policy';
 import {
   assertNoClientControlledSourceFields,
@@ -21,6 +24,26 @@ import { RecipeSourceAdapterRegistry } from '../application/recipe-source-adapte
 import { TestRecipeSourceAdapter } from '../application/test-recipe-source.adapter';
 
 describe('RP2-04A recipe external source policy (STEP_213)', () => {
+  it('resolves registered and unknown source policy fail-closed', () => {
+    const food = resolveRecipeSourcePolicy('food_ru');
+    expect(food.state).toBe('PENDING_REVIEW');
+    expect(food.enabled).toBe(false);
+    expect(food.liveAccessPolicy).toBe('DENY');
+    expect(food.researchOnly).toBe(true);
+    expect(food.directPublicationAllowed).toBe(false);
+    expect(food.allowedFields.SOURCE_PROSE).toBe('DENIED');
+    expect(food.allowedFields.RAW_CANDIDATE_PAYLOAD).toBe('SHORT_LIVED_RAW');
+    expect(() => assertRecipeSourceLiveAllowed(food)).toThrow(/RECIPE_SOURCE_POLICY_LIVE_DENIED/);
+    expect(() => assertRecipeSourceDirectPublicationDenied(food)).toThrow(
+      /RECIPE_SOURCE_DIRECT_PUBLICATION_DENIED/,
+    );
+
+    const unknown = resolveRecipeSourcePolicy('unregistered.example');
+    expect(unknown.state).toBe('UNKNOWN');
+    expect(unknown.liveAccessPolicy).toBe('DENY');
+    expect(() => assertRecipeSourceLiveAllowed(unknown)).toThrow(/RECIPE_SOURCE_POLICY_LIVE_DENIED/);
+  });
+
   it('allows controlled rights transitions and rejects invalid restore', () => {
     expect(() => assertRightsTransition('PENDING_REVIEW', 'PUBLIC_RESEARCH_ALLOWED')).not.toThrow();
     expect(() => assertRightsTransition('PUBLIC_RESEARCH_ALLOWED', 'SUSPENDED')).not.toThrow();
