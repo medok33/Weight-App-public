@@ -560,11 +560,33 @@ async function staticValidation(env) {
   });
   if (eslint.timedOut || eslint.exitCode !== 0) return eslint;
   const remaining = Math.max(1, STAGE_BOUNDS.static - (Date.now() - started));
-  return commandSequence([
-    ['db:check-migrations'], ['ui:check-ru'], ['ci:validate-workflows'],
-    ['--dir', 'apps/api', 'typecheck'], ['--dir', 'apps/web', 'typecheck'], ['--dir', 'apps/worker', 'typecheck'],
-    ['--filter', '@weight-app/contracts', 'test'], ['--filter', '@weight-app/config', 'test'],
+  return directStaticCommandSequence([
+    { command: process.execPath, args: [resolve(root, 'apps/api/scripts/check-migrations.mjs')], cwd: root, label: 'db:check-migrations' },
+    { command: process.execPath, args: [resolve(root, 'scripts/ui/check-ru.mjs')], cwd: root, label: 'ui:check-ru' },
+    { command: process.execPath, args: [resolve(root, 'scripts/ci/validate-workflows.mjs')], cwd: root, label: 'ci:validate-workflows' },
+    { command: process.execPath, args: [resolve(root, 'apps/api/node_modules/typescript/bin/tsc'), '--noEmit', '-p', resolve(root, 'apps/api/tsconfig.lint.json')], cwd: root, label: 'apps/api typecheck' },
+    { command: process.execPath, args: [resolve(root, 'apps/web/node_modules/typescript/bin/tsc'), '--noEmit', '-p', resolve(root, 'apps/web/tsconfig.json')], cwd: root, label: 'apps/web typecheck' },
+    { command: process.execPath, args: [resolve(root, 'apps/worker/node_modules/typescript/bin/tsc'), '--noEmit', '--module', 'node16', '--moduleResolution', 'node16', '--target', 'es2022', '--skipLibCheck', resolve(root, 'apps/worker/src/main.ts')], cwd: root, label: 'apps/worker typecheck' },
+    { command: process.execPath, args: ['--test'], cwd: resolve(root, 'packages/contracts'), label: '@weight-app/contracts test' },
+    { command: process.execPath, args: ['--experimental-strip-types', '--test', resolve(root, 'packages/config/src/browser-security.test.ts')], cwd: root, label: '@weight-app/config test' },
   ], env, remaining, 'static/type validation');
+}
+
+async function directStaticCommandSequence(commands, env, timeoutMs, label) {
+  const started = Date.now();
+  let lastProgress = null;
+  let combinedOutput = '';
+  for (const entry of commands) {
+    const remaining = timeoutMs - (Date.now() - started);
+    if (remaining <= 0) return { exitCode: 124, timedOut: true, lastProgress: lastProgress ?? `${label} exhausted its aggregate bound` };
+    process.stdout.write(`VERIFY_SUBCOMMAND_START ${JSON.stringify({ stage: label, command: entry.label, remainingMs: remaining })}\n`);
+    const result = await runBoundedProcess(entry.command, entry.args, { cwd: entry.cwd, env, timeoutMs: remaining, label: `${label}:${entry.label}` });
+    combinedOutput += `${result.stdout}\n${result.stderr}\n`;
+    lastProgress = result.lastProgress ?? lastProgress;
+    process.stdout.write(`VERIFY_SUBCOMMAND_END ${JSON.stringify({ stage: label, command: entry.label, elapsedMs: result.elapsedMs, exitCode: result.exitCode, timeout: result.timedOut })}\n`);
+    if (result.timedOut || result.exitCode !== 0) return { ...result, stdout: combinedOutput, reason: result.progressTail ?? result.lastProgress ?? `${label} failed`, lastProgress };
+  }
+  return { exitCode: 0, timedOut: false, elapsedMs: Date.now() - started, stdout: combinedOutput, lastProgress };
 }
 
 async function startTopology(env) {
@@ -842,6 +864,12 @@ async function main() {
   if (command === 'guard-test') return run(process.execPath, ['--test', resolve(root, 'scripts/verify/disposable-runtime.spec.mjs'), resolve(root, 'scripts/verify/orchestration.spec.mjs')]);
   if (command === 'diagnostics') { console.log(JSON.stringify(diagnostics(process.env, { gitSha: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim() }), null, 2)); return; }
   if (command === 'up') { const env = await startRuntime(); console.log(JSON.stringify({ runtimeId: env.DISPOSABLE_RUNTIME_ID, DATABASE_URL: redactConnection(env.DATABASE_URL), REDIS_URL: redactConnection(env.REDIS_URL) }, null, 2)); return; }
+  if (command === 'static') {
+    const result = await staticValidation(createPnpmEnv(process.env));
+    process.stdout.write(`VERIFY_STATIC_RESULT ${JSON.stringify({ exitCode: result.exitCode, timedOut: result.timedOut ?? false, elapsedMs: result.elapsedMs ?? null, reason: result.reason ?? null })}\n`);
+    if (result.exitCode !== 0) process.exitCode = result.exitCode ?? 1;
+    return;
+  }
   if (command === 'full') {
     const env = createRuntimeEnv();
     await canonicalFullVerify(env);
