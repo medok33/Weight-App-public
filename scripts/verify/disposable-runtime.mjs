@@ -365,14 +365,60 @@ export async function fullVerify(env) {
   run('pnpm', ['verify'], env);
 }
 
-function pnpmCommand(args, env, timeoutMs, label) {
-  const runner = resolvePnpmInvocation(env);
-  return runBoundedProcess(runner.command, [...runner.argsPrefix, ...args], {
-    cwd: root,
-    env: createPnpmEnv(env),
-    timeoutMs,
-    label,
-  });
+// Canonical stages run only after dependency provisioning.  Resolve package
+// binaries directly so a stage can never cause pnpm to relink the workspace.
+export function canonicalDirectInvocation(args) {
+  const normalized = args.map((value) => String(value));
+  if (normalized[0] === '--filter' && normalized[1] === 'api' && normalized[2] === 'build') {
+    return { command: process.execPath, args: [resolve(root, 'apps/api/node_modules/typescript/bin/tsc'), '--module', 'node16', '--moduleResolution', 'node16', '--target', 'es2022', '--types', 'node', '--experimentalDecorators', '--emitDecoratorMetadata', '--outDir', 'dist', 'src/main.ts'], cwd: resolve(root, 'apps/api'), label: 'node apps/api/node_modules/typescript/bin/tsc (api build)' };
+  }
+  if (normalized[0] === '--filter' && normalized[1] === 'web' && normalized[2] === 'build') {
+    return { command: process.execPath, args: [resolve(root, 'apps/web/scripts/run-next-build.mjs')], cwd: root, label: 'node apps/web/scripts/run-next-build.mjs' };
+  }
+  if (normalized[0] === '--filter' && normalized[1] === 'worker' && normalized[2] === 'build') {
+    return { command: process.execPath, args: [resolve(root, 'apps/worker/node_modules/typescript/bin/tsc'), '--module', 'node16', '--moduleResolution', 'node16', '--target', 'es2022', '--outDir', 'dist', 'src/main.ts'], cwd: resolve(root, 'apps/worker'), label: 'node apps/worker/node_modules/typescript/bin/tsc (worker build)' };
+  }
+  if (normalized[0] === '--filter' && (normalized[1] === 'web' || normalized[1] === 'worker') && normalized[2] === 'test') {
+    const app = normalized[1];
+    return { command: process.execPath, args: [resolve(root, `apps/${app}/node_modules/vitest/vitest.mjs`), 'run', '--passWithNoTests'], cwd: resolve(root, `apps/${app}`), label: `node apps/${app}/node_modules/vitest/vitest.mjs run` };
+  }
+  if (normalized[0] === '--dir' && normalized[1] === 'apps/api' && normalized[2] === 'exec' && normalized[3] === 'vitest') {
+    return { command: process.execPath, args: [resolve(root, 'apps/api/node_modules/vitest/vitest.mjs'), ...normalized.slice(4)], cwd: resolve(root, 'apps/api'), label: 'node apps/api/node_modules/vitest/vitest.mjs' };
+  }
+  if (normalized[0] === '--dir' && normalized[1] === 'apps/web' && normalized[2]?.startsWith('test:e2e:')) {
+    const script = normalized[2];
+    const e2eArgs = {
+      'test:e2e:runtime-smoke': ['test', 'e2e/runtime-smoke-01-user-routes.spec.ts'],
+      'test:e2e:activity': ['test', 'e2e/activity-01a-automatic-steps.spec.ts', 'e2e/activity-01a-http.spec.ts', 'e2e/activity-01b-connection-lifecycle.spec.ts'],
+      'test:e2e:workout-v2-01c': ['test', 'e2e/workout-v2-01c-session.spec.ts', 'e2e/workout-v2-01c-http.spec.ts'],
+      'test:e2e:workout-v2-01d': ['test', 'e2e/workout-v2-01d-adaptations.spec.ts'],
+      'test:e2e:workout-v2-01e': ['test', 'e2e/workout-v2-01e-hub-ux.spec.ts'],
+      'test:e2e:workout-energy-01b': ['test', 'e2e/workout-energy-01b-session-snapshot.spec.ts'],
+    }[script];
+    if (!e2eArgs) throw new Error(`CANONICAL_DIRECT_COMMAND_UNMAPPED:${normalized.join(' ')}`);
+    return { command: process.execPath, args: [resolve(root, 'apps/web/node_modules/@playwright/test/cli.js'), ...e2eArgs], cwd: resolve(root, 'apps/web'), label: `node apps/web/node_modules/@playwright/test/cli.js ${e2eArgs.join(' ')}` };
+  }
+  if (normalized[0] === 'workout-energy:content:check') {
+    return { command: process.execPath, args: [resolve(root, 'apps/api/scripts/workout-energy-content-check.mjs')], cwd: root, label: 'node apps/api/scripts/workout-energy-content-check.mjs' };
+  }
+  throw new Error(`CANONICAL_DIRECT_COMMAND_UNMAPPED:${normalized.join(' ')}`);
+}
+
+export function dependencyReadinessPreflight() {
+  const required = [
+    'node_modules/.modules.yaml',
+    'apps/api/node_modules/typescript/bin/tsc',
+    'apps/api/node_modules/vitest/vitest.mjs',
+    'apps/web/node_modules/typescript/bin/tsc',
+    'apps/web/node_modules/vitest/vitest.mjs',
+    'apps/web/node_modules/next/dist/bin/next',
+    'apps/web/node_modules/@playwright/test/cli.js',
+    'apps/worker/node_modules/typescript/bin/tsc',
+    'apps/worker/node_modules/vitest/vitest.mjs',
+  ];
+  const missing = required.filter((entry) => !existsSync(resolve(root, entry)));
+  if (missing.length) return { exitCode: 1, reason: `CANONICAL_DEPENDENCIES_NOT_READY:${missing.join(',')}` };
+  return { exitCode: 0, reason: 'all canonical package binaries and workspace metadata are ready' };
 }
 
 /**
@@ -501,11 +547,11 @@ export async function runPersistenceSuite(env, inventory) {
         ...(isActivityLong ? ['--hookTimeout', String(fileBound)] : []),
         relativeFile,
       ];
-      result = await pnpmCommand(
-        vitestArgs,
-        fileEnv,
-        Math.min(fileBound, STAGE_BOUNDS.apiPersistence - (Date.now() - started)),
-        `API persistence ${relativeFile}`,
+      const invocation = canonicalDirectInvocation(vitestArgs);
+      result = await runBoundedProcess(
+        invocation.command,
+        invocation.args,
+        { cwd: invocation.cwd, env: createPnpmEnv(fileEnv), timeoutMs: Math.min(fileBound, STAGE_BOUNDS.apiPersistence - (Date.now() - started)), label: `API persistence ${relativeFile}` },
       );
     } finally {
       const testElapsedMs = Date.now() - testStarted;
@@ -533,11 +579,12 @@ async function commandSequence(commands, env, timeoutMs, label) {
   for (const command of commands) {
     const remaining = timeoutMs - (Date.now() - started);
     if (remaining <= 0) return { exitCode: 124, timedOut: true, lastProgress: lastProgress ?? `${label} exhausted its aggregate bound` };
-    process.stdout.write(`VERIFY_SUBCOMMAND_START ${JSON.stringify({ stage: label, command: `pnpm ${command.join(' ')}`, remainingMs: remaining })}\n`);
-    const result = await pnpmCommand(command, env, remaining, `${label}:${command.join(' ')}`);
+    const invocation = canonicalDirectInvocation(command);
+    process.stdout.write(`VERIFY_SUBCOMMAND_START ${JSON.stringify({ stage: label, command: invocation.label, remainingMs: remaining })}\n`);
+    const result = await runBoundedProcess(invocation.command, invocation.args, { cwd: invocation.cwd, env: createPnpmEnv(env), timeoutMs: remaining, label: `${label}:${invocation.label}` });
     combinedOutput += `${result.stdout}\n${result.stderr}\n`;
     lastProgress = result.lastProgress ?? lastProgress;
-    process.stdout.write(`VERIFY_SUBCOMMAND_END ${JSON.stringify({ stage: label, command: `pnpm ${command.join(' ')}`, elapsedMs: result.elapsedMs, exitCode: result.exitCode, timeout: result.timedOut })}\n`);
+    process.stdout.write(`VERIFY_SUBCOMMAND_END ${JSON.stringify({ stage: label, command: invocation.label, elapsedMs: result.elapsedMs, exitCode: result.exitCode, timeout: result.timedOut })}\n`);
     if (result.timedOut || result.exitCode !== 0) {
       return {
         ...result,
@@ -607,8 +654,8 @@ async function verifyRuntimeMarkers(env) {
   return { exitCode: 0, reason: 'PostgreSQL and Redis runtime markers match the owned runtimeId' };
 }
 
-function startService(command, args, env, label, serviceState) {
-  const child = spawn(command, args, { cwd: root, env, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
+function startService(command, args, env, label, serviceState, cwd = root) {
+  const child = spawn(command, args, { cwd, env, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
   const state = { label, child, lastProgress: null, exitCode: null };
   const collect = (chunk, stream) => {
     const text = redactText(chunk, env);
@@ -659,8 +706,7 @@ async function ensureE2EServices(env, serviceState) {
   };
   const api = startService(process.execPath, [resolve(root, 'apps/api/dist/main.js')], runtimeEnv, 'api', serviceState);
   await waitForUrl(`http://127.0.0.1:${apiPort}/api/v1/health/live`, api, 90_000);
-  const runner = resolvePnpmInvocation(runtimeEnv);
-  const web = startService(runner.command, [...runner.argsPrefix, '--dir', 'apps/web', 'exec', 'next', 'start', '-H', '127.0.0.1', '-p', webPort], runtimeEnv, 'web', serviceState);
+  const web = startService(process.execPath, [resolve(root, 'apps/web/node_modules/next/dist/bin/next'), 'start', '-H', '127.0.0.1', '-p', webPort], { ...runtimeEnv, NEXT_TELEMETRY_DISABLED: '1' }, 'web', serviceState, resolve(root, 'apps/web'));
   await waitForUrl(`http://127.0.0.1:${webPort}/`, web, 90_000);
   Object.assign(env, runtimeEnv);
   return { exitCode: 0, reason: 'built API and Web are live on isolated loopback ports' };
@@ -746,6 +792,11 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
       command: 'pnpm install --offline --prefer-offline --frozen-lockfile (only when node_modules metadata is missing)',
       action: () => prepareWorkspaceDependencies(env),
     },
+    {
+      name: 'dependency readiness preflight', timeoutMs: 30_000,
+      command: 'direct package binary and workspace metadata checks (no install)',
+      action: async () => dependencyReadinessPreflight(),
+    },
     { name: 'disposable topology startup', timeoutMs: STAGE_BOUNDS.topology, command: 'docker compose up -d --wait --wait-timeout 90 postgres redis', action: () => startTopology(env) },
     { name: 'PostgreSQL/Redis marker verification', timeoutMs: STAGE_BOUNDS.markers, command: 'owned marker probes', action: () => verifyRuntimeMarkers(env) },
     { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'node apps/api/scripts/migrate.mjs (expect all migrations applied)', action: migrationAction('first') },
@@ -783,10 +834,11 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     },
     {
       name: 'USER Runtime Smoke', timeoutMs: STAGE_BOUNDS.userSmoke,
-      command: 'start built API/Web; pnpm --dir apps/web test:e2e:runtime-smoke',
+      command: 'start built API/Web; direct Playwright runtime-smoke binary',
       action: async () => {
         await ensureE2EServices(env, serviceState);
-        return pnpmCommand(['--dir', 'apps/web', 'test:e2e:runtime-smoke'], env, STAGE_BOUNDS.userSmoke, 'USER Runtime Smoke');
+        const invocation = canonicalDirectInvocation(['--dir', 'apps/web', 'test:e2e:runtime-smoke']);
+        return runBoundedProcess(invocation.command, invocation.args, { cwd: invocation.cwd, env: createPnpmEnv(env), timeoutMs: STAGE_BOUNDS.userSmoke, label: 'USER Runtime Smoke' });
       },
     },
     {
@@ -799,8 +851,11 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     },
     {
       name: 'Activity E2E', timeoutMs: STAGE_BOUNDS.activityE2E,
-      command: 'pnpm --dir apps/web test:e2e:activity',
-      action: () => pnpmCommand(['--dir', 'apps/web', 'test:e2e:activity'], env, STAGE_BOUNDS.activityE2E, 'Activity E2E'),
+      command: 'direct Playwright activity binary',
+      action: () => {
+        const invocation = canonicalDirectInvocation(['--dir', 'apps/web', 'test:e2e:activity']);
+        return runBoundedProcess(invocation.command, invocation.args, { cwd: invocation.cwd, env: createPnpmEnv(env), timeoutMs: STAGE_BOUNDS.activityE2E, label: 'Activity E2E' });
+      },
     },
     {
       name: 'browser/runtime E2E', applicable: false,
@@ -820,9 +875,10 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     },
     {
       name: 'content coverage/status check', timeoutMs: STAGE_BOUNDS.content,
-      command: 'pnpm workout-energy:content:check',
+      command: 'node apps/api/scripts/workout-energy-content-check.mjs',
       action: async () => {
-        const result = await pnpmCommand(['workout-energy:content:check'], env, STAGE_BOUNDS.content, 'content coverage/status check');
+        const invocation = canonicalDirectInvocation(['workout-energy:content:check']);
+        const result = await runBoundedProcess(invocation.command, invocation.args, { cwd: invocation.cwd, env: createPnpmEnv(env), timeoutMs: STAGE_BOUNDS.content, label: 'content coverage/status check' });
         if (/CONTENT_COVERAGE_INCOMPLETE/.test(result.stdout + result.stderr)) result.reason = 'EXPECTED_DOMAIN_BLOCKER; PLATFORM blocker NO; owner CONTENT-01';
         return result;
       },
