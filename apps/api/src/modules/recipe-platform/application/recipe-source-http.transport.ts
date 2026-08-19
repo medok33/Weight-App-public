@@ -15,7 +15,22 @@ import {
 } from '../domain/recipe-source-network.policy';
 import { RecipeSourceAdapterError } from '../domain/recipe-source-adapter.contract';
 
-export type RecipeSourceTransportMode = 'LIVE_DISABLED' | 'FIXTURE';
+export type RecipeSourceTransportMode = 'LIVE_DISABLED' | 'CONTROLLED_PILOT' | 'FIXTURE';
+
+export type ControlledPilotPolicy = {
+  sourceId: string;
+  allowControlledPilot: boolean;
+  maxTotalRequests: number;
+  maxConcurrentRequests: number;
+  perHostMinIntervalMs: number;
+  requestTimeoutMs: number;
+  maxRedirects: number;
+};
+
+export type RecipeSourceRequester = (input: {
+  url: string;
+  signal: AbortSignal;
+}) => Promise<{ statusCode: number; contentType: string; bodyText: string; finalUrl: string }>;
 
 export type RecipeSourceTransportRequest = {
   sourceCode: string;
@@ -26,6 +41,7 @@ export type RecipeSourceTransportRequest = {
   fixtureScenario?: string | null;
   allowlist?: readonly string[];
   parserVersion: string;
+  pilotPolicy?: ControlledPilotPolicy;
 };
 
 export type RecipeSourceTransportResponse = {
@@ -57,13 +73,21 @@ export class RecipeSourceHttpTransport {
   private readonly networkCalls = 0;
   private readonly mode: RecipeSourceTransportMode;
   private readonly fixtures: RecipeSourceFixtureResolver | null;
+  private readonly pilotPolicy: ControlledPilotPolicy | null;
+  private readonly requester: RecipeSourceRequester | null;
+  private activeRequests = 0;
+  private lastRequestAt = new Map<string, number>();
 
   constructor(input?: {
     mode?: RecipeSourceTransportMode;
     fixtures?: RecipeSourceFixtureResolver | null;
+    pilotPolicy?: ControlledPilotPolicy;
+    requester?: RecipeSourceRequester;
   }) {
     this.mode = input?.mode ?? 'LIVE_DISABLED';
     this.fixtures = input?.fixtures ?? null;
+    this.pilotPolicy = input?.pilotPolicy ?? null;
+    this.requester = input?.requester ?? null;
   }
 
   getMode(): RecipeSourceTransportMode {
@@ -126,6 +150,43 @@ export class RecipeSourceHttpTransport {
       fail('LIVE_EXECUTION_DISABLED', 'Live source HTTP is disabled by transport policy');
     }
 
+    if (this.mode === 'CONTROLLED_PILOT') {
+      const policy = this.pilotPolicy;
+      if (!policy || !policy.allowControlledPilot || !input.pilotPolicy || input.pilotPolicy.sourceId !== policy.sourceId) {
+        fail('POLICY_BLOCKED', 'Controlled pilot requires explicit source policy permission');
+      }
+      if (policy.maxTotalRequests < 1 || policy.maxTotalRequests > 80 || policy.maxConcurrentRequests < 1 || policy.maxConcurrentRequests > 2 || policy.perHostMinIntervalMs < 2500 || policy.requestTimeoutMs > 20000 || policy.maxRedirects > 3) {
+        fail('POLICY_BLOCKED', 'Controlled pilot request bounds invalid');
+      }
+      if (this.requestCount > policy.maxTotalRequests) fail('RATE_LIMITED', 'Controlled pilot request budget exhausted');
+      if (this.activeRequests >= policy.maxConcurrentRequests) fail('RATE_LIMITED', 'Controlled pilot concurrency limit reached');
+      const previous = this.lastRequestAt.get(parsed.hostname) ?? 0;
+      const elapsed = Date.now() - previous;
+      if (elapsed < policy.perHostMinIntervalMs) await new Promise((resolve) => setTimeout(resolve, policy.perHostMinIntervalMs - elapsed));
+      this.activeRequests += 1;
+      this.lastRequestAt.set(parsed.hostname, Date.now());
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), policy.requestTimeoutMs);
+      try {
+        const response = this.requester
+          ? await this.requester({ url: input.url, signal: controller.signal })
+          : await this.defaultRequester(input.url, controller.signal, policy.maxRedirects, allowlist);
+        assertContentTypeAllowed(response.contentType);
+        assertResponseSizeAllowed(Buffer.byteLength(response.bodyText, 'utf8'));
+        const finalHost = new URL(response.finalUrl).hostname;
+        assertRedirectHostnameAllowed(parsed.hostname, finalHost, allowlist);
+        return { mode: 'CONTROLLED_PILOT', ok: response.statusCode >= 200 && response.statusCode < 300, statusCode: response.statusCode, contentType: response.contentType, bodyText: response.bodyText, finalUrl: response.finalUrl, networkCalls: 1, requestCount: this.requestCount, correlationId, redirected: response.finalUrl !== input.url, fixtureScenario: null };
+      } catch (error) {
+        if (error instanceof RecipeSourceAdapterError) throw error;
+        if (error instanceof Error && /REDIRECT|HOSTNAME|PRIVATE|ALLOWLIST|POLICY/.test(error.message)) fail('POLICY_BLOCKED', 'Controlled pilot network policy blocked request');
+        const message = error instanceof Error && error.name === 'AbortError' ? 'Controlled pilot request timed out' : 'Controlled pilot request failed';
+        fail(error instanceof Error && error.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR', message);
+      } finally {
+        clearTimeout(timer);
+        this.activeRequests -= 1;
+      }
+    }
+
     if (this.mode === 'FIXTURE') {
       if (!this.fixtures) {
         fail('CONFIGURATION_ERROR', 'Fixture resolver is not configured');
@@ -170,7 +231,21 @@ export class RecipeSourceHttpTransport {
       };
     }
 
-    fail('CONFIGURATION_ERROR', 'Unknown transport mode');
+    fail('POLICY_BLOCKED', 'Unknown transport mode');
+  }
+
+  private async defaultRequester(url: string, signal: AbortSignal, maxRedirects: number, allowlist: string[]) {
+    let current = url;
+    for (let redirect = 0; redirect <= maxRedirects; redirect += 1) {
+      const response = await fetch(current, { method: 'GET', redirect: 'manual', signal, headers: { 'user-agent': RECIPE_SOURCE_NETWORK_SECURITY_CONTRACT.safeUserAgent, accept: 'text/html,application/json' } });
+      if (response.status < 300 || response.status >= 400) return { statusCode: response.status, contentType: response.headers.get('content-type') ?? '', bodyText: await response.text(), finalUrl: current };
+      const location = response.headers.get('location');
+      if (!location) throw new Error('REDIRECT_FORBIDDEN');
+      const next = new URL(location, current).toString();
+      assertRedirectHostnameAllowed(new URL(current).hostname, new URL(next).hostname, allowlist);
+      current = next;
+    }
+    throw new Error('REDIRECT_FORBIDDEN');
   }
 
   getSecurityContract() {
@@ -180,6 +255,10 @@ export class RecipeSourceHttpTransport {
 
 export function createLiveDisabledTransport(): RecipeSourceHttpTransport {
   return new RecipeSourceHttpTransport({ mode: 'LIVE_DISABLED' });
+}
+
+export function createControlledPilotTransport(policy: ControlledPilotPolicy, requester?: RecipeSourceRequester): RecipeSourceHttpTransport {
+  return new RecipeSourceHttpTransport({ mode: 'CONTROLLED_PILOT', pilotPolicy: policy, requester });
 }
 
 export function createFixtureTransport(fixtures: RecipeSourceFixtureResolver): RecipeSourceHttpTransport {

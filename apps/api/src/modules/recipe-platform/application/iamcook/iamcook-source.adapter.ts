@@ -83,6 +83,7 @@ export class IamCookSourceAdapter implements RecipeSourceAdapter {
         fixtureScenario: context.testMode ? 'search-valid' : null,
         allowlist: IAMCOOK_HOSTNAME_ALLOWLIST,
         parserVersion: this.parserVersion,
+        pilotPolicy: context.collectionMode === 'CONTROLLED_PILOT' ? { sourceId: context.sourceId, allowControlledPilot: true, maxTotalRequests: 80, maxConcurrentRequests: 2, perHostMinIntervalMs: 2500, requestTimeoutMs: Math.min(context.requestTimeoutMs, 20000), maxRedirects: 3 } : undefined,
       });
       const cards = parseIamCookSearchJson(response.bodyText);
       return cards.slice(0, input.resultLimit).map((card) => ({
@@ -136,6 +137,7 @@ export class IamCookSourceAdapter implements RecipeSourceAdapter {
         fixtureScenario: context.testMode ? scenario : null,
         allowlist: IAMCOOK_HOSTNAME_ALLOWLIST,
         parserVersion: this.parserVersion,
+        pilotPolicy: context.collectionMode === 'CONTROLLED_PILOT' ? { sourceId: context.sourceId, allowControlledPilot: true, maxTotalRequests: 80, maxConcurrentRequests: 2, perHostMinIntervalMs: 2500, requestTimeoutMs: Math.min(context.requestTimeoutMs, 20000), maxRedirects: 3 } : undefined,
       });
       return parseIamCookCandidateHtml({
         bodyText: response.bodyText,
@@ -164,6 +166,7 @@ export class IamCookSourceAdapter implements RecipeSourceAdapter {
         fixtureScenario: context.testMode ? scenario : null,
         allowlist: IAMCOOK_HOSTNAME_ALLOWLIST,
         parserVersion: this.parserVersion,
+        pilotPolicy: context.collectionMode === 'CONTROLLED_PILOT' ? { sourceId: context.sourceId, allowControlledPilot: true, maxTotalRequests: 80, maxConcurrentRequests: 2, perHostMinIntervalMs: 2500, requestTimeoutMs: Math.min(context.requestTimeoutMs, 20000), maxRedirects: 3 } : undefined,
       });
       const available = response.statusCode >= 200 && response.statusCode < 300;
       return {
@@ -233,6 +236,7 @@ export class IamCookSourceAdapter implements RecipeSourceAdapter {
       sourceCode: IAMCOOK_SOURCE_CODE,
       implementationStatus: 'IMPLEMENTED' as const,
       liveExecutionStatus: 'POLICY_BLOCKED' as const,
+      controlledPilotStatus: 'ENABLED' as const,
       fixtureMode: 'AVAILABLE' as const,
       parserVersion: this.parserVersion,
       contractVersion: this.contractVersion,
@@ -243,7 +247,7 @@ export class IamCookSourceAdapter implements RecipeSourceAdapter {
       imageReuseRights: 'NOT_CONFIRMED' as const,
       circuitState: 'CLOSED' as const,
       continuousLiveCollectionAllowed: false,
-      controlledPilotAllowed: false,
+      controlledPilotAllowed: true,
     };
   }
 
