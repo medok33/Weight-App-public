@@ -25,6 +25,7 @@ import { RecipeResearchAdminController } from './controllers/recipe-research-adm
 import { CHEF_EDITOR_PROVIDER, ChefEditorService, DeterministicChefEditorProvider } from './application/chef-editor.service';
 import { RecipeAuthoringPersistence } from './application/recipe-authoring.persistence';
 import { RecipePublicationService } from './application/recipe-publication.service';
+import { RecipeQualityOrchestrator } from './application/recipe-quality.orchestrator';
 
 @Module({
   imports: [DatabaseModule, AuthModule, ProductCatalogModule, AuditSecurityModule],
@@ -50,6 +51,7 @@ import { RecipePublicationService } from './application/recipe-publication.servi
     ChefEditorService,
     RecipeAuthoringPersistence,
     RecipePublicationService,
+    RecipeQualityOrchestrator,
   ],
   exports: [
     RecipeVersionService,
@@ -70,6 +72,7 @@ import { RecipePublicationService } from './application/recipe-publication.servi
     ChefEditorService,
     RecipeAuthoringPersistence,
     RecipePublicationService,
+    RecipeQualityOrchestrator,
   ],
 })
 export class RecipePlatformModule {}

@@ -56,5 +56,14 @@ export function evaluateSimilarity(input: { ingredientOverlap: number; quantityS
 
 export type HumanReview = { reviewerId: string; reviewedAt: Date; decision: 'NOT_REVIEWED'|'PASS'|'FAIL'|'NEEDS_CHANGES'; notes?: string; defects?: string[]; corrections?: string[] };
 export type CookTest = { reviewerId: string; testedAt: Date; actuallyCooked: boolean; actualCookingTimeMinutes: number; actualYieldGrams: number; ingredientMeasurability: boolean; stepExecutability: boolean; equipmentSufficiency: boolean; textureResult: string; tasteResult: string; defects?: string[]; notes?: string; decision: 'PASS'|'FAIL' };
-export function canPublish(input: { editorial?: HumanReview; cookTest?: CookTest; validationPass: boolean; costStatus: 'PASS'|'UNAVAILABLE'; similarityAutoPublish?: boolean }): { ok: boolean; reasons: string[] } { const reasons: string[] = []; if (!input.validationPass) reasons.push('VALIDATION_FAILED'); if (input.editorial?.decision !== 'PASS') reasons.push('EDITORIAL_PASS_REQUIRED'); if (input.cookTest?.decision !== 'PASS' || !input.cookTest.actuallyCooked) reasons.push('COOK_TEST_PASS_REQUIRED'); if (input.similarityAutoPublish === false) reasons.push('SIMILARITY_REVIEW_REQUIRED'); return { ok: reasons.length === 0, reasons }; }
+export function canPublish(input: { editorial?: HumanReview; cookTest?: CookTest; validationPass: boolean; costStatus: 'PASS'|'UNAVAILABLE'; similarityAutoPublish?: boolean; automatedQualityPass?: boolean }): { ok: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  if (!input.validationPass) reasons.push('VALIDATION_FAILED');
+  if (input.similarityAutoPublish === false) reasons.push('SIMILARITY_REVIEW_REQUIRED');
+  if (input.cookTest?.decision === 'FAIL') reasons.push('COOK_TEST_FAILED_QUARANTINE');
+  // The normal path is backend automated verification. Human evidence remains an optional legacy path.
+  const manualPass = input.editorial?.decision === 'PASS' && input.cookTest?.decision === 'PASS' && input.cookTest.actuallyCooked;
+  if (input.automatedQualityPass !== true && !manualPass) reasons.push('AUTOMATED_QUALITY_PASS_REQUIRED');
+  return { ok: reasons.length === 0, reasons };
+}
 export function publicationChecksum(payload: unknown): string { return createHash('sha256').update(JSON.stringify(payload)).digest('hex'); }
