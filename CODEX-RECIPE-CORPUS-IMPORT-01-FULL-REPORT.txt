@@ -1,7 +1,8 @@
 TASK_ID=CODEX-RECIPE-CORPUS-IMPORT-01
 BASE_HEAD=1d605f0c66c89d346f49cd91d76ddb4c112965fc
-FINAL_HEAD=4c5aaa0
-COMMIT_SHA=4c5aaa0
+FINAL_HEAD=fef3aae
+IMPLEMENTATION_COMMIT=4c5aaa0
+REPORT_COMMIT=fef3aae
 
 SOURCE_DATASET=D:\ПРИЛОЖЕНИЕ ДЛЯ ПОХУДЕНИЯ\wt-recipe-source-research\.data\evidence\donor\RECIPE-CORPUS-GLM-01-FIRST-REAL-DONOR-DATASET.jsonl
 SOURCE_MANIFEST=D:\ПРИЛОЖЕНИЕ ДЛЯ ПОХУДЕНИЯ\wt-recipe-source-research\.data\evidence\donor\RECIPE-CORPUS-GLM-01-MANIFEST.json
