@@ -1,0 +1,12 @@
+clusterId,conceptName,candidateCount,distinctSourceCount,sourceList,clusterConfidence,requiredIngredientCount,exactProductCount,familyPendingCount,trueProductGapCount,conflictCount,readinessState,nextBlocker
+"dcluster_dd8776337fdeb38a65abe565","Рисовая каша с тыквой на молоке","4","3","1000menu|eda|russianfood","0.833476","21","8","11","2","0","READY_FOR_PRODUCT_SELECTION","PRODUCT_IDENTITY_PENDING"
+"dcluster_7834af2b2f1a0c92deb76583","Нежный омлет с помидорами","2","2","eda|russianfood","0.804","8","3","3","2","0","READY_FOR_PRODUCT_SELECTION","PRODUCT_IDENTITY_PENDING"
+"dcluster_c3dc930afaf35aa842515a5d","Салат Цезарь классический с курицей","2","2","1000menu|eda","0.862667","27","11","8","8","0","READY_FOR_PRODUCT_SELECTION","PRODUCT_IDENTITY_PENDING"
+"dcluster_1ec3c37bc1cd21d5827ecc09","Гречка с тушенкой на сковороде","2","2","1000menu|iamcook","0.877455","17","9","4","4","0","READY_FOR_PRODUCT_SELECTION","PRODUCT_IDENTITY_PENDING"
+"dcluster_d9e7af10a4218a73f03518ec","Куриные котлеты на сковороде","2","2","1000menu|iamcook","0.869143","14","6","6","2","0","READY_FOR_PRODUCT_SELECTION","PRODUCT_IDENTITY_PENDING"
+"dcluster_a736eccdb4eda4af6eca9af9","Жульен с курицей и грибами в духовке","2","2","1000menu|russianfood","0.809715","11","8","3","0","0","READY_FOR_DETERMINISTIC_GRAMS",""
+"dcluster_83ff51966ab8687d36a94820","Омлет на кефире на сковороде","2","2","1000menu|russianfood","0.770666","8","3","5","0","0","READY_FOR_DETERMINISTIC_GRAMS",""
+"dcluster_efe1f5767aea0f99a69a69a2","Творожная запеканка с манкой и сметаной","6","2","1000menu|russianfood","0.847979","51","25","23","3","6","BLOCKED_CONFLICT","CONFLICT_REVIEW"
+"dcluster_debfa1e7f6da282a21155820","Каша пшенная в кастрюле на молоке","6","2","1000menu|russianfood","0.814984","32","14","17","1","5","BLOCKED_CONFLICT","CONFLICT_REVIEW"
+"dcluster_2807f5ca3874b67125141a21","Сырники без яиц с манкой","6","2","iamcook|russianfood","0.760667","41","11","21","9","0","READY_FOR_PRODUCT_SELECTION","PRODUCT_IDENTITY_PENDING"
+"dcluster_a925dadd5cf65a586e03d3fc","Пышные сырники с манкой","5","2","iamcook|russianfood","0.841334","34","16","15","3","0","READY_FOR_PRODUCT_SELECTION","PRODUCT_IDENTITY_PENDING"

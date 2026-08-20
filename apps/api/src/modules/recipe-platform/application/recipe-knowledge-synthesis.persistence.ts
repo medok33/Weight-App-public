@@ -30,7 +30,8 @@ export class RecipeKnowledgeSynthesisPersistence {
   async saveBrief(brief: SynthesisBrief): Promise<void> {
     await this.db.query(
       `INSERT INTO "RecipeSynthesisBrief" ("id", "briefVersion", "clusterId", "coverageSlot", "objective", "approvedProducts", "forbiddenProducts", "targetNutrition", "targetCost", "targetCookTime", "allowedEquipment", "requiredTechniques", "optionalTechniques", "requiredFacts", "conflictingFacts", "unresolvedFacts", "differentiationReason", "evidenceSummary", "status", "approvalState")
-       VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18::jsonb, $19, $20)`,
+       VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18::jsonb, $19, $20)
+       ON CONFLICT ("id") DO UPDATE SET "updatedAt" = now(), "status" = EXCLUDED."status", "approvalState" = EXCLUDED."approvalState", "evidenceSummary" = EXCLUDED."evidenceSummary"`,
       [toUuid(brief.briefId), brief.briefVersion, toUuid(brief.clusterId), brief.coverageSlot, brief.objective, json(brief.approvedProducts), json(brief.forbiddenProducts), brief.targetNutrition == null ? null : json(brief.targetNutrition), brief.targetCost ?? null, brief.targetCookTime ?? null, json(brief.allowedEquipment), json(brief.requiredTechniques), json(brief.optionalTechniques), json(brief.requiredFacts), json(brief.conflictingFacts), json(brief.unresolvedFacts), brief.differentiationReason, json(brief.evidenceSummary), brief.status, brief.approvalState],
     );
   }

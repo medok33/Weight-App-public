@@ -1,0 +1,59 @@
+TASK_ID=RECIPE-CORPUS-SYNTHESIS-READINESS-01
+BASE_HEAD=219b907
+PURPOSE=Run the accepted real corpus through deterministic research synthesis readiness only.
+
+SOURCE_CANDIDATES_ANALYZED=316
+DISH_CONCEPT_CLUSTERS=284
+MULTI_SOURCE_CLUSTERS=15
+SINGLE_SOURCE_CLUSTERS=269
+RESEARCH_FACTS=4508
+RESEARCH_CONFLICTS=60
+FIRST_SYNTHESIS_COHORT=11
+COHORT_MULTI_SOURCE=11
+COHORT_SINGLE_SOURCE=0
+COHORT_READY_FOR_DETERMINISTIC_GRAMS=2
+COHORT_READY_FOR_PRODUCT_SELECTION=7
+COHORT_BLOCKED_CONFLICT=2
+COHORT_RESEARCH_ONLY_MORE_EVIDENCE_NEEDED=0
+COHORT_TRUE_PRODUCT_GAPS=38
+COHORT_FAMILY_PRODUCTS_PENDING=115
+COHORT_AMBIGUOUS_REQUIRED=0
+
+CLUSTERING=Deterministic union-find; cross-source only; dish-class guard; ingredient/technique/title similarity; maximum cluster size six.
+CORROBORATION=15 multi-source clusters found; first cohort is bounded to the ten largest multi-source clusters plus one deterministic eligible cluster.
+CONFLICT_POLICY=Only material numeric temperature/duration disagreements are conflicts; additive techniques, equipment and end conditions are not falsely marked as mutually exclusive.
+IDENTITY=Accepted resolver outputs are preserved. Unresolved identity remains fail-closed and is surfaced as PRODUCT_IDENTITY_PENDING.
+
+RUN2_NEW_DUPLICATE_CLUSTERS=0
+RUN2_NEW_DUPLICATE_FACTS=0
+RUN2_NEW_DUPLICATE_BRIEFS=0
+RESEARCH_PIPELINE_IDEMPOTENCY=PASS
+SYNTHESIS_BRIEF_PROVENANCE=PASS
+DONOR_PROSE_IN_SYNTHESIS_BRIEF=0
+LIVE_DONOR_HTTP_CALLS=0
+LIVE_AI_CALLS=0
+REAL_RECIPE_VERSIONS_CREATED=0
+POSTGRES_ACCEPTANCE=PASS
+DISPOSABLE_DATABASE_ONLY=YES
+
+TARGETED_TESTS=PASS (3 files / 22 tests)
+PERSISTENCE_TEST=PASS (316 candidates, counts stable after second run, provenance round-trip, RecipeVersion=0)
+API_TYPECHECK=PASS
+API_BUILD=PASS
+API_LINT=PASS
+GIT_DIFF_CHECK=PASS
+CANONICAL_VERIFIER=PASS
+VERIFIER_EXIT_CODE=0
+VERIFIER_STARTED_AT=2026-08-20T14:53:18.948Z
+VERIFIER_FINISHED_AT=2026-08-20T15:26:49.560Z
+VERIFIER_DURATION_SECONDS=2010.612
+PERSISTENCE_SUITES_TOTAL=84
+PERSISTENCE_SUITES_PASSED=84
+PERSISTENCE_SUITES_FAILED=0
+
+IMPLEMENTATION_SCOPE=Only synthesis clustering/conflict semantics, bounded corpus runner, persistence idempotency and acceptance test/report artifacts. No RecipeVersion, publication, donor HTTP or AI.
+BLOCKERS=Seven cohort briefs require product selection and two require conflict review before deterministic gram synthesis. Human editorial/cook-test review is outside this task. The canonical verifier content coverage stage reports the pre-existing CONTENT-01 domain blocker as expected and does not fail this platform acceptance.
+NEXT_ACTION=Commit bounded implementation and reports; subsequent step is RECIPE_PRODUCT_SELECTION_POLICY_01.
+COMMIT_SHA=PENDING
+TRACKED_WORKTREE_CLEAN=NO (current bounded changes are intentionally uncommitted; pre-existing untracked reports/screenshots are preserved and excluded).
+FINAL_VERDICT=RECIPE_CORPUS_SYNTHESIS_READINESS_01_PASS

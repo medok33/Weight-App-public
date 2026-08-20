@@ -183,9 +183,13 @@ function detectConflictLevel(type: FactType, value: string, values: string[]): C
   if (!peers.length) return 'NONE';
   if (type === 'TEMPERATURE' || type === 'DURATION') {
     const current = Number(value); const numericPeers = peers.map(Number).filter(Number.isFinite);
-    if (Number.isFinite(current) && numericPeers.some((p) => Math.abs(p - current) >= (type === 'TEMPERATURE' ? 20 : 15))) return 'HIGH';
+    if (Number.isFinite(current) && numericPeers.some((p) => Math.abs(p - current) >= (type === 'TEMPERATURE' ? 20 : 30))) return 'HIGH';
+    return 'LOW';
   }
-  return 'MEDIUM';
+  // Multiple techniques, roles, equipment and end conditions are additive
+  // evidence, not mutually exclusive alternatives. Only numeric ranges above
+  // are treated as conflicts by the deterministic research layer.
+  return 'NONE';
 }
 
 export function resolveFactConflicts(facts: RecipeResearchFact[]): { facts: RecipeResearchFact[]; requiresReview: boolean } {
