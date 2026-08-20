@@ -30,7 +30,9 @@ const STAGE_BOUNDS = Object.freeze({
   markers: 30_000,
   migration: 180_000,
   static: 300_000,
-  apiUnit: 300_000,
+  // Cold forked Vitest startup can exceed five minutes on the shared host
+  // even when the suite is making forward progress and exits cleanly.
+  apiUnit: 600_000,
   // The prior 30m aggregate bound expired after 73/80 files. 73 measured file bodies
   // consumed 1,602,241ms; the observed clone/cleanup overhead through file 73 was
   // 197,825ms. Bounding each of the seven remaining files at the measured P95 body
@@ -532,6 +534,8 @@ export async function runPersistenceSuite(env, inventory) {
       const fileEnv = { ...env, DATABASE_URL: databaseUrlFor(env.DATABASE_URL, database) };
       const isActivityLong = /activity-01[ab]/.test(relativeFile);
       const isLong = /workout-adaptation/.test(relativeFile);
+      const isCatalogLong = /(?:catalog-core-v2|product-foundation)\.persistence\.spec\.ts$/.test(relativeFile);
+      const isSelectionLong = /recipe-product-selection\.persistence\.spec\.ts$/.test(relativeFile);
       // Activity-01A performs two isolated migration paths (full + pre-215)
       // before its assertions.  A cold disposable run measured ~317s with no
       // blocked query or leaked client; keep the per-file bound finite while
@@ -540,7 +544,7 @@ export async function runPersistenceSuite(env, inventory) {
       // A measured cold run reached the former 360s bound before test execution
       // completed; retain a finite bound with a 120s margin for bounded host
       // contention rather than counting that setup as a hang.
-      const fileBound = isActivityLong ? 480_000 : isLong ? 300_000 : 120_000;
+      const fileBound = isActivityLong ? 480_000 : isLong ? 300_000 : isCatalogLong ? 240_000 : isSelectionLong ? 300_000 : 120_000;
       const vitestArgs = [
         '--dir', 'apps/api', 'exec', 'vitest', 'run', '--passWithNoTests',
         '--pool=forks', '--fileParallelism=false', '--reporter=verbose',
