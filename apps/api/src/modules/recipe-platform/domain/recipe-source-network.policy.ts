@@ -16,13 +16,17 @@ const METADATA_IPV4 = new Set(['169.254.169.254', '169.254.170.2']);
 export const FOOD_RU_HOSTNAME_ALLOWLIST = ['food.ru'] as const;
 export const IAMCOOK_HOSTNAME_ALLOWLIST = ['www.iamcook.ru', 'iamcook.ru'] as const;
 export const RUSSIANFOOD_HOSTNAME_ALLOWLIST = ['www.russianfood.com', 'russianfood.com'] as const;
+export const EDA_HOSTNAME_ALLOWLIST = ['eda.rambler.ru'] as const;
+export const MENU1000_HOSTNAME_ALLOWLIST = ['1000.menu', 'www.1000.menu'] as const;
 
 const FOOD_RU_RECIPE_PATH = /^\/recipes\/([a-z0-9][a-z0-9-]{1,120})$/i;
 const FOOD_RU_SEARCH_PATH = /^\/search\/?$/i;
-const IAMCOOK_RECIPE_PATH = /^\/recipe\/([a-z0-9][a-z0-9-]{1,120})\/?$/i;
+const IAMCOOK_RECIPE_PATH = /^(?:\/recipe\/([a-z0-9][a-z0-9-]{1,120})|\/showrecipe\/(\d+))\/?$/i;
 const IAMCOOK_SEARCH_PATH = /^\/search\/?$/i;
+const IAMCOOK_LISTING_PATH = /^\/(?:recipes(?:\/[^/?#]+)?|advsearch|nav|theme\/[a-z0-9-]+(?:\/\d+)?|section\/\d+(?:\/\d+)?)\/?$/i;
 const RUSSIANFOOD_RECIPE_PATH = /^\/recipes\/recipe\.php$/i;
 const RUSSIANFOOD_SEARCH_PATH = /^\/recipes\/search\.php$/i;
+const RUSSIANFOOD_LISTING_PATH = /^\/recipes(?:\/bytype)?\/?$/i;
 
 const TRACKING_PARAMS = new Set([
   'utm_source',
@@ -50,7 +54,7 @@ export type CanonicalFoodRuUrl = {
   hostname: string;
   pathname: string;
   externalId: string | null;
-  kind: 'recipe' | 'search' | 'other';
+  kind: 'recipe' | 'search' | 'listing' | 'other';
 };
 
 export function normalizeAndValidateSourceBaseUrl(
@@ -250,7 +254,7 @@ export type CanonicalIamCookUrl = {
   hostname: string;
   pathname: string;
   externalId: string | null;
-  kind: 'recipe' | 'search' | 'other';
+  kind: 'recipe' | 'search' | 'listing' | 'other';
 };
 
 export function canonicalizeIamCookUrl(raw: string): CanonicalIamCookUrl {
@@ -265,11 +269,12 @@ export function canonicalizeIamCookUrl(raw: string): CanonicalIamCookUrl {
   const search = params.toString();
   const recipe = pathname.match(IAMCOOK_RECIPE_PATH);
   if (recipe) {
+    const externalId = (recipe[1] ?? recipe[2]!).toLowerCase();
     return {
-      href: `https://www.iamcook.ru/recipe/${recipe[1]!.toLowerCase()}`,
+      href: recipe[2] ? `https://www.iamcook.ru/showrecipe/${externalId}` : `https://www.iamcook.ru/recipe/${externalId}`,
       hostname: 'www.iamcook.ru',
-      pathname: `/recipe/${recipe[1]!.toLowerCase()}`,
-      externalId: recipe[1]!.toLowerCase(),
+      pathname,
+      externalId,
       kind: 'recipe',
     };
   }
@@ -281,6 +286,9 @@ export function canonicalizeIamCookUrl(raw: string): CanonicalIamCookUrl {
       externalId: null,
       kind: 'search',
     };
+  }
+  if (IAMCOOK_LISTING_PATH.test(pathname)) {
+    return { href: `https://www.iamcook.ru${pathname}`, hostname: 'www.iamcook.ru', pathname, externalId: null, kind: 'listing' };
   }
   throw new Error('RECIPE_SOURCE_URL_PATH_FORBIDDEN');
 }
@@ -300,6 +308,10 @@ export function buildIamCookSearchUrl(query: string): string {
   return canonicalizeIamCookUrl(`https://www.iamcook.ru/search?q=${encodeURIComponent(q)}`).href;
 }
 
+export function buildIamCookListingUrl(): string {
+  return canonicalizeIamCookUrl('https://www.iamcook.ru/section/17544').href;
+}
+
 export function extractIamCookExternalId(rawUrl: string): string {
   const canonical = canonicalizeIamCookUrl(rawUrl);
   if (!canonical.externalId) throw new Error('RECIPE_SOURCE_EXTERNAL_ID_INVALID');
@@ -311,7 +323,7 @@ export type CanonicalRussianFoodUrl = {
   hostname: string;
   pathname: string;
   externalId: string | null;
-  kind: 'recipe' | 'search' | 'other';
+  kind: 'recipe' | 'search' | 'listing' | 'other';
 };
 
 export function canonicalizeRussianFoodUrl(raw: string): CanonicalRussianFoodUrl {
@@ -346,6 +358,10 @@ export function canonicalizeRussianFoodUrl(raw: string): CanonicalRussianFoodUrl
       kind: 'search',
     };
   }
+  if (RUSSIANFOOD_LISTING_PATH.test(pathname)) {
+    const query = params.toString();
+    return { href: query ? `https://www.russianfood.com${pathname}?${query}` : `https://www.russianfood.com${pathname}`, hostname: 'www.russianfood.com', pathname, externalId: null, kind: 'listing' };
+  }
   throw new Error('RECIPE_SOURCE_URL_PATH_FORBIDDEN');
 }
 
@@ -364,6 +380,26 @@ export function buildRussianFoodSearchUrl(query: string): string {
   return canonicalizeRussianFoodUrl(
     `https://www.russianfood.com/recipes/search.php?q=${encodeURIComponent(q)}`,
   ).href;
+}
+
+export function buildRussianFoodListingUrl(): string {
+  return canonicalizeRussianFoodUrl('https://www.russianfood.com/recipes').href;
+}
+
+export function buildRussianFoodCategoryUrl(): string {
+  return canonicalizeRussianFoodUrl('https://www.russianfood.com/recipes/bytype/?fid=3').href;
+}
+
+export function canonicalizeEdaUrl(raw: string): string {
+  const url = assertHttpsAllowlistedUrl(raw, EDA_HOSTNAME_ALLOWLIST);
+  if (!/^\/recepty\//i.test(url.pathname) && !/\.xml(?:\.gz)?$/i.test(url.pathname)) throw new Error('RECIPE_SOURCE_URL_PATH_FORBIDDEN');
+  return `https://eda.rambler.ru${url.pathname}${url.search}`;
+}
+
+export function canonicalize1000MenuUrl(raw: string): string {
+  const url = assertHttpsAllowlistedUrl(raw, MENU1000_HOSTNAME_ALLOWLIST);
+  if (!/^\/(?:catalog|cooking)\//i.test(url.pathname)) throw new Error('RECIPE_SOURCE_URL_PATH_FORBIDDEN');
+  return `https://1000.menu${url.pathname}${url.search}`;
 }
 
 export function extractRussianFoodExternalId(rawUrl: string): string {
@@ -410,7 +446,7 @@ export const RECIPE_SOURCE_NETWORK_SECURITY_CONTRACT: RecipeSourceNetworkSecurit
   redirectOffDomainForbidden: true,
   ipLiteralForbidden: true,
   responseSizeLimitBytes: 2_000_000,
-  mimeAllowlist: ['text/html', 'application/json', 'application/xml', 'text/xml', 'application/ld+json'],
+  mimeAllowlist: ['text/html', 'application/json', 'application/xml', 'text/xml', 'application/ld+json', 'application/gzip', 'application/x-gzip', 'application/octet-stream'],
   decompressionLimitBytes: 5_000_000,
   connectTimeoutMs: 3_000,
   totalTimeoutMs: 8_000,

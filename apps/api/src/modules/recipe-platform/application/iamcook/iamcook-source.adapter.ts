@@ -35,6 +35,7 @@ import {
   IAMCOOK_PARSER_VERSION,
   IAMCOOK_SOURCE_CODE,
   parseIamCookCandidateHtml,
+  parseIamCookHtml,
   parseIamCookSearchJson,
 } from './iamcook.parser';
 
@@ -139,11 +140,9 @@ export class IamCookSourceAdapter implements RecipeSourceAdapter {
         parserVersion: this.parserVersion,
         pilotPolicy: context.collectionMode === 'CONTROLLED_PILOT' ? { sourceId: context.sourceId, allowControlledPilot: true, maxTotalRequests: 80, maxConcurrentRequests: 2, perHostMinIntervalMs: 2500, requestTimeoutMs: Math.min(context.requestTimeoutMs, 20000), maxRedirects: 3 } : undefined,
       });
-      return parseIamCookCandidateHtml({
-        bodyText: response.bodyText,
-        sourceUrl: response.finalUrl,
-        statusCode: response.statusCode,
-      });
+      return context.testMode
+        ? parseIamCookCandidateHtml({ bodyText: response.bodyText, sourceUrl: response.finalUrl, statusCode: response.statusCode })
+        : parseIamCookHtml({ bodyText: response.bodyText, sourceUrl: response.finalUrl, statusCode: response.statusCode, retrievedAt: new Date().toISOString() });
     } catch (error) {
       mapSourceTransportError(error, context, 'fetchCandidate', IAMCOOK_SOURCE_CODE, this.parserVersion);
     }

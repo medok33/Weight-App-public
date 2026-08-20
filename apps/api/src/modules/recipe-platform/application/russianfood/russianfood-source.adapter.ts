@@ -33,6 +33,7 @@ import {
 import { resolveRussianFoodFixture } from './russianfood.fixtures';
 import {
   parseRussianFoodCandidateHtml,
+  parseRussianFoodHtml,
   parseRussianFoodSearchJson,
   RUSSIANFOOD_PARSER_VERSION,
   RUSSIANFOOD_SOURCE_CODE,
@@ -145,11 +146,9 @@ export class RussianFoodSourceAdapter implements RecipeSourceAdapter {
         parserVersion: this.parserVersion,
         pilotPolicy: context.collectionMode === 'CONTROLLED_PILOT' ? { sourceId: context.sourceId, allowControlledPilot: true, maxTotalRequests: 80, maxConcurrentRequests: 2, perHostMinIntervalMs: 2500, requestTimeoutMs: Math.min(context.requestTimeoutMs, 20000), maxRedirects: 3 } : undefined,
       });
-      return parseRussianFoodCandidateHtml({
-        bodyText: response.bodyText,
-        sourceUrl: response.finalUrl,
-        statusCode: response.statusCode,
-      });
+      return context.testMode
+        ? parseRussianFoodCandidateHtml({ bodyText: response.bodyText, sourceUrl: response.finalUrl, statusCode: response.statusCode })
+        : parseRussianFoodHtml({ bodyText: response.bodyText, sourceUrl: response.finalUrl, statusCode: response.statusCode, retrievedAt: new Date().toISOString() });
     } catch (error) {
       mapSourceTransportError(
         error,

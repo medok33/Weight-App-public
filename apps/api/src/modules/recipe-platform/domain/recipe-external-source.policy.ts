@@ -54,7 +54,9 @@ export type RecipeSourceAdapterTypeAllowlist =
   | 'TEST_DETERMINISTIC'
   | 'FOOD_RU'
   | 'IAMCOOK'
-  | 'RUSSIANFOOD';
+  | 'RUSSIANFOOD'
+  | 'EDA'
+  | 'MENU1000';
 
 export const RECIPE_SOURCE_ADAPTER_TYPE_ALLOWLIST: readonly RecipeSourceAdapterTypeAllowlist[] = [
   'NOT_CONFIGURED',
@@ -62,6 +64,8 @@ export const RECIPE_SOURCE_ADAPTER_TYPE_ALLOWLIST: readonly RecipeSourceAdapterT
   'FOOD_RU',
   'IAMCOOK',
   'RUSSIANFOOD',
+  'EDA',
+  'MENU1000',
 ] as const;
 
 export const FIXTURE_CAPABLE_ADAPTER_TYPES: readonly RecipeSourceAdapterTypeAllowlist[] = [
