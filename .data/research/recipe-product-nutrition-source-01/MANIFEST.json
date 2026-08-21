@@ -1,0 +1,15 @@
+{
+  "taskId": "RECIPE-PRODUCT-NUTRITION-SOURCE-01",
+  "datasetVersion": "catalog-core-v3/local-authority-index-2026-07-25",
+  "retrievedAt": "2026-08-21",
+  "evidenceType": "authoritative-local-index",
+  "liveNutritionSourceHttpCalls": 0,
+  "liveRecipeDonorHttpCalls": 0,
+  "artifacts": [
+    {
+      "path": "NUTRITION-SOURCE-EVIDENCE.csv",
+      "sha256": "6a88eee554c3f4470bced9dba905f0c5da8fcf2e5fdd85bf7e799b3bf73ecc20",
+      "rowCount": 13
+    }
+  ]
+}

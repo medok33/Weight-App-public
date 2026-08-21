@@ -1,0 +1,104 @@
+TASK_ID=RECIPE-PRODUCT-NUTRITION-SOURCE-01
+BASE_HEAD=eb7c4f25dfcd59b1114c632f4f44c65cb1b874c9
+
+SCOPE
+Authoritative nutrition coverage audit for the remaining Recipe Product gaps.
+No recipe donor HTTP, no AI, no RecipeVersion/publication, no migration, no staging/prod.
+
+GAP_INVENTORY_RECONCILIATION
+PRODUCT_CATALOG_GAP_OCCURRENCES=44
+UNIQUE_GAP_IDENTITIES=27 (current selection-level gap identities)
+AUDIT_IDENTITIES_INCLUDING_PREDECESSOR_ONLY=35
+REMAINING_GAPS_CSV_OCCURRENCE_SUM=21
+CURRENT_AUDIT_OCCURRENCE_SUM=44
+PREDECESSOR_AUDIT_OCCURRENCE_SUM=55 (44 current + 11 predecessor-only reclassified)
+GAP_INVENTORY_RECONCILIATION=PASS
+Explanation: 44 is the current selection-level gap count. The predecessor audit contains 55 rows/occurrences because 11 predecessor-only occurrences are retained for reconciliation. The remaining-gaps CSV is intentionally filtered to unresolved nutrition/identity/form classes and sums to 21; the other 23 current occurrences are safe aliases, existing normalization, source noise, alternatives or predecessor-only resolved rows.
+
+AUTHORITATIVE_SOURCE_EVIDENCE
+Evidence directory=.data/research/recipe-product-nutrition-source-01/
+Evidence type=authoritative-local-index (accepted catalog authority index only)
+Dataset version=catalog-core-v3/local-authority-index-2026-07-25
+Retrieved at=2026-08-21
+NUTRITION-SOURCE-EVIDENCE.csv rows=13
+MANIFEST.json SHA256=6a88eee554c3f4470bced9dba905f0c5da8fcf2e5fdd85bf7e799b3bf73ecc20
+LIVE_NUTRITION_SOURCE_HTTP_CALLS=0
+LIVE_RECIPE_DONOR_HTTP_CALLS=0
+
+DECISIONS
+AUTHORITATIVE_RECORDS_FOUND=1 (existing butter_72pct record only)
+AUTHORITATIVE_PRODUCT_READY=0
+EXISTING_PRODUCT_FOUND=1 (масло сливочное для смазывания формы -> butter_72pct)
+SAFE_ALIAS_ONLY=0
+PRODUCT_NUTRITION_AUTHORITY_MISSING=5 (orange peel, vanillin, vanilla sugar/sugar vanilla, Worcestershire sauce)
+AMBIGUOUS_IDENTITY=2 (refined vegetable oil; contradictory plant/butter wording)
+AMBIGUOUS_FORM=3 (cherry tomato, fatty cottage cheese variants)
+GENERIC_UNBOUNDED_IDENTITY=1 (зелень)
+SOURCE_ARTIFACT=0 (alternative line is outside this 13-row remaining inventory)
+OUT_OF_SCOPE_PACKAGED_PRODUCT=1 (тушенка)
+AMBIGUITY_SOLVED_BY_FAKE_NUTRITION=0
+FABRICATED_NUTRITION=0
+TRACE_INGREDIENT_ZERO_ASSUMPTIONS=0
+CROSS_FORM_NUTRITION_SUBSTITUTION=0
+DONOR_NUTRITION_USED_AS_CANONICAL=NO
+
+BOUNDED_CATALOG_FILL
+PRODUCTS_ADDED=0
+ALIASES_ADDED=0
+PRODUCT_NUTRITION_VERSIONS_ADDED=0
+PRODUCT_IDS_ADDED=none
+NUTRITION_AUTHORITIES_USED=USDA_FDC (existing butter record only; no new nutrition version)
+NUTRITION_AUTHORITY_RECORD_IDS=USDA_FDC_MAP:butter_72pct:2026-07-25
+NUTRITION_PROVENANCE_COMPLETENESS=PASS
+
+SELECTION RERUN
+PRODUCT_CATALOG_GAP_BEFORE=44
+PRODUCT_CATALOG_GAP_AFTER=44
+PRODUCT_SELECTION_PENDING_BEFORE=85
+PRODUCT_SELECTION_PENDING_AFTER=85
+CONCRETE_SELECTIONS_BEFORE=43
+CONCRETE_SELECTIONS_AFTER=43
+READY_FOR_DETERMINISTIC_GRAMS_BEFORE=0
+READY_FOR_DETERMINISTIC_GRAMS_AFTER=0
+No policy manipulation or family defaults were introduced.
+
+IDEMPOTENCY
+RUN2_NEW_PRODUCTS=0
+RUN2_NEW_ALIASES=0
+RUN2_NEW_NUTRITION_VERSIONS=0
+NUTRITION_CATALOG_FILL_IDEMPOTENCY=PASS (zero-apply bounded fill; no disposable DB mutation required)
+
+TESTS AND CHECKS
+TARGETED_TESTS=PASS (5 tests)
+API_TYPECHECK=PASS
+API_BUILD=PASS
+API_LINT=PASS (0 errors, 32 existing warnings)
+GIT_DIFF_CHECK=PASS
+CANONICAL_VERIFIER=PASS
+VERIFIER_EXIT_CODE=0
+VERIFIER_RUN_ID=platform-01-mt35r6a2-2fa77c57
+VERIFIER_STARTED_AT=2026-08-21T16:22:42.317Z
+VERIFIER_FINISHED_AT=2026-08-21T16:51:37.159Z
+VERIFIER_DURATION_SECONDS=1734.8
+API_UNIT_INTEGRATION=153 suites / 875 tests PASS
+API_PERSISTENCE=85/85 suites PASS
+WEB=34 files / 117 passed / 5 skipped + production build PASS
+WORKER=PASS
+USER_RUNTIME_SMOKE=PASS
+WORKOUT_E2E=PASS
+ACTIVITY_E2E=PASS
+PROVIDER_SAFETY=PASS
+CONTENT_CHECK=PASS (expected CONTENT-01 domain coverage blocker only)
+DOCKER_CLEANUP=PASS
+
+MIGRATION_REQUIRED=NO
+MIGRATION_COUNT=112 (baseline accepted)
+LATEST_MIGRATION=226_recipe_authoring_gates
+REAL_RECIPE_VERSIONS_CREATED=0
+LIVE_AI_CALLS=0
+
+BLOCKERS
+No accepted authoritative record was found for the remaining unresolved identities. This is a deliberate fail-closed result, not a fabricated nutrition fill. Canonical verification completed successfully.
+
+NEXT_ACTION=RECIPE-FAMILY-DEFAULT-POLICY-01 (catalog authority gaps are fail-closed; generic product selection remains dominant)
+FINAL_VERDICT=RECIPE_PRODUCT_NUTRITION_SOURCE_01_PASS
