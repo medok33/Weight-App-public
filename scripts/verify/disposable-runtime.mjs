@@ -200,7 +200,7 @@ async function diagnoseApi(env, onlyGroup) {
       const started = Date.now();
       console.log(`API_GROUP_START ${new Date().toISOString()} ${batchName} files=${batchFiles.length}`);
       const relativeFiles = batchFiles.map((file) => relative(apiRoot, file));
-      const longPersistenceFile = relativeFiles.length === 1 && /^(?:test\\database\\activity-01[ab][^\\]*|test\\database\\workout-adaptation[^\\]*)\.spec\.ts$/.test(relativeFiles[0]);
+      const longPersistenceFile = relativeFiles.length === 1 && (/^(?:test\\database\\activity-01[ab][^\\]*|test\\database\\workout-adaptation[^\\]*)\.spec\.ts$/.test(relativeFiles[0]) || relativeFiles[0].includes('owner-recipe-defaults-decision-01.persistence.spec.ts'));
       const timeoutMs = longPersistenceFile ? 300000 : 120000;
       const result = run('pnpm', ['--dir', 'apps/api', 'exec', 'vitest', 'run', '--passWithNoTests', '--pool=forks', '--fileParallelism=false', '--reporter=verbose', ...relativeFiles], env, { stdio: 'inherit', timeoutMs, allowFailure: true });
       const elapsed = Date.now() - started;

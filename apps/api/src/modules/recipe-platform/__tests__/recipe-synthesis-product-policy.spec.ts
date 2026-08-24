@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveSynthesisDefault,
   SYNTHESIS_PRODUCT_POLICY,
+  SYNTHESIS_PRODUCT_POLICY_V1,
   SYNTHESIS_PRODUCT_POLICY_VERSION,
 } from '../domain/recipe-synthesis-product-policy';
 
@@ -34,7 +35,7 @@ describe('recipe synthesis product default policy', () => {
 
   it('does not select incompatible food identities or price-based variants', () => {
     expect(resolveSynthesisDefault(input({ sourceIdentity: 'масло', sourceName: 'масло' })).applied).toBe(false);
-    expect(resolveSynthesisDefault(input({ sourceIdentity: 'растительное масло', sourceName: 'растительное масло' })).policyClass).toBe('OWNER_POLICY_REQUIRED');
+    expect(resolveSynthesisDefault(input({ sourceIdentity: 'растительное масло', sourceName: 'растительное масло', candidateProductIds: ['sunflower_oil'], nutritionVersionProductIds: ['sunflower_oil'] })).defaultProductId).toBe('sunflower_oil');
     expect(SYNTHESIS_PRODUCT_POLICY.some((entry) => entry.defaultProductId === 'salt_table' && entry.reason.includes('price'))).toBe(false);
   });
 
@@ -42,5 +43,6 @@ describe('recipe synthesis product default policy', () => {
     const families = SYNTHESIS_PRODUCT_POLICY.map((entry) => entry.familyId);
     expect(new Set(families).size).toBe(families.length);
     expect(SYNTHESIS_PRODUCT_POLICY.every((entry) => entry.policyVersion === SYNTHESIS_PRODUCT_POLICY_VERSION)).toBe(true);
+    expect(SYNTHESIS_PRODUCT_POLICY_V1.every((entry) => entry.policyVersion === 'recipe-synthesis-product-policy/v1')).toBe(true);
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { vi } from 'vitest';
 import { CITY_PROMO_DISCLAIMER, PRICE_PROVIDER_PRIORITY, PyaterochkaCityPromoProvider, PyaterochkaLicensedFeedProvider, PyaterochkaReceiptObservationProvider, assertFresh, assertRegionalIsolation, buildCityPromoIdentity, providerPriority, selectCityPromoRows } from './pyaterochka-multisource.providers';
 
-const row = (overrides: Record<string, unknown> = {}) => ({ retailer: 'PYATEROCHKA' as const, city: 'Москва', region: 'MOW', title: 'Товар', plu: '1', currentPrice: 99, currency: 'RUB' as const, capturedAt: '2026-08-15T06:00:00.000Z', sourceUrl: 'https://proshoper.ru/catalog/1', hash: 'hash', scope: 'CITY_PROMO' as const, ...overrides });
+const row = (overrides: Record<string, unknown> = {}) => ({ retailer: 'PYATEROCHKA' as const, city: 'Москва', region: 'MOW', title: 'Товар', plu: '1', currentPrice: 99, currency: 'RUB' as const, capturedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(), sourceUrl: 'https://proshoper.ru/catalog/1', hash: 'hash', scope: 'CITY_PROMO' as const, ...overrides });
 
 describe('Pyaterochka multisource providers', () => {
   it('maps city promo rows without promoting scope to STORE', async () => {

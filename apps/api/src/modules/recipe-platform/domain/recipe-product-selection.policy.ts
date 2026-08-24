@@ -1,4 +1,5 @@
 import { normalizeFoodText } from './recipe-research.policy';
+import { resolveSynthesisDefault } from './recipe-synthesis-product-policy';
 
 export type ProductSelectionState =
   | 'EXACT_PRODUCT_ALREADY_RESOLVED'
@@ -28,6 +29,8 @@ export type SelectionInput = {
   role?: string | null;
   quantity?: number | null;
   unit?: string | null;
+  allowSynthesisDefault?: boolean;
+  researchConflict?: boolean;
 };
 
 export type ProductSelectionDecision = {
@@ -96,6 +99,13 @@ export function selectCanonicalProduct(input: SelectionInput, catalog: Selection
   const candidates = catalog.filter((product) => ((requestedPercentText && norm(product.canonicalName).includes(requestedPercentText)) || familyMatches(String(family ?? ''), product)) && compatibleByQualifiers(source, product));
   const explicit = qualifierTokens(source);
   if (!candidates.length) return base('PRODUCT_CATALOG_GAP', 'no accepted compatible product remains after explicit evidence', null, [], explicit);
+  if (input.allowSynthesisDefault) {
+    const synthesisDefault = resolveSynthesisDefault({ sourceIdentity: input.identity, sourceName: input.name, explicitQualifiers: explicit, candidateProductIds: candidates.map((product) => product.productId), nutritionVersionProductIds: candidates.filter((product) => product.nutritionVersionPresent).map((product) => product.productId), researchConflict: input.researchConflict === true });
+    if (synthesisDefault.applied) {
+      const selected = candidates.find((product) => product.productId === synthesisDefault.defaultProductId);
+      if (selected) return base('CANONICAL_FAMILY_DEFAULT_SELECTED', `owner synthesis default ${synthesisDefault.policyVersion} selected exact accepted Product`, selected.productId, candidates, explicit);
+    }
+  }
   if (candidates.length === 1) {
     const product = candidates[0]!;
     if (!product.nutritionVersionPresent) return base('PRODUCT_NUTRITION_MISSING', 'single compatible product has no ProductNutritionVersion', null, candidates, explicit);

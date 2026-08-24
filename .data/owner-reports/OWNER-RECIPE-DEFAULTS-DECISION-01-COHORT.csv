@@ -1,0 +1,12 @@
+clusterId,conceptName,pendingBefore,ownerDefaultsApplied,pendingAfter,catalogGaps,researchConflicts,gramsReady,primaryBlocker
+"dcluster_fe53ae043896783cc724a3b8","Рисовая каша с тыквой на молоке","5","5","0","2","0","0","PRODUCT_CATALOG_GAP"
+"dcluster_87b96a2fc22b24da2b6baa44","Нежный омлет с помидорами","1","1","0","1","0","0","PRODUCT_CATALOG_GAP"
+"dcluster_6c4fc81795281b002cc6dc87","Салат Цезарь классический с курицей","2","2","0","8","0","0","PRODUCT_CATALOG_GAP"
+"dcluster_05a46bbdde3c29fe31ba3f9b","Гречка с тушенкой на сковороде","2","1","1","3","0","0","PRODUCT_CATALOG_GAP"
+"dcluster_e2681d3f3c9edc2aae185eee","Куриные котлеты на сковороде","7","3","4","2","0","0","PRODUCT_CATALOG_GAP"
+"dcluster_702b71b25126985c62e320f3","Жульен с курицей и грибами в духовке","1","1","0","3","0","0","PRODUCT_CATALOG_GAP"
+"dcluster_bc313f8f21d9a7c460d07d1b","Омлет на кефире на сковороде","3","2","1","2","0","0","PRODUCT_CATALOG_GAP"
+"dcluster_72fc1ebae6618bc0fe913fff","Творожная запеканка с манкой и сметаной","12","0","12","9","6","0","BLOCKED_RESEARCH_CONFLICT"
+"dcluster_debfa1e7f6da282a21155820","Каша пшенная в кастрюле на молоке","15","0","15","1","5","0","BLOCKED_RESEARCH_CONFLICT"
+"dcluster_42195d33701be1626f7187a2","Сырники без яиц с манкой","18","15","3","10","0","0","PRODUCT_CATALOG_GAP"
+"dcluster_b0fa5e075d9cfef5676aed33","Пышные сырники с манкой","19","13","6","3","0","0","PRODUCT_CATALOG_GAP"
