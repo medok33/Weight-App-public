@@ -772,7 +772,8 @@ export const CATALOG_CORE_V3_EXPANSION_ROWS = [
     "role": "VEGETABLE_BASE",
     "vegan": true,
     "review": true,
-    "src": "rf"
+    "src": "rf",
+    "aliases": ["капуста цветная"]
   },
   {
     "n": 250,
@@ -2104,7 +2105,7 @@ export const CATALOG_CORE_V3_EXPANSION_ROWS = [
     "vegan": true,
     "review": true,
     "src": "usda",
-    "aliases": ["круглый рис", "рис круглый", "рис круглый непропаренный"]
+    "aliases": ["круглый рис", "рис круглый", "рис круглый непропаренный", "рис круглый, непропаренный"]
   },
   {
     "n": 339,
@@ -2169,7 +2170,8 @@ export const CATALOG_CORE_V3_EXPANSION_ROWS = [
     "c": 71.3,
     "role": "BINDER",
     "review": true,
-    "src": "usda"
+    "src": "usda",
+    "aliases": ["панировочные сухари"]
   },
   {
     "n": 343,
