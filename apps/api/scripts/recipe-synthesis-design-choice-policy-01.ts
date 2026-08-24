@@ -61,11 +61,11 @@ function writeReports(result: Awaited<ReturnType<typeof runProductSelection>>, a
 
 export async function runDesignChoiceAudit(): Promise<{ result: Awaited<ReturnType<typeof runProductSelection>>; audited: PendingAuditRow[] }> {
   const result = await runProductSelection({ applySynthesisDefaults: true });
-  if (result.metrics.COHORT_CLUSTERS_ANALYZED !== 11 || result.metrics.TOTAL_REQUIRED_INGREDIENTS !== 264 || result.metrics.PRODUCT_CATALOG_GAP !== 28 || result.metrics.PRODUCT_SELECTION_PENDING !== 42 || result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER !== 0) {
+  if (result.metrics.COHORT_CLUSTERS_ANALYZED !== 11 || result.metrics.TOTAL_REQUIRED_INGREDIENTS !== 264 || result.metrics.PRODUCT_CATALOG_GAP !== 24 || result.metrics.PRODUCT_SELECTION_PENDING !== 40 || result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER !== 1) {
     throw new Error(`BASELINE_MISMATCH:${JSON.stringify(result.metrics)}`);
   }
   const audited = result.rows.filter((row) => row.state === 'PRODUCT_SELECTION_PENDING').map(classifyPending);
-  if (audited.length !== 42) throw new Error(`PENDING_AUDIT_COUNT:${audited.length}`);
+  if (audited.length !== 40) throw new Error(`PENDING_AUDIT_COUNT:${audited.length}`);
   writeReports(result, audited);
   return { result, audited };
 }

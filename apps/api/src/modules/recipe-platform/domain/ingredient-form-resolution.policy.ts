@@ -51,7 +51,7 @@ const FORM_WORDS = new Set([
 ]);
 
 const PROCESS_MARKERS = new Set(['вода', 'соль', 'перец', 'специи', 'приправа', 'по вкусу']);
-const NON_IDENTITY_ADJECTIVES = new Set(['куриный', 'куриная', 'куриное', 'куриные', 'домашний', 'домашняя', 'домашнее', 'молотый', 'молотая', 'молотое', 'молотые']);
+const NON_IDENTITY_ADJECTIVES = new Set(['домашний', 'домашняя', 'домашнее', 'молотый', 'молотая', 'молотое', 'молотые']);
 const SAFE_WORD_ALIASES: Record<string, string> = {
   'картошка': 'картофель',
   'лук репчатый': 'репчатый лук',
@@ -61,8 +61,12 @@ const SAFE_WORD_ALIASES: Record<string, string> = {
   'кальмары': 'кальмар',
   'лимонный сок': 'лимонный сок',
   'сок лимона': 'лимонный сок',
+  'помидоры черри': 'томаты черри',
+  'куриное филе': 'куриная грудка',
+  'филе куриной грудки': 'куриная грудка',
 };
 const STRUCTURAL_PREFIXES = new Set(['стебель', 'корень', 'листья', 'лист', 'белая часть', 'зерна']);
+const SAFE_COMMA_ALIAS_KEYS = new Set(['рис круглый непропаренный']);
 
 function normalized(value: string): string {
   return normalizeFoodText(value);
@@ -98,6 +102,20 @@ function identityFromName(value: string): string {
   return tokens.join(' ').trim();
 }
 
+function isChickenBreastEquivalent(value: string): boolean {
+  const key = normalized(value);
+  return key === 'куриное филе' || key === 'филе куриной грудки' || key === 'куриная грудка' || key === 'куриная грудка сырая';
+}
+
+function chooseEquivalentExactCandidate(value: string, matches: IngredientIdentityCandidate[]): IngredientIdentityCandidate | null {
+  if (!isChickenBreastEquivalent(value)) return null;
+  const rawBreast = matches.filter((candidate) => {
+    const name = normalized(candidate.canonicalName);
+    return /курин(ая|ое|ый) грудк/.test(name) && (name.includes('сыра') || candidate.productId === 'chicken_breast_raw');
+  });
+  return rawBreast.length === 1 ? rawBreast[0]! : null;
+}
+
 function formQualifiers(value: string): string[] {
   return normalized(value).split(' ').filter((token) => isFormQualifier(token) || ['кокосовый', 'кокосовое', 'растительный', 'растительные'].includes(token));
 }
@@ -107,6 +125,9 @@ function canonicalNameKey(value: string): string {
   const aliased = SAFE_WORD_ALIASES[source] ?? source;
   return morphologyVariants(aliased)[0] ?? aliased;
 }
+
+const exactMatchCache = new WeakMap<IngredientIdentityCandidate[], Map<string, IngredientIdentityCandidate[]>>();
+const familyIdentityCache = new WeakMap<IngredientIdentityCandidate[], Map<string, string>>();
 
 function resultBase(
   state: IngredientResolutionState,
@@ -131,19 +152,29 @@ function resultBase(
 }
 
 function exactMatch(value: string, candidates: IngredientIdentityCandidate[]): IngredientIdentityCandidate[] {
+  const cache = exactMatchCache.get(candidates) ?? new Map<string, IngredientIdentityCandidate[]>();
+  exactMatchCache.set(candidates, cache);
+  const cacheKey = normalized(value);
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
   const keys = [...new Set(morphologyVariants(value).map((key) => canonicalNameKey(key)))];
-  return candidates.filter((candidate) => {
+  const matches = candidates.filter((candidate) => {
     const names = [candidate.canonicalName, candidate.normalizedName ?? '', ...(candidate.aliases ?? [])].flatMap((name) => morphologyVariants(name).map((key) => canonicalNameKey(key)));
     return keys.some((key) => names.includes(key));
   });
+  cache.set(cacheKey, matches);
+  return matches;
 }
 
 function familyMatches(value: string, candidates: IngredientIdentityCandidate[]): IngredientIdentityCandidate[] {
   const identity = identityFromName(value);
   if (!identity || identity.length < 4) return [];
   const requestedForms = formQualifiers(value);
+  const cache = familyIdentityCache.get(candidates) ?? new Map<string, string>();
+  familyIdentityCache.set(candidates, cache);
   return candidates.filter((candidate) => {
-    const candidateIdentity = identityFromName(candidate.canonicalName);
+    const candidateIdentity = cache.get(candidate.productId) ?? identityFromName(candidate.canonicalName);
+    cache.set(candidate.productId, candidateIdentity);
     if (candidateIdentity !== identity) return false;
     const candidateForms = formQualifiers(candidate.canonicalName);
     return requestedForms.every((form) => candidateForms.length === 0 || candidateForms.includes(form)) || requestedForms.length === 0;
@@ -159,6 +190,7 @@ export function resolveIngredientForm(
   const normalizedIngredient = normalized(source);
   const classification = String(input.classification ?? '').toUpperCase();
   const withoutTaste = normalizedIngredient.replace(/\s*,?\s*по вкусу\s*$/i, '').trim();
+  const withoutQuantityToken = withoutTaste.replace(/\s*,?\s*(?:щепотка|щепотки|pinch)\s*$/i, '').trim();
 
   if (!source || source === 'или' || source === 'либо') {
     return resultBase('PARSE_NOISE', normalizedIngredient, { sourceTextKind: 'PARSE_NOISE', reason: 'empty or orphaned alternative marker' });
@@ -170,7 +202,7 @@ export function resolveIngredientForm(
     const alternativeParts = deterministicParts(source, /\s+(?:или|либо)\s+/i);
     return resultBase('ALTERNATIVE_INGREDIENT_LINE', normalizedIngredient, { productSelectionPending: true, alternativeParts, reason: 'deterministic alternative grammar' });
   }
-  if (/,/.test(source)) {
+  if (/,/.test(source) && withoutQuantityToken === withoutTaste && !SAFE_COMMA_ALIAS_KEYS.has(withoutQuantityToken)) {
     const compoundParts = deterministicParts(source.replace(/\s*,?\s*по вкусу\s*$/i, ''), /[,;]/);
     if (compoundParts.length >= 2) return resultBase('COMPOUND_INGREDIENT_LINE', normalizedIngredient, { productSelectionPending: true, compoundParts, reason: 'deterministic comma-separated compound' });
   }
@@ -179,17 +211,21 @@ export function resolveIngredientForm(
     return resultBase('PROCESS_INPUT', normalizedIngredient, { ingredientIdentity: identityFromName(withoutTaste) || withoutTaste, candidateFamily: identityFromName(withoutTaste) || withoutTaste, accountingRequired, sourceTextKind: 'PROCESS_INPUT', reason: accountingRequired ? 'process ingredient remains in accounting' : 'non-purchased process medium' });
   }
 
-  const exact = exactMatch(withoutTaste, candidates);
+  const exact = exactMatch(withoutQuantityToken, candidates);
+  const equivalent = chooseEquivalentExactCandidate(withoutQuantityToken, exact);
+  if (equivalent) {
+    return resultBase('FORM_EXPLICIT_PRODUCT', normalizedIngredient, { ingredientIdentity: identityFromName(withoutQuantityToken), candidateFamily: identityFromName(equivalent.canonicalName), productId: equivalent.productId, formQualifiers: formQualifiers(withoutQuantityToken), reason: 'accepted equivalent raw chicken-breast identity; duplicate legacy alias collapsed safely' });
+  }
   if (exact.length === 1) {
     const candidate = exact[0]!;
-    const explicitForm = normalized(candidate.canonicalName) !== identityFromName(withoutTaste);
-    const safeAlias = canonicalNameKey(withoutTaste) !== normalized(withoutTaste) || ![candidate.canonicalName, candidate.normalizedName ?? '', ...(candidate.aliases ?? [])].some((name) => normalized(name) === normalized(withoutTaste));
-    return resultBase(explicitForm ? 'FORM_EXPLICIT_PRODUCT' : safeAlias ? 'SAFE_ALIAS' : 'EXACT_PRODUCT', normalizedIngredient, { ingredientIdentity: identityFromName(withoutTaste), candidateFamily: identityFromName(candidate.canonicalName), productId: candidate.productId, formQualifiers: formQualifiers(withoutTaste), reason: explicitForm ? 'exact accepted form-specific product' : safeAlias ? 'deterministic lexical alias' : 'exact canonical product' });
+    const explicitForm = normalized(candidate.canonicalName) !== identityFromName(withoutQuantityToken);
+    const safeAlias = canonicalNameKey(withoutQuantityToken) !== normalized(withoutQuantityToken) || ![candidate.canonicalName, candidate.normalizedName ?? '', ...(candidate.aliases ?? [])].some((name) => normalized(name) === normalized(withoutQuantityToken));
+    return resultBase(explicitForm ? 'FORM_EXPLICIT_PRODUCT' : safeAlias ? 'SAFE_ALIAS' : 'EXACT_PRODUCT', normalizedIngredient, { ingredientIdentity: identityFromName(withoutQuantityToken), candidateFamily: identityFromName(candidate.canonicalName), productId: candidate.productId, formQualifiers: formQualifiers(withoutQuantityToken), reason: explicitForm ? 'exact accepted form-specific product' : safeAlias ? 'deterministic lexical alias' : 'exact canonical product' });
   }
   if (exact.length > 1) return resultBase('AMBIGUOUS', normalizedIngredient, { ingredientIdentity: identityFromName(withoutTaste), candidateFamily: identityFromName(withoutTaste), productSelectionPending: true, formQualifiers: formQualifiers(withoutTaste), reason: 'multiple accepted products match exact wording' });
 
-  const family = familyMatches(withoutTaste, candidates);
-  const requestedIdentity = identityFromName(withoutTaste);
+  const family = familyMatches(withoutQuantityToken, candidates);
+  const requestedIdentity = identityFromName(withoutQuantityToken);
   const exactFamily = family.filter((candidate) => identityFromName(candidate.canonicalName) === requestedIdentity);
   if (exactFamily.length > 0) {
     return resultBase('PRODUCT_FAMILY_RESOLVED', normalizedIngredient, { ingredientIdentity: requestedIdentity, candidateFamily: requestedIdentity, productSelectionPending: true, formQualifiers: formQualifiers(withoutTaste), reason: 'generic identity resolved without arbitrary variant selection' });

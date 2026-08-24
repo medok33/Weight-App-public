@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveIngredientForm, type IngredientIdentityCandidate } from '../domain/ingredient-form-resolution.policy';
+import { normalizeUnit } from '../domain/recipe-research.policy';
 
 const products: IngredientIdentityCandidate[] = [
   { productId: 'carrot-boiled', canonicalName: 'Морковь варёная', aliases: ['морковь вареная'] },
@@ -14,6 +15,11 @@ const products: IngredientIdentityCandidate[] = [
   { productId: 'dried-mint', canonicalName: 'Мята сушеная' },
   { productId: 'dairy-cream', canonicalName: 'Сливки' },
   { productId: 'lemon-juice', canonicalName: 'Лимонный сок' },
+  { productId: 'chicken-breast-legacy', canonicalName: 'Куриная грудка', aliases: ['куриное филе'] },
+  { productId: 'chicken_breast_raw', canonicalName: 'Куриная грудка сырая', aliases: ['филе куриной грудки', 'куриное филе'] },
+  { productId: 'round-rice', canonicalName: 'Рис круглый сухой', aliases: ['рис круглый, непропаренный'] },
+  { productId: 'tomato-cherry', canonicalName: 'Томаты черри' },
+  { productId: 'oregano', canonicalName: 'Орегано' },
 ];
 
 describe('ingredient identity / product form resolution', () => {
@@ -73,5 +79,37 @@ describe('ingredient identity / product form resolution', () => {
     const juice = resolveIngredientForm({ name: 'сок лимона' }, products);
     expect(juice.productId).toBe('lemon-juice');
     expect(juice.candidateFamily).not.toBe('лимон');
+  });
+
+  it('preserves chicken qualifier and safely chooses the accepted raw breast identity', () => {
+    const result = resolveIngredientForm({ name: 'Куриное филе' }, products);
+    expect(result.productId).toBe('chicken_breast_raw');
+    expect(result.ingredientIdentity).toBe('куриная грудка');
+    expect(resolveIngredientForm({ name: 'Филе куриной грудки' }, products).productId).toBe('chicken_breast_raw');
+  });
+
+  it('does not turn generic or non-chicken fillet into chicken', () => {
+    expect(resolveIngredientForm({ name: 'филе' }, products).productId).not.toBe('chicken_breast_raw');
+    expect(resolveIngredientForm({ name: 'филе минтая' }, products).productId).not.toBe('chicken_breast_raw');
+    expect(resolveIngredientForm({ name: 'фарш из филе' }, products).productId).not.toBe('chicken_breast_raw');
+  });
+
+  it('supports case-insensitive aliases, safe word order, cherry tomato synonym and quantity-only tokens', () => {
+    expect(resolveIngredientForm({ name: 'РИС КРУГЛЫЙ, НЕПРОПАРЕННЫЙ' }, products).productId).toBe('round-rice');
+    expect(resolveIngredientForm({ name: 'сок лимона' }, products).productId).toBe('lemon-juice');
+    expect(resolveIngredientForm({ name: 'помидоры черри' }, products).productId).toBe('tomato-cherry');
+    expect(resolveIngredientForm({ name: 'Орегано, щепотка' }, products).productId).toBe('oregano');
+  });
+
+  it('keeps singular/plural eggs equivalent and normalizes culinary unit abbreviations', () => {
+    expect(resolveIngredientForm({ name: 'Яйца' }, products).productId).toBe('egg');
+    expect(resolveIngredientForm({ name: 'Яйцо' }, products).productId).toBe('egg');
+    expect(normalizeUnit('стол.л.')).toEqual({ unit: 'tbsp', status: 'KNOWN' });
+    expect(normalizeUnit('чайн.л.')).toEqual({ unit: 'tsp', status: 'KNOWN' });
+  });
+
+  it('keeps contradictory oil text fail-closed', () => {
+    expect(resolveIngredientForm({ name: 'Масло растительное (сливочное)' }, products).productId).toBeNull();
+    expect(resolveIngredientForm({ name: 'Масло растительное (сливочное)' }, products).productSelectionPending).toBe(true);
   });
 });

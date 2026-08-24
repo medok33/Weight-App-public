@@ -7,10 +7,10 @@ describe('RECIPE-SYNTHESIS-DESIGN-CHOICE-POLICY-01', () => {
     const { result, audited } = await runDesignChoiceAudit();
     expect(result.metrics.COHORT_CLUSTERS_ANALYZED).toBe(11);
     expect(result.metrics.TOTAL_REQUIRED_INGREDIENTS).toBe(264);
-    expect(result.metrics.PRODUCT_CATALOG_GAP).toBe(28);
-    expect(result.metrics.PRODUCT_SELECTION_PENDING).toBe(42);
-    expect(result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(0);
-    expect(audited).toHaveLength(42);
+    expect(result.metrics.PRODUCT_CATALOG_GAP).toBe(24);
+    expect(result.metrics.PRODUCT_SELECTION_PENDING).toBe(40);
+    expect(result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(1);
+    expect(audited).toHaveLength(40);
   }, 180_000);
 
   it('keeps the conservative classification partition fail-closed', async () => {
@@ -18,10 +18,10 @@ describe('RECIPE-SYNTHESIS-DESIGN-CHOICE-POLICY-01', () => {
     const counts = new Map<string, number>();
     for (const row of audited) counts.set(row.policyClass, (counts.get(row.policyClass) ?? 0) + 1);
     expect(counts.get('SAFE_SYNTHESIS_DESIGN_CHOICE') ?? 0).toBe(0);
-    expect(counts.get('OWNER_DESIGN_POLICY_REQUIRED')).toBe(13);
+    expect(counts.get('OWNER_DESIGN_POLICY_REQUIRED')).toBe(12);
     expect(counts.get('RESEARCH_CONFLICT')).toBe(27);
-    expect(counts.get('PARSER_OR_IDENTITY_REMEDIATION')).toBe(2);
-    expect([...counts.values()].reduce((sum, value) => sum + value, 0)).toBe(42);
+    expect(counts.get('PARSER_OR_IDENTITY_REMEDIATION')).toBe(1);
+    expect([...counts.values()].reduce((sum, value) => sum + value, 0)).toBe(40);
   }, 180_000);
 
   it('preserves explicit source qualifiers and owner-default priority', () => {
@@ -41,6 +41,6 @@ describe('RECIPE-SYNTHESIS-DESIGN-CHOICE-POLICY-01', () => {
   it('does not activate policy rows, create products, or claim grams readiness', async () => {
     const { result, audited } = await runDesignChoiceAudit();
     expect(audited.filter((row) => row.selectedProductId !== null)).toHaveLength(0);
-    expect(result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(0);
+    expect(result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(1);
   }, 180_000);
 });

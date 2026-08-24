@@ -1,0 +1,5 @@
+rawIngredient,oldIdentity,newIdentity,oldState,newState,productId,reason,affectedClusters
+"Куриное филе","филе","куриная грудка → chicken_breast_raw","PRODUCT_CATALOG_GAP","EXACT_PRODUCT_ALREADY_RESOLVED","accepted raw chicken-breast alias; species qualifier preserved","Салат Цезарь классический с курицей|Куриные котлеты на сковороде|Жульен с курицей и грибами в духовке"
+"Филе куриной грудки","филе куриной грудки","куриная грудка → chicken_breast_raw","PRODUCT_CATALOG_GAP","EXACT_PRODUCT_ALREADY_RESOLVED","accepted word-order alias for the same raw chicken-breast identity","Салат Цезарь классический с курицей"
+"Рис круглый, непропаренный","рис круглый непропаренный","round_rice_dry","PRODUCT_SELECTION_PENDING","EXACT_PRODUCT_ALREADY_RESOLVED","case-insensitive accepted alias; no fuzzy matching","Рисовая каша с тыквой на молоке"
+"Помидоры черри","помидоры черри","tomato_cherry_raw","PRODUCT_SELECTION_PENDING","EXACT_PRODUCT_ALREADY_RESOLVED","safe lexical synonym to accepted cherry-tomato Product","Салат Цезарь классический с курицей"
