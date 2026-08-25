@@ -77,6 +77,7 @@ const UNIT_ALIASES = new Map<string, string>([
   ['ст л', 'tbsp'],
   ['ст.л.', 'tbsp'],
   ['стол л', 'tbsp'],
+  ['стол.л', 'tbsp'],
   ['стол.л.', 'tbsp'],
   ['tbsp', 'tbsp'],
   ['щепотка', 'pinch'],

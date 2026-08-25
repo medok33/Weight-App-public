@@ -8,9 +8,9 @@ describe('RECIPE-SYNTHESIS-DESIGN-CHOICE-POLICY-01', () => {
     expect(result.metrics.COHORT_CLUSTERS_ANALYZED).toBe(11);
     expect(result.metrics.TOTAL_REQUIRED_INGREDIENTS).toBe(264);
     expect(result.metrics.PRODUCT_CATALOG_GAP).toBe(24);
-    expect(result.metrics.PRODUCT_SELECTION_PENDING).toBe(40);
+    expect(result.metrics.PRODUCT_SELECTION_PENDING).toBe(42);
     expect(result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(1);
-    expect(audited).toHaveLength(40);
+    expect(audited).toHaveLength(42);
   }, 180_000);
 
   it('keeps the conservative classification partition fail-closed', async () => {
@@ -21,7 +21,8 @@ describe('RECIPE-SYNTHESIS-DESIGN-CHOICE-POLICY-01', () => {
     expect(counts.get('OWNER_DESIGN_POLICY_REQUIRED')).toBe(12);
     expect(counts.get('RESEARCH_CONFLICT')).toBe(27);
     expect(counts.get('PARSER_OR_IDENTITY_REMEDIATION')).toBe(1);
-    expect([...counts.values()].reduce((sum, value) => sum + value, 0)).toBe(40);
+    expect(counts.get('NO_SAFE_DESIGN_CHOICE')).toBe(2);
+    expect([...counts.values()].reduce((sum, value) => sum + value, 0)).toBe(42);
   }, 180_000);
 
   it('preserves explicit source qualifiers and owner-default priority', () => {

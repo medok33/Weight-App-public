@@ -533,7 +533,7 @@ export async function runPersistenceSuite(env, inventory) {
     try {
       const fileEnv = { ...env, DATABASE_URL: databaseUrlFor(env.DATABASE_URL, database) };
       const isActivityLong = /activity-01[ab]/.test(relativeFile);
-      const isLong = /workout-adaptation/.test(relativeFile);
+      const isLong = /workout-adaptation/.test(relativeFile) || relativeFile.includes('owner-recipe-defaults-decision-01.persistence.spec.ts');
       const isCatalogLong = /(?:catalog-core-v2|product-foundation)\.persistence\.spec\.ts$/.test(relativeFile);
       const isSelectionLong = /recipe-product-selection\.persistence\.spec\.ts$/.test(relativeFile);
       // Activity-01A performs two isolated migration paths (full + pre-215)

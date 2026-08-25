@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateIngredientBudget } from '../domain/ingredient-budget.policy';
-import { validateCulinaryCriticResult } from '../domain/culinary-critic.policy';
+import { culinaryCriticContractInstruction, culinaryCriticRepairInstruction, validateCulinaryCriticResult } from '../domain/culinary-critic.policy';
 import { RECIPE_CONTRACT_VERSION, validateCanonicalContract, validateRecipeEditorText, type MethodSkeletonStep } from '../domain/recipe-contract.v1';
 import { RecipeQualityOrchestrator } from '../application/recipe-quality.orchestrator';
 
@@ -24,6 +24,9 @@ describe('STEP-339B contract and automated quality gates', () => {
   it('rejects malformed extra fields', () => expect(() => validateRecipeEditorText({ title: 'x', description: 'x', steps: [{ stepId: 's1', text: 'x', grams: 5 }] }, skeleton)).toThrow());
   it('critic has strict PASS schema', () => expect(validateCulinaryCriticResult({ contractVersion: 'culinary-critic/v1', verdict: 'PASS', issues: [] }).verdict).toBe('PASS'));
   it('critic rejects unknown issue code', () => expect(() => validateCulinaryCriticResult({ contractVersion: 'culinary-critic/v1', verdict: 'REJECT', issues: [{ code: 'NOPE' }] })).toThrow());
+  it('critic rejects the sanitized first invalid shape: a free-form issue string', () => expect(() => validateCulinaryCriticResult({ contractVersion: 'culinary-critic/v1', verdict: 'REGENERATE', issues: ['UNCLEAR_INSTRUCTION'] })).toThrow('CULINARY_CRITIC_ISSUE_INVALID'));
+  it('critic rejects the sanitized second invalid shape: root schema drift', () => expect(() => validateCulinaryCriticResult({ version: 'culinary-critic/v1', verdict: 'PASS', issues: [] })).toThrow('CULINARY_CRITIC_SCHEMA_INVALID'));
+  it('derives ordinary and repair instructions from the same strict contract', () => { expect(culinaryCriticContractInstruction()).toContain('culinary-critic/v1'); expect(culinaryCriticRepairInstruction(['CULINARY_CRITIC_ISSUE_INVALID'])).toContain('Preserve the prior culinary verdict'); });
   it('critic REGENERATE is bounded', async () => { let calls = 0; const result = await new RecipeQualityOrchestrator().verify({ base, editor: async () => editor(), critic: async () => { calls += 1; return { contractVersion: 'culinary-critic/v1', verdict: 'REGENERATE', issues: [{ code: 'UNCLEAR_INSTRUCTION' }] }; } }); expect(result.status).toBe('REJECT'); expect(result.attempts).toBe(2); expect(calls).toBe(2); });
   it('critic REJECT fails closed', async () => { const result = await new RecipeQualityOrchestrator().verify({ base, editor, critic: async () => ({ contractVersion: 'culinary-critic/v1', verdict: 'REJECT', issues: [{ code: 'FOOD_SAFETY_CONCERN' }] }) }); expect(result.status).toBe('REJECT'); });
   it('critic PASS produces AUTO_VERIFIED', async () => { const result = await new RecipeQualityOrchestrator().verify({ base, editor, critic: criticPass }); expect(result.status).toBe('AUTO_VERIFIED'); expect(result.contract?.qualityStatus).toBe('AUTO_VERIFIED'); });

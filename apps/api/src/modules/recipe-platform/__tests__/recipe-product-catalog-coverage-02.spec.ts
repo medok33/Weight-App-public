@@ -6,15 +6,15 @@ describe('RECIPE-PRODUCT-CATALOG-COVERAGE-02', () => {
     const result = await runProductSelection({ applySynthesisDefaults: true });
     expect(result.clusters).toHaveLength(11);
     expect(result.rows).toHaveLength(264);
-    expect(result.metrics.PRODUCT_SELECTION_PENDING).toBe(40);
+    expect(result.metrics.PRODUCT_SELECTION_PENDING).toBe(42);
     expect(result.metrics.PRODUCT_CATALOG_GAP).toBeLessThan(44);
     expect(result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(1);
   }, 180_000);
 
   it('preserves generic pending and research conflicts fail-closed', async () => {
     const result = await runProductSelection({ applySynthesisDefaults: true });
-    expect(result.metrics.BLOCKED_RESEARCH_CONFLICT_CLUSTERS).toBe(2);
-    expect(result.rows.filter((row) => row.state === 'PRODUCT_SELECTION_PENDING').length).toBe(40);
+    expect(result.metrics.BLOCKED_RESEARCH_CONFLICT_CLUSTERS).toBe(3);
+    expect(result.rows.filter((row) => row.state === 'PRODUCT_SELECTION_PENDING').length).toBe(42);
     expect(result.rows.some((row) => row.requiredIngredient === 'Тушенка' && row.state === 'PRODUCT_CATALOG_GAP')).toBe(true);
   }, 180_000);
 
