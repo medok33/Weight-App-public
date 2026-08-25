@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateIngredientBudget } from '../domain/ingredient-budget.policy';
 import { culinaryCriticContractInstruction, culinaryCriticRepairInstruction, validateCulinaryCriticResult } from '../domain/culinary-critic.policy';
-import { RECIPE_CONTRACT_VERSION, validateCanonicalContract, validateRecipeEditorText, type MethodSkeletonStep } from '../domain/recipe-contract.v1';
+import { RECIPE_CONTRACT_VERSION, validateCanonicalContract, validateRecipeEditorSemanticCoverage, validateRecipeEditorText, type MethodSkeletonStep } from '../domain/recipe-contract.v1';
 import { RecipeQualityOrchestrator } from '../application/recipe-quality.orchestrator';
 
 const skeleton: MethodSkeletonStep[] = [{ stepId: 's1', order: 1, ingredientIds: ['i1'], technique: 'boil', durationMinutes: 20, temperatureC: 190 }];
@@ -22,6 +22,12 @@ describe('STEP-339B contract and automated quality gates', () => {
   it('rejects unknown step id', () => expect(() => validateRecipeEditorText({ title: 'x', description: 'x', steps: [{ stepId: 'unknown', text: 'x' }] }, skeleton)).toThrow());
   it('rejects missing step', () => expect(() => validateRecipeEditorText({ title: 'x', description: 'x', steps: [] }, skeleton)).toThrow());
   it('rejects malformed extra fields', () => expect(() => validateRecipeEditorText({ title: 'x', description: 'x', steps: [{ stepId: 's1', text: 'x', grams: 5 }] }, skeleton)).toThrow());
+  it('reports missing semantic ingredient coverage without weakening the structural contract', () => expect(() => validateRecipeEditorSemanticCoverage([{ stepId: 's1', text: 'Обжарьте шампиньоны.' }], { requiredTerms: ['курин', 'шампин'], forbiddenTerms: /рис|майонез/ })).toThrow('RECIPE_EDITOR_REQUIRED_INGREDIENT_MISSING:курин'));
+  it('accepts the complete Russian Julienne semantic coverage and rejects forbidden branches', () => {
+    const steps = [{ stepId: 's1', text: 'Куриное филе, шампиньоны, сметана, твёрдый сыр и оливковое масло.' }];
+    expect(() => validateRecipeEditorSemanticCoverage(steps, { requiredTerms: ['курин', 'шампин', 'сметан', 'сыр', 'оливков'], forbiddenTerms: /рис|майонез/ })).not.toThrow();
+    expect(() => validateRecipeEditorSemanticCoverage([{ stepId: 's1', text: `${steps[0].text} без риса` }], { requiredTerms: ['курин', 'шампин', 'сметан', 'сыр', 'оливков'], forbiddenTerms: /рис|майонез/ })).toThrow('RECIPE_EDITOR_FORBIDDEN_CONTENT');
+  });
   it('critic has strict PASS schema', () => expect(validateCulinaryCriticResult({ contractVersion: 'culinary-critic/v1', verdict: 'PASS', issues: [] }).verdict).toBe('PASS'));
   it('critic rejects unknown issue code', () => expect(() => validateCulinaryCriticResult({ contractVersion: 'culinary-critic/v1', verdict: 'REJECT', issues: [{ code: 'NOPE' }] })).toThrow());
   it('critic rejects the sanitized first invalid shape: a free-form issue string', () => expect(() => validateCulinaryCriticResult({ contractVersion: 'culinary-critic/v1', verdict: 'REGENERATE', issues: ['UNCLEAR_INSTRUCTION'] })).toThrow('CULINARY_CRITIC_ISSUE_INVALID'));

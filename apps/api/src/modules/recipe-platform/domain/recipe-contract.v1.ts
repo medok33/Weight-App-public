@@ -31,6 +31,23 @@ export type MethodSkeletonStep = {
 
 export type RecipeEditorText = { stepId: string; text: string };
 
+export type RecipeEditorSemanticCoverage = {
+  requiredTerms: string[];
+  forbiddenTerms?: RegExp;
+};
+
+/**
+ * Semantic content is intentionally checked after the structural schema. The
+ * editor may only render approved facts; it cannot satisfy the contract with
+ * an empty or unrelated step sequence.
+ */
+export function validateRecipeEditorSemanticCoverage(steps: RecipeEditorText[], coverage: RecipeEditorSemanticCoverage): void {
+  const text = steps.map((step) => step.text).join(' ').toLocaleLowerCase('ru-RU');
+  const missing = coverage.requiredTerms.filter((term) => !text.includes(term.toLocaleLowerCase('ru-RU')));
+  if (missing.length > 0) throw new Error(`RECIPE_EDITOR_REQUIRED_INGREDIENT_MISSING:${missing.join(',')}`);
+  if (coverage.forbiddenTerms?.test(text)) throw new Error('RECIPE_EDITOR_FORBIDDEN_CONTENT');
+}
+
 export type RecipeContractV1 = {
   contractVersion: typeof RECIPE_CONTRACT_VERSION;
   recipeKey: string;
