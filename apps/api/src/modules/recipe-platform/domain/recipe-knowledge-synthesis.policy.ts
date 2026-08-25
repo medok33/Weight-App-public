@@ -18,7 +18,7 @@ export type ResearchCandidate = {
   rightsStatus: 'APPROVED' | 'PENDING_REVIEW' | 'REJECTED' | 'DISABLED';
   ingredients: Array<{ productId?: string | null; name: string; role?: string | null; quantity?: number | null; unit?: string | null }>;
   techniques?: Array<string | null>;
-  steps?: Array<{ ordinal: number; normalizedTechnique?: string | null; durationMinutes?: number | null; temperatureC?: number | null; qualitativeEndCondition?: string | null; ingredientRefs?: Array<{ ingredientIndex: number; confidence: IngredientStepReferenceConfidence }> }>;
+  steps?: Array<{ ordinal: number; normalizedTechnique?: string | null; durationMinutes?: number | null; temperatureC?: number | null; qualitativeEndCondition?: string | null; sourceText?: string | null; ingredientRefs?: Array<{ ingredientIndex: number; confidence: IngredientStepReferenceConfidence }> }>;
   servings?: number | null;
   preparationTime?: number | null;
   cookingTime?: number | null;
@@ -90,7 +90,7 @@ export type SynthesisBrief = {
   conflictingFacts: string[];
   unresolvedFacts: string[];
   differentiationReason: string;
-  evidenceSummary: { candidateIds: string[]; sourceCodes: string[]; factIds: string[]; rejectedFactIds: string[]; conflictLevels: ConflictLevel[]; scores: { sourceQuality: number; weightAppFit: number } };
+  evidenceSummary: { candidateIds: string[]; sourceCodes: string[]; factIds: string[]; rejectedFactIds: string[]; conflictLevels: ConflictLevel[]; scores: { sourceQuality: number; weightAppFit: number }; ingredientStepEvidence?: unknown };
   status: 'DRAFT' | 'READY_FOR_REVIEW' | 'APPROVED_FOR_SYNTHESIS' | 'BLOCKED_CONFLICT' | 'REJECTED';
   approvalState: 'PENDING' | 'OWNER_APPROVED' | 'SYSTEM_BLOCKED';
 };
