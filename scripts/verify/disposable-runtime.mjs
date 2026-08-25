@@ -65,6 +65,23 @@ export function assertRuntimeId(runtimeId) {
   return runtimeId;
 }
 
+export function assertDisposableCleanupScope(env = process.env) {
+  const runtimeId = assertRuntimeId(env[RUNTIME_ID_ENV]);
+  const project = String(env.DISPOSABLE_COMPOSE_PROJECT ?? '').trim();
+  if (!project) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:COMPOSE_PROJECT_REQUIRED');
+  if (project === 'weight-app-local') throw new Error('UNSAFE_DISPOSABLE_RUNTIME:LOCAL_COMPOSE_PROJECT_FORBIDDEN');
+  const expected = `weight-app-disposable-${runtimeId}`;
+  if (project !== expected) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:COMPOSE_PROJECT_IDENTITY_MISMATCH');
+  return { runtimeId, project };
+}
+
+export function assertOwnedResourceMetadata(resource, expected) {
+  const labels = resource?.Config?.Labels ?? resource?.Labels ?? resource?.labels ?? {};
+  if (labels['com.docker.compose.project'] !== expected.project) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:RESOURCE_PROJECT_LABEL_MISMATCH');
+  if (labels['com.weight-app.runtime-id'] !== expected.runtimeId) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:RESOURCE_RUNTIME_MARKER_MISMATCH');
+  return true;
+}
+
 export function parseDatabaseUrl(value) {
   if (!value) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:DATABASE_URL_MISSING');
   let url;
@@ -108,7 +125,8 @@ export function assertDisposableConfig(env = process.env) {
   if (env.DISPOSABLE_REDIS_MARKER !== runtimeId) {
     throw new Error('UNSAFE_DISPOSABLE_RUNTIME:REDIS_SERVER_MARKER_REQUIRED');
   }
-  return { runtimeId, postgres, redis };
+  const scope = assertDisposableCleanupScope(env);
+  return { runtimeId, postgres, redis, project: scope.project };
 }
 
 export function redactConnection(value) {
@@ -214,9 +232,10 @@ async function diagnoseApi(env, onlyGroup) {
   }
 }
 
-function docker(args, env, options) { run('docker', ['compose', '-p', env.DISPOSABLE_COMPOSE_PROJECT, '-f', composeFile, ...args], env, options); }
+function docker(args, env, options) { assertDisposableCleanupScope(env); run('docker', ['compose', '-p', env.DISPOSABLE_COMPOSE_PROJECT, '-f', composeFile, ...args], env, options); }
 
 function dockerOutput(args, env) {
+  assertDisposableCleanupScope(env);
   const result = spawnSync('docker', ['compose', '-p', env.DISPOSABLE_COMPOSE_PROJECT, '-f', composeFile, ...args], { cwd: root, env, encoding: 'utf8', timeout: 10_000, windowsHide: true });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`docker compose ${args.join(' ')} failed with ${result.status ?? 1}: ${String(result.stderr ?? '').trim()}`);
@@ -533,7 +552,7 @@ export async function runPersistenceSuite(env, inventory) {
     try {
       const fileEnv = { ...env, DATABASE_URL: databaseUrlFor(env.DATABASE_URL, database) };
       const isActivityLong = /activity-01[ab]/.test(relativeFile);
-      const isLong = /workout-adaptation/.test(relativeFile) || relativeFile.includes('owner-recipe-defaults-decision-01.persistence.spec.ts');
+      const isLong = /workout-adaptation/.test(relativeFile) || relativeFile.includes('owner-recipe-defaults-decision-01.persistence.spec.ts') || relativeFile.includes('recipe-synthesis-design-choice-policy-01.persistence.spec.ts') || relativeFile.includes('recipe-identity-normalization-fix-01.persistence.spec.ts');
       const isCatalogLong = /(?:catalog-core-v2|product-foundation)\.persistence\.spec\.ts$/.test(relativeFile);
       const isSelectionLong = /recipe-product-selection\.persistence\.spec\.ts$/.test(relativeFile);
       // Activity-01A performs two isolated migration paths (full + pre-215)
@@ -725,6 +744,15 @@ async function stopServices(serviceState) {
 
 async function cleanupOwnedRuntime(env, serviceState) {
   await stopServices(serviceState);
+  const scope = assertDisposableCleanupScope(env);
+  const containerIds = spawnSync('docker', ['ps', '-aq', '--filter', `label=com.docker.compose.project=${scope.project}`], { cwd: root, env, encoding: 'utf8', timeout: 10_000, windowsHide: true });
+  if (containerIds.error) throw containerIds.error;
+  const ids = (containerIds.stdout ?? '').split(/\s+/).filter(Boolean);
+  if (ids.length) {
+    const inspected = spawnSync('docker', ['inspect', ...ids], { cwd: root, env, encoding: 'utf8', timeout: 10_000, windowsHide: true });
+    if (inspected.error || inspected.status !== 0) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:RESOURCE_INSPECTION_FAILED');
+    for (const resource of JSON.parse(inspected.stdout)) assertOwnedResourceMetadata(resource, scope);
+  }
   const result = await runBoundedProcess('docker', ['compose', '-p', env.DISPOSABLE_COMPOSE_PROJECT, '-f', composeFile, 'down', '-v', '--remove-orphans'], {
     cwd: root,
     env,
