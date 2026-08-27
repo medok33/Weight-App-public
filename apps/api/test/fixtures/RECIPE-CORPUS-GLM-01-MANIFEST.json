@@ -1,0 +1,44 @@
+{
+ "datasetId": "recipe-corpus-glm-01",
+ "datasetVersion": "1.0.0",
+ "createdAt": "2026-08-19T18:40:35Z",
+ "candidateCount": 316,
+ "sourceCounts": {
+  "eda": 92,
+  "1000menu": 102,
+  "iamcook": 59,
+  "russianfood": 58,
+  "wikibooks": 5
+ },
+ "ingredientLineCount": 2758,
+ "stepCount": 2779,
+ "rejectedCount": 18,
+ "rejectionBreakdown": {
+  "NO_STEPS": 6,
+  "NO_INGREDIENTS": 12
+ },
+ "duplicateSourceIds": 0,
+ "requestCount": {
+  "detail": 334,
+  "discovery": {
+   "eda": "sitemap-file(gzip,1)",
+   "1000menu": "16 catalog pages",
+   "iamcook": "5 rubric listings (previously fetched)",
+   "russianfood": "7 bytype listings",
+   "wikibooks": "1 batched API call"
+  }
+ },
+ "sourcePolicyVersion": "donor-matrix-r1-2026-08-19",
+ "parserVersions": {
+  "eda": "glm-edaparser-1.0",
+  "1000menu": "glm-menumicrodata-1.0",
+  "iamcook": "glm-iamcookhtml-1.0",
+  "russianfood": "glm-rfoodcp1251-1.0",
+  "wikibooks": "glm-wb-wikitext-1.0"
+ },
+ "sha256": {
+  "jsonl": "791bf58239ff4a2156ad6932bb7007b6c82d78aeb2ba3f821f58fbbc992e3950",
+  "lexiconCsv": "0705f7259ad2a0a8d52e1793e296940c183d1ff04458e82cd0a3661b32958d68",
+  "sourceManifestCsv": "ae5fe1864a4a0828520c5047a4764c4617eaf2ef72a7c09c0ceb6fdee159be04"
+ }
+}

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { startRuntime, migrate, stopRuntime } from '../../../scripts/verify/disposable-runtime.mjs';
 import { buildCatalogCoreV3Manifest } from '../src/modules/product-catalog/seed/catalog-core-v3.dataset.ts';
@@ -13,7 +14,9 @@ type CorpusRecord = {
   ingredients: Array<{ name?: string; normalizedName?: string; rawName?: string; amountText?: string | null; rawQuantity?: string | null; unitText?: string | null; normalizedUnit?: string | null; rawUnit?: string | null; notes?: string | null; classification?: string }>;
   steps: unknown[]; [key: string]: unknown;
 };
-const root = resolve(process.env.RECIPE_CORPUS_DATASET_ROOT ?? 'D:/ПРИЛОЖЕНИЕ ДЛЯ ПОХУДЕНИЯ/wt-recipe-source-research/.data/evidence/donor');
+const root = process.env.RECIPE_CORPUS_DATASET_ROOT
+  ? resolve(process.env.RECIPE_CORPUS_DATASET_ROOT)
+  : resolve(dirname(fileURLToPath(import.meta.url)), '../test/fixtures');
 const datasetPath = resolve(root, 'RECIPE-CORPUS-GLM-01-FIRST-REAL-DONOR-DATASET.jsonl');
 const manifestPath = resolve(root, 'RECIPE-CORPUS-GLM-01-MANIFEST.json');
 const lexiconPath = resolve(root, 'RECIPE-CORPUS-GLM-01-INGREDIENT-LEXICON.csv');

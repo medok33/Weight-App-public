@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { resolveIngredientForm, type IngredientIdentityCandidate, type IngredientResolutionState } from '../src/modules/recipe-platform/domain/ingredient-form-resolution.policy.ts';
 import { normalizeFoodText } from '../src/modules/recipe-platform/domain/recipe-research.policy.ts';
 import { CATALOG_CORE_V2_PRODUCTS } from '../src/modules/product-catalog/seed/catalog-core-v2.dataset.ts';
@@ -10,7 +11,8 @@ type CorpusRecipe = { sourceId: string; sourceRecipeId: string; ingredients: Cor
 type LexiconRow = { canonical: string; src?: string };
 type IdentityRow = { normalizedIngredient: string; occurrences: number; sourceCount: number; recipeCount: number; before: number; stateCounts: Record<string, number>; candidateFamily: string | null; reason: string; recommendedNextAction: string };
 
-const root = resolve(process.env.RECIPE_CORPUS_DATASET_ROOT ?? 'D:/ПРИЛОЖЕНИЕ ДЛЯ ПОХУДЕНИЯ/wt-recipe-source-research/.data/evidence/donor');
+const repositoryFixtureRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../test/fixtures');
+const root = process.env.RECIPE_CORPUS_DATASET_ROOT ? resolve(process.env.RECIPE_CORPUS_DATASET_ROOT) : repositoryFixtureRoot;
 const datasetPath = resolve(root, 'RECIPE-CORPUS-GLM-01-FIRST-REAL-DONOR-DATASET.jsonl');
 const lexiconPath = resolve(root, 'product-lexicon.json');
 const workspaceRoot = resolve(process.cwd(), process.cwd().replaceAll('\\', '/').endsWith('/apps/api') ? '../..' : '.');

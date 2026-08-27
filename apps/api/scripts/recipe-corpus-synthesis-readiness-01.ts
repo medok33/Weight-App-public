@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import { CATALOG_CORE_V2_PRODUCTS } from '../src/modules/product-catalog/seed/catalog-core-v2.dataset.ts';
 import { CATALOG_CORE_V3_PRODUCTS } from '../src/modules/product-catalog/seed/catalog-core-v3.dataset.ts';
@@ -15,8 +16,10 @@ export type CorpusStep = { sourceOrder: number; researchOnlySourceText?: string 
 export type CorpusRecipe = { sourceId: string; sourceRecipeId: string; canonicalUrl?: string | null; title: string; sourceLineage?: { donor?: string } | string | null; ingredients: CorpusIngredient[]; steps?: CorpusStep[]; recipeFacts?: { portions?: string | null; totalTime?: { minutes?: number | null } | null; cookTime?: { minutes?: number | null } | null; equipment?: string[] } | null; structuralFingerprint?: string | null; bodySha256?: string | null; normalizedPayloadSha256?: string | null };
 type PipelineResult = { candidates: ResearchCandidate[]; clusters: ReturnType<typeof buildDishConceptCluster>[]; facts: ReturnType<typeof aggregateResearchFacts>; briefs: SynthesisBrief[]; readiness: Array<Record<string, unknown>>; conflicts: number };
 
-const datasetRoot = resolve(process.env.RECIPE_CORPUS_DATASET_ROOT ?? 'D:/ПРИЛОЖЕНИЕ ДЛЯ ПОХУДЕНИЯ/wt-recipe-source-research/.data/evidence/donor');
-const datasetPath = resolve(datasetRoot, 'RECIPE-CORPUS-GLM-01-FIRST-REAL-DONOR-DATASET.jsonl');
+const repositoryFixturePath = resolve(dirname(fileURLToPath(import.meta.url)), '../test/fixtures/RECIPE-CORPUS-GLM-01-FIRST-REAL-DONOR-DATASET.jsonl');
+const datasetPath = process.env.RECIPE_CORPUS_DATASET_ROOT
+  ? resolve(process.env.RECIPE_CORPUS_DATASET_ROOT, 'RECIPE-CORPUS-GLM-01-FIRST-REAL-DONOR-DATASET.jsonl')
+  : repositoryFixturePath;
 const workspaceRoot = resolve(process.cwd(), process.cwd().replaceAll('\\', '/').endsWith('/apps/api') ? '../..' : '.');
 const reportDir = resolve(workspaceRoot, '.data/owner-reports');
 const candidateFamilies = ['лосось','рыба','курица','куриное филе','лук','репчатый лук','чеснок','картофель','морковь','помидор','томат','огурец','капуста','свекла','кабачок','баклажан','перец','масло','растительное масло','сливки','твердый сыр','сыр','творог','молоко','кефир','йогурт','сметана','мука','пшеничная мука','сахар','соль','яйцо','рис','гречка','гречневая крупа','овсянка','хлопья','макароны','паста','фасоль','нут','чечевица','горох','яблоко','банан','апельсин','лимон','лимонный сок','ягода','клубника','малина','черника','голубика','виноград','груша','персик','абрикос','орех','миндаль','кешью','семена','мед','шоколад','какао','хлеб','батон','лаваш','соус','грибы','шампиньоны','зелень','укроп','петрушка','базилик','кинза','крахмал','желатин','дрожжи','сода','уксус','горчица','майонез','кетчуп','бекон','ветчина','колбаса','говядина','свинина','индейка','утка','фарш','фарш мясной','креветки','кальмар','тунец','крупа','сельдерей','бульон','овощной бульон','сухари','панировочные сухари','панировка','ванилин','манка','каперсы','имбирь','вино','цедра','сок','карри','пармезан','оливки','салат','салат оливье','редис','тыква','круглый рис','помидоры черри','болгарский перец'];
