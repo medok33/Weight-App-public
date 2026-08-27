@@ -4,6 +4,7 @@ import { buildCatalogCoreV2Manifest } from '../../src/modules/product-catalog/se
 import { buildCatalogCoreV3Manifest } from '../../src/modules/product-catalog/seed/catalog-core-v3.dataset';
 import { RecipePublicationService } from '../../src/modules/recipe-platform/application/recipe-publication.service';
 import { RecipeQualityOrchestrator } from '../../src/modules/recipe-platform/application/recipe-quality.orchestrator';
+import { issueVerifiedQualityReceipt } from '../../src/modules/recipe-platform/domain/recipe-quality.receipt';
 import { validateChefEditorOutput } from '../../src/modules/recipe-platform/domain/recipe-authoring.policy';
 import { FIRST_REAL_SYNTHESIS_PRODUCTS, FIRST_REAL_SYNTHESIS_RECIPE_KEY, FIRST_REAL_SYNTHESIS_SERVINGS, firstRealSynthesisAuthoringSteps, firstRealSynthesisIngredients, firstRealSynthesisNutrition, firstRealSynthesisSkeleton, validateFirstRealSynthesisScope } from '../../src/modules/recipe-platform/domain/recipe-first-real-synthesis.policy';
 import { runSynthesisReadiness } from '../../scripts/recipe-corpus-synthesis-readiness-01';
@@ -46,10 +47,11 @@ describe('RECIPE-FIRST-REAL-SYNTHESIS-01 disposable acceptance', () => {
         },
         editor: async () => ({ title: chef.title, description: chef.description, steps: skeleton.map((step) => ({ stepId: step.stepId, text: chef.steps[step.order - 1]!.text })) }),
         critic: async () => ({ contractVersion: 'culinary-critic/v1', verdict: 'PASS', issues: [] }),
+        semanticCoverage: { requiredTerms: ['выполните', 'куриное', 'шампиньоны', 'сметан', 'сыр', 'масло'], forbiddenTerms: /рис|майонез/ },
       });
       expect(quality.status).toBe('AUTO_VERIFIED');
       const service = new RecipePublicationService(createDb());
-      const input = { recipeKey: FIRST_REAL_SYNTHESIS_RECIPE_KEY, title: chef.title, description: chef.description, servings: FIRST_REAL_SYNTHESIS_SERVINGS, yieldGrams: ingredients.reduce((sum, item) => sum + item.amount, 0), ingredients, steps: authoringSteps, nutrition: nutritionResult.nutrition, cost: { status: 'UNAVAILABLE', currency: 'RUB' }, validationPass: true, similarityAutoPublish: true, automatedQualityPass: true, actorId: '00000000-0000-0000-0000-000000000001', provenance: { synthesisBriefId: 'structured-test-brief', clusterId: 'dcluster_8c521f996b1e8844f530ff12', nutritionAuthority: 'ProductNutritionVersion' } };
+      const input = { recipeKey: FIRST_REAL_SYNTHESIS_RECIPE_KEY, title: chef.title, description: chef.description, servings: FIRST_REAL_SYNTHESIS_SERVINGS, yieldGrams: ingredients.reduce((sum, item) => sum + item.amount, 0), ingredients, steps: authoringSteps, nutrition: nutritionResult.nutrition, cost: { status: 'UNAVAILABLE', currency: 'RUB' }, similarityAutoPublish: true, actorId: '00000000-0000-0000-0000-000000000001', provenance: { synthesisBriefId: 'structured-test-brief', clusterId: 'dcluster_8c521f996b1e8844f530ff12', nutritionAuthority: 'ProductNutritionVersion' }, qualityContract: quality.contract!, qualityReceipt: quality.receipt! };
       const first = await service.publish(input);
       const second = await service.publish(input);
       expect(first.idempotent).toBe(false);
@@ -58,6 +60,21 @@ describe('RECIPE-FIRST-REAL-SYNTHESIS-01 disposable acceptance', () => {
       const content = await pool.query<{ content: { provenance?: { clusterId?: string } } }>(`SELECT "contentSnapshotJson" AS content FROM "RecipeVersion" LIMIT 1`);
       expect(versions.rows[0]).toMatchObject({ count: '1', status: 'PUBLISHED', provenance: 'SYSTEM' });
       expect(content.rows[0]?.content.provenance?.clusterId).toBe('dcluster_8c521f996b1e8844f530ff12');
+
+      const raceKey = `${FIRST_REAL_SYNTHESIS_RECIPE_KEY}:race`;
+      const raceContract = { ...quality.contract!, recipeKey: raceKey };
+      const raceInput = { ...input, recipeKey: raceKey, qualityContract: raceContract, qualityReceipt: issueVerifiedQualityReceipt({ contract: raceContract, critic: { contractVersion: 'culinary-critic/v1', verdict: 'PASS', issues: [] } }) };
+      const [raceA, raceB] = await Promise.all([service.publish(raceInput), service.publish(raceInput)]);
+      expect(raceA.recipeVersionId).toBe(raceB.recipeVersionId);
+      expect([raceA.idempotent, raceB.idempotent].sort()).toEqual([false, true]);
+      const raceCount = await pool.query<{ count: string }>(`SELECT count(*)::text AS count FROM "RecipeVersion" v JOIN "Recipe" r ON r.id=v."recipeId" WHERE r."recipeKey"=$1`, [raceKey]);
+      expect(raceCount.rows[0]?.count).toBe('1');
+
+      const distinctKey = `${FIRST_REAL_SYNTHESIS_RECIPE_KEY}:distinct`;
+      const distinctContract = { ...quality.contract!, recipeKey: distinctKey, title: 'Жульен — новая публикация' };
+      const distinctInput = { ...input, recipeKey: distinctKey, title: distinctContract.title, qualityContract: distinctContract, qualityReceipt: issueVerifiedQualityReceipt({ contract: distinctContract, critic: { contractVersion: 'culinary-critic/v1', verdict: 'PASS', issues: [] } }) };
+      const distinct = await service.publish(distinctInput);
+      expect(distinct.idempotent).toBe(false);
     });
   }, 300_000);
 });

@@ -802,6 +802,7 @@ model RecipeVersion {
   editorialReviews         RecipeEditorialReview[]
   cookTests                RecipeCookTest[]
   @@unique([recipeId, versionNumber])
+  @@unique([checksum])
   @@index([recipeId])
 }
 
