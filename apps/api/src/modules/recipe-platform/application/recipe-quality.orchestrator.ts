@@ -1,7 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { validateCulinaryCriticResult, type CulinaryCriticResult } from '../domain/culinary-critic.policy';
 import { validateCanonicalContract, validateRecipeEditorSemanticCoverage, validateRecipeEditorText, type MethodSkeletonStep, type RecipeContractV1, type RecipeEditorSemanticCoverage } from '../domain/recipe-contract.v1';
-import { issueVerifiedQualityReceipt, type RecipeQualityReceipt } from '../domain/recipe-quality.receipt';
+import { qualityContractChecksum, type RecipeQualityReceipt } from '../domain/recipe-quality.receipt';
+
+const issuedReceipts = new WeakMap<object, string>();
+
+function issueVerifiedQualityReceipt(input: { contract: unknown; critic: CulinaryCriticResult }): RecipeQualityReceipt {
+  if (input.critic.verdict !== 'PASS' || input.critic.issues.length > 0) throw new Error('QUALITY_RECEIPT_REQUIRES_CRITIC_PASS');
+  const receipt = Object.freeze({ producer: 'RecipeQualityOrchestrator' as const, contractChecksum: qualityContractChecksum(input.contract), critic: Object.freeze(input.critic), deterministicValid: true as const });
+  issuedReceipts.set(receipt, receipt.contractChecksum);
+  return receipt;
+}
+
+export function isVerifiedQualityReceipt(value: unknown, expectedContract?: unknown): value is RecipeQualityReceipt {
+  if (!value || typeof value !== 'object') return false;
+  const receipt = value as Partial<RecipeQualityReceipt>;
+  const issuedChecksum = issuedReceipts.get(value);
+  return issuedChecksum !== undefined && receipt.producer === 'RecipeQualityOrchestrator' && receipt.deterministicValid === true && receipt.critic?.verdict === 'PASS' && Array.isArray(receipt.critic.issues) && typeof receipt.contractChecksum === 'string' && issuedChecksum === receipt.contractChecksum && (expectedContract === undefined || issuedChecksum === qualityContractChecksum(expectedContract));
+}
 
 export const MAX_RECIPE_EDITOR_ATTEMPTS = 2 as const;
 export type RecipeEditorAttempt = (input: { skeleton: MethodSkeletonStep[]; attempt: number }) => Promise<unknown>;

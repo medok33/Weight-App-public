@@ -1,13 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { canPublish, publicationChecksum, type AuthoringIngredient, type AuthoringStep, type CookTest, type HumanReview, type RecipeNutrition } from '../domain/recipe-authoring.policy';
-import { isVerifiedQualityReceipt, qualityContractChecksum, type RecipeQualityReceipt } from '../domain/recipe-quality.receipt';
+import { qualityContractChecksum, type RecipeQualityReceipt } from '../domain/recipe-quality.receipt';
+import { isVerifiedQualityReceipt } from './recipe-quality.orchestrator';
 import type { RecipeContractV1 } from '../domain/recipe-contract.v1';
 
 export type PublicationInput = { recipeKey: string; title: string; description: string; servings: number; yieldGrams: number; ingredients: AuthoringIngredient[]; steps: AuthoringStep[]; nutrition: RecipeNutrition; cost: unknown; similarityAutoPublish?: boolean; editorial?: HumanReview; cookTest?: CookTest; actorId: string; provenance?: Record<string, unknown>; qualityContract: RecipeContractV1; qualityReceipt: RecipeQualityReceipt };
 
 function assertReceiptMatchesPublication(input: PublicationInput): void {
-  if (!isVerifiedQualityReceipt(input.qualityReceipt)) throw new Error('PUBLICATION_QUALITY_RECEIPT_REQUIRED');
+  if (!isVerifiedQualityReceipt(input.qualityReceipt, input.qualityContract)) throw new Error('PUBLICATION_QUALITY_RECEIPT_REQUIRED');
   if (input.qualityReceipt.critic.verdict !== 'PASS') throw new Error('PUBLICATION_CRITIC_PASS_REQUIRED');
   if (qualityContractChecksum(input.qualityContract) !== input.qualityReceipt.contractChecksum) throw new Error('PUBLICATION_QUALITY_RECEIPT_MISMATCH');
   const contract = input.qualityContract;

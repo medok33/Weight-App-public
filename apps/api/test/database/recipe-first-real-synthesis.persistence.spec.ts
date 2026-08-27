@@ -4,7 +4,6 @@ import { buildCatalogCoreV2Manifest } from '../../src/modules/product-catalog/se
 import { buildCatalogCoreV3Manifest } from '../../src/modules/product-catalog/seed/catalog-core-v3.dataset';
 import { RecipePublicationService } from '../../src/modules/recipe-platform/application/recipe-publication.service';
 import { RecipeQualityOrchestrator } from '../../src/modules/recipe-platform/application/recipe-quality.orchestrator';
-import { issueVerifiedQualityReceipt } from '../../src/modules/recipe-platform/domain/recipe-quality.receipt';
 import { validateChefEditorOutput } from '../../src/modules/recipe-platform/domain/recipe-authoring.policy';
 import { FIRST_REAL_SYNTHESIS_PRODUCTS, FIRST_REAL_SYNTHESIS_RECIPE_KEY, FIRST_REAL_SYNTHESIS_SERVINGS, firstRealSynthesisAuthoringSteps, firstRealSynthesisIngredients, firstRealSynthesisNutrition, firstRealSynthesisSkeleton, validateFirstRealSynthesisScope } from '../../src/modules/recipe-platform/domain/recipe-first-real-synthesis.policy';
 import { runSynthesisReadiness } from '../../scripts/recipe-corpus-synthesis-readiness-01';
@@ -63,8 +62,37 @@ describe('RECIPE-FIRST-REAL-SYNTHESIS-01 disposable acceptance', () => {
 
       const raceKey = `${FIRST_REAL_SYNTHESIS_RECIPE_KEY}:race`;
       const raceContract = { ...quality.contract!, recipeKey: raceKey };
-      const raceInput = { ...input, recipeKey: raceKey, qualityContract: raceContract, qualityReceipt: issueVerifiedQualityReceipt({ contract: raceContract, critic: { contractVersion: 'culinary-critic/v1', verdict: 'PASS', issues: [] } }) };
-      const [raceA, raceB] = await Promise.all([service.publish(raceInput), service.publish(raceInput)]);
+      const raceBase = Object.fromEntries(Object.entries(raceContract).filter(([key]) => key !== 'renderedSteps' && key !== 'qualityStatus'));
+      const raceQuality = await new RecipeQualityOrchestrator().verify({ base: raceBase, editor: async () => ({ title: chef.title, description: chef.description, steps: skeleton.map((step) => ({ stepId: step.stepId, text: chef.steps[step.order - 1]!.text })) }), critic: async () => ({ contractVersion: 'culinary-critic/v1', verdict: 'PASS', issues: [] }), semanticCoverage: { requiredTerms: ['выполните', 'куриное', 'шампиньоны', 'сметан', 'сыр', 'масло'], forbiddenTerms: /рис|майонез/ } });
+      expect(raceQuality.status).toBe('AUTO_VERIFIED');
+      const raceInput = { ...input, recipeKey: raceKey, qualityContract: raceQuality.contract!, qualityReceipt: raceQuality.receipt! };
+      let ready = 0;
+      let release!: () => void;
+      let markReady!: () => void;
+      const bothReady = new Promise<void>((resolve) => { release = resolve; });
+      const readyPromise = new Promise<void>((resolve) => { markReady = resolve; });
+      const barrierDb = createDb();
+      const baseWithTransaction = barrierDb.withTransaction.bind(barrierDb);
+      barrierDb.withTransaction = async (fn) => baseWithTransaction(async (query) => {
+        let paused = false;
+        const gatedQuery = async (text: string, values: unknown[] = []) => {
+          if (!paused && text.includes('SELECT id,"versionNumber" FROM "RecipeVersion" WHERE checksum')) {
+            paused = true;
+            ready += 1;
+            if (ready === 2) markReady();
+            await bothReady;
+          }
+          return query(text, values);
+        };
+        return fn(gatedQuery);
+      });
+      const barrierService = new RecipePublicationService(barrierDb);
+      const raceAPromise = barrierService.publish(raceInput);
+      const raceBPromise = barrierService.publish(raceInput);
+      await readyPromise;
+      expect(ready).toBe(2);
+      release();
+      const [raceA, raceB] = await Promise.all([raceAPromise, raceBPromise]);
       expect(raceA.recipeVersionId).toBe(raceB.recipeVersionId);
       expect([raceA.idempotent, raceB.idempotent].sort()).toEqual([false, true]);
       const raceCount = await pool.query<{ count: string }>(`SELECT count(*)::text AS count FROM "RecipeVersion" v JOIN "Recipe" r ON r.id=v."recipeId" WHERE r."recipeKey"=$1`, [raceKey]);
@@ -72,7 +100,10 @@ describe('RECIPE-FIRST-REAL-SYNTHESIS-01 disposable acceptance', () => {
 
       const distinctKey = `${FIRST_REAL_SYNTHESIS_RECIPE_KEY}:distinct`;
       const distinctContract = { ...quality.contract!, recipeKey: distinctKey, title: 'Жульен — новая публикация' };
-      const distinctInput = { ...input, recipeKey: distinctKey, title: distinctContract.title, qualityContract: distinctContract, qualityReceipt: issueVerifiedQualityReceipt({ contract: distinctContract, critic: { contractVersion: 'culinary-critic/v1', verdict: 'PASS', issues: [] } }) };
+      const distinctBase = Object.fromEntries(Object.entries(distinctContract).filter(([key]) => key !== 'renderedSteps' && key !== 'qualityStatus'));
+      const distinctQuality = await new RecipeQualityOrchestrator().verify({ base: distinctBase, editor: async () => ({ title: distinctContract.title, description: chef.description, steps: skeleton.map((step) => ({ stepId: step.stepId, text: chef.steps[step.order - 1]!.text })) }), critic: async () => ({ contractVersion: 'culinary-critic/v1', verdict: 'PASS', issues: [] }), semanticCoverage: { requiredTerms: ['выполните', 'куриное', 'шампиньоны', 'сметан', 'сыр', 'масло'], forbiddenTerms: /рис|майонез/ } });
+      expect(distinctQuality.status).toBe('AUTO_VERIFIED');
+      const distinctInput = { ...input, recipeKey: distinctKey, title: distinctContract.title, qualityContract: distinctQuality.contract!, qualityReceipt: distinctQuality.receipt! };
       const distinct = await service.publish(distinctInput);
       expect(distinct.idempotent).toBe(false);
     });

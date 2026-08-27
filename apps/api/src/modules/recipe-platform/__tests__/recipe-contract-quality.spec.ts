@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateIngredientBudget } from '../domain/ingredient-budget.policy';
 import { culinaryCriticContractInstruction, culinaryCriticRepairInstruction, validateCulinaryCriticResult } from '../domain/culinary-critic.policy';
 import { RECIPE_CONTRACT_VERSION, validateCanonicalContract, validateRecipeEditorSemanticCoverage, validateRecipeEditorText, type MethodSkeletonStep } from '../domain/recipe-contract.v1';
-import { RecipeQualityOrchestrator } from '../application/recipe-quality.orchestrator';
+import { isVerifiedQualityReceipt, RecipeQualityOrchestrator } from '../application/recipe-quality.orchestrator';
 import { RecipePublicationService } from '../application/recipe-publication.service';
 
 const skeleton: MethodSkeletonStep[] = [{ stepId: 's1', order: 1, ingredientIds: ['i1'], technique: 'boil', durationMinutes: 20, temperatureC: 190 }];
@@ -45,6 +45,18 @@ describe('STEP-339B contract and automated quality gates', () => {
     const result = await new RecipeQualityOrchestrator().verify({ base, editor: async () => ({ title: 'Soup', description: 'Simple', steps: [{ stepId: 's1', text: 'курин шампин сметан сыр оливков; готовьте 20 минут при 190 C.' }] }), critic: criticPass, semanticCoverage: { requiredTerms: ['курин', 'шампин', 'сметан', 'сыр', 'оливков'], forbiddenTerms: /рис|майонез/ } });
     expect(result.status).toBe('AUTO_VERIFIED');
     expect(result.receipt?.producer).toBe('RecipeQualityOrchestrator');
+  });
+  it('runtime receipt authority rejects copied, serialized, and manually forged receipts', async () => {
+    const result = await new RecipeQualityOrchestrator().verify({ base, editor, critic: criticPass, semanticCoverage: { requiredTerms: [] } });
+    expect(result.receipt).toBeDefined();
+    expect(isVerifiedQualityReceipt(result.receipt, result.contract)).toBe(true);
+    const spread = { ...result.receipt! };
+    const serialized = JSON.parse(JSON.stringify(result.receipt));
+    const manual = { producer: 'RecipeQualityOrchestrator', deterministicValid: true, contractChecksum: result.receipt!.contractChecksum, critic: { contractVersion: 'culinary-critic/v1', verdict: 'PASS', issues: [] } };
+    expect(isVerifiedQualityReceipt(spread, result.contract)).toBe(false);
+    expect(isVerifiedQualityReceipt(serialized, result.contract)).toBe(false);
+    expect(isVerifiedQualityReceipt(manual, result.contract)).toBe(false);
+    expect(isVerifiedQualityReceipt(result.receipt, { ...result.contract!, title: 'mutated' })).toBe(false);
   });
   it('publication rejects missing or forged quality receipts before database access', async () => {
     const service = new RecipePublicationService({} as never);
