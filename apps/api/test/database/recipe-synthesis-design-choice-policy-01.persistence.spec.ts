@@ -9,8 +9,8 @@ describe('RECIPE-SYNTHESIS-DESIGN-CHOICE-POLICY-01 disposable acceptance', () =>
       const first = await runDesignChoiceAudit();
       const second = await runDesignChoiceAudit();
       expect(first.result.metrics).toEqual(second.result.metrics);
-      expect(first.result.metrics.PRODUCT_SELECTION_PENDING).toBe(42);
-      expect(first.result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(1);
+      expect(first.result.metrics.PRODUCT_SELECTION_PENDING).toBe(41);
+      expect(first.result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(3);
       const metadata = await pool.query<{ count: string }>(`SELECT count(*)::text AS count FROM "RecipeSynthesisBrief" WHERE "evidenceSummary"->>'productSelectionPolicyVersion'='recipe-synthesis-product-policy/v3'`);
       expect(metadata.rows[0]?.count).toBe('0');
       const sourceFacts = await pool.query<{ count: string }>('SELECT count(*)::text AS count FROM "RecipeResearchFact"');

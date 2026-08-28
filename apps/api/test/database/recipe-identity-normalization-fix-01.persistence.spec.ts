@@ -10,10 +10,10 @@ describe('RECIPE-IDENTITY-NORMALIZATION-FIX-01 disposable acceptance', () => {
       const second = await runProductSelection({ applySynthesisDefaults: true });
       expect(second.metrics).toEqual(first.metrics);
       expect(first.metrics.COHORT_CLUSTERS_ANALYZED).toBe(11);
-      expect(first.metrics.TOTAL_REQUIRED_INGREDIENTS).toBe(264);
-      expect(first.metrics.PRODUCT_CATALOG_GAP).toBe(24);
-      expect(first.metrics.PRODUCT_SELECTION_PENDING).toBe(42);
-      expect(first.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(1);
+      expect(first.metrics.TOTAL_REQUIRED_INGREDIENTS).toBe(263);
+      expect(first.metrics.PRODUCT_CATALOG_GAP).toBe(17);
+      expect(first.metrics.PRODUCT_SELECTION_PENDING).toBe(41);
+      expect(first.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(3);
       const julien = first.clusters.find((cluster) => cluster.conceptName === 'Жульен с курицей и грибами в духовке');
       expect(julien).toMatchObject({ catalogGap: 0, selectionPending: 0, conflicts: 0, classification: 'READY_FOR_DETERMINISTIC_GRAMS' });
       const sourceFactsAfter = await pool.query<{ count: string }>('SELECT count(*)::text AS count FROM "RecipeResearchFact"');

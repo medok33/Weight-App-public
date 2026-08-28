@@ -32,6 +32,7 @@ type Compact = {
   review?: boolean;
   aliases?: string[];
   note?: string;
+  fdcId?: string;
 };
 
 function usda(
@@ -70,6 +71,7 @@ function rf(
 
 function toRecord(row: Compact): ProductSeedRecord {
   const recordId =
+    row.fdcId ? `USDA_FDC:${row.fdcId}` :
     row.src === 'rf'
       ? `RF_EXCERPT:${row.key}:${OBTAINED}`
       : `USDA_FDC_MAP:${row.key}:${OBTAINED}`;

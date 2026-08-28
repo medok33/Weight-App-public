@@ -2188,5 +2188,39 @@ export const CATALOG_CORE_V3_EXPANSION_ROWS = [
     "review": true,
     "src": "usda",
     "aliases": ["каперсы"]
+  },
+  {
+    "n": 344,
+    "key": "worcestershire_sauce",
+    "name": "Вустерширский соус",
+    "cat": "sauces",
+    "form": "READY_TO_EAT",
+    "unit": "g",
+    "cal": 77,
+    "p": 0,
+    "f": 0,
+    "c": 19.2,
+    "role": "SEASONING",
+    "vegan": true,
+    "src": "usda",
+    "fdcId": "171610",
+    "aliases": ["Worcestershire sauce", "соус ворчестер"]
+  },
+  {
+    "n": 345,
+    "key": "tushenka_beef_canned",
+    "name": "Тушенка говяжья консервированная",
+    "cat": "meat_poultry",
+    "form": "READY_TO_EAT",
+    "unit": "g",
+    "cal": 250,
+    "p": 27.1,
+    "f": 14.9,
+    "c": 0,
+    "role": "MAIN_PROTEIN",
+    "review": true,
+    "src": "usda",
+    "fdcId": "170602",
+    "aliases": ["тушенка говяжья", "тушёнка говяжья"]
   }
 ] as const;

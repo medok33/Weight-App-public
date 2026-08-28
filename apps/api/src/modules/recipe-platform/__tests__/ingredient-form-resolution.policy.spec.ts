@@ -112,4 +112,11 @@ describe('ingredient identity / product form resolution', () => {
     expect(resolveIngredientForm({ name: 'Масло растительное (сливочное)' }, products).productId).toBeNull();
     expect(resolveIngredientForm({ name: 'Масло растительное (сливочное)' }, products).productSelectionPending).toBe(true);
   });
+
+  it('resolves exact PKG2 identities without broadening generic families', () => {
+    expect(resolveIngredientForm({ name: 'Куриный фарш' }, [{ productId: 'chicken_mince_raw', canonicalName: 'Фарш куриный' }]).productId).toBe('chicken_mince_raw');
+    expect(resolveIngredientForm({ name: 'фарш из филе' }, [{ productId: 'chicken_mince_raw', canonicalName: 'Фарш куриный' }]).productId).toBeNull();
+    expect(resolveIngredientForm({ name: 'сок лимона' }, [{ productId: 'lemon_juice', canonicalName: 'Сок лимонный' }]).productId).toBe('lemon_juice');
+    expect(resolveIngredientForm({ name: 'вустерширский соус' }, [{ productId: 'worcestershire_sauce', canonicalName: 'Вустерширский соус', aliases: ['Worcestershire sauce'] }]).productId).toBe('worcestershire_sauce');
+  });
 });
