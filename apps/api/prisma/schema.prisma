@@ -799,8 +799,46 @@ model RecipeVersion {
   fingerprints             RecipeFingerprint[]
   mediaLinks               RecipeVersionMedia[]
   coverageAssignments      RecipeCoverageAssignment[]
+  editorialReviews         RecipeEditorialReview[]
+  cookTests                RecipeCookTest[]
   @@unique([recipeId, versionNumber])
+  @@unique([checksum])
   @@index([recipeId])
+}
+
+model RecipeEditorialReview {
+  id              String   @id @default(uuid()) @db.Uuid
+  recipeVersionId String   @db.Uuid
+  reviewerId      String   @db.Uuid
+  reviewedAt      DateTime
+  decision        String
+  notes           String?
+  defectsJson     Json     @default("[]")
+  correctionsJson Json     @default("[]")
+  createdAt       DateTime @default(now())
+  recipeVersion   RecipeVersion @relation(fields: [recipeVersionId], references: [id], onDelete: Restrict)
+  @@index([recipeVersionId, reviewedAt])
+}
+
+model RecipeCookTest {
+  id                         String   @id @default(uuid()) @db.Uuid
+  recipeVersionId            String   @db.Uuid
+  reviewerId                 String   @db.Uuid
+  testedAt                   DateTime
+  actuallyCooked             Boolean
+  actualCookingTimeMinutes   Int
+  actualYieldGrams           Decimal  @db.Decimal(10,2)
+  ingredientMeasurability    Boolean
+  stepExecutability          Boolean
+  equipmentSufficiency       Boolean
+  textureResult              String
+  tasteResult                String
+  defectsJson                Json     @default("[]")
+  notes                      String?
+  decision                   String
+  createdAt                  DateTime @default(now())
+  recipeVersion              RecipeVersion @relation(fields: [recipeVersionId], references: [id], onDelete: Restrict)
+  @@index([recipeVersionId, testedAt])
 }
 
 model RecipeCoverageSlot {

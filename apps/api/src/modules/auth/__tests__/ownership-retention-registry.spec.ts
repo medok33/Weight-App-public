@@ -18,7 +18,7 @@ function schemaModels(): string[] {
 describe('AUTH-01B ownership retention registry', () => {
   it('covers every durable Prisma model and has zero unresolved owner decisions', () => {
     const models = schemaModels();
-    expect(models).toHaveLength(135);
+    expect(models).toHaveLength(137);
     expect(() => assertRegistryCoversModels(models)).not.toThrow();
     expect(ownershipRegistryEntries().filter(([, entry]) => entry.retention === undefined)).toEqual([]);
   });

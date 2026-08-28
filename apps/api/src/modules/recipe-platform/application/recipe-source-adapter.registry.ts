@@ -9,6 +9,7 @@ import { FoodRuSourceAdapter } from './food-ru/food-ru-source.adapter';
 import { IamCookSourceAdapter } from './iamcook/iamcook-source.adapter';
 import { RussianFoodSourceAdapter } from './russianfood/russianfood-source.adapter';
 import { TestRecipeSourceAdapter } from './test-recipe-source.adapter';
+import { EdaSourceAdapter, Menu1000SourceAdapter } from './public-donors/public-donor.adapters';
 
 /**
  * Static allowlisted registry — no dynamic eval / remote import URL.
@@ -23,6 +24,8 @@ export class RecipeSourceAdapterRegistry {
     this.register(new FoodRuSourceAdapter());
     this.register(new IamCookSourceAdapter());
     this.register(new RussianFoodSourceAdapter());
+    this.register(new EdaSourceAdapter());
+    this.register(new Menu1000SourceAdapter());
   }
 
   register(adapter: RecipeSourceAdapter): void {

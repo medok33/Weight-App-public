@@ -54,7 +54,9 @@ export type RecipeSourceAdapterTypeAllowlist =
   | 'TEST_DETERMINISTIC'
   | 'FOOD_RU'
   | 'IAMCOOK'
-  | 'RUSSIANFOOD';
+  | 'RUSSIANFOOD'
+  | 'EDA'
+  | 'MENU1000';
 
 export const RECIPE_SOURCE_ADAPTER_TYPE_ALLOWLIST: readonly RecipeSourceAdapterTypeAllowlist[] = [
   'NOT_CONFIGURED',
@@ -62,6 +64,8 @@ export const RECIPE_SOURCE_ADAPTER_TYPE_ALLOWLIST: readonly RecipeSourceAdapterT
   'FOOD_RU',
   'IAMCOOK',
   'RUSSIANFOOD',
+  'EDA',
+  'MENU1000',
 ] as const;
 
 export const FIXTURE_CAPABLE_ADAPTER_TYPES: readonly RecipeSourceAdapterTypeAllowlist[] = [
@@ -70,6 +74,93 @@ export const FIXTURE_CAPABLE_ADAPTER_TYPES: readonly RecipeSourceAdapterTypeAllo
   'IAMCOOK',
   'RUSSIANFOOD',
 ] as const;
+
+/** STEP_316 — one fail-closed, source-independent policy contract. */
+export type RecipeSourcePolicyState = 'ALLOWED' | 'RESTRICTED' | 'PENDING_REVIEW' | 'DISABLED' | 'UNKNOWN';
+export type RecipeSourceFieldClass =
+  | 'SOURCE_IDENTITY'
+  | 'SOURCE_URL'
+  | 'CAPTURE_METADATA'
+  | 'RAW_CANDIDATE_PAYLOAD'
+  | 'NORMALIZED_FACTS'
+  | 'SOURCE_PROSE'
+  | 'SOURCE_NUTRITION';
+export type RecipeSourceLiveAccessPolicy = 'ALLOW' | 'DENY';
+
+export type RecipeSourcePolicyContract = {
+  sourceCode: string;
+  state: RecipeSourcePolicyState;
+  enabled: boolean;
+  rightsStatus: RecipeSourceRightsStatus;
+  collectionMode: RecipeSourceCollectionMode;
+  adapterType: RecipeSourceAdapterTypeAllowlist;
+  allowedFields: Readonly<Record<RecipeSourceFieldClass, 'SHORT_LIVED_RAW' | 'LONG_LIVED_NORMALIZED_FACT' | 'METADATA_ONLY' | 'DENIED'>>;
+  retentionPolicy: {
+    rawSnapshot: 'TEST_FIXTURE_7_DAYS' | 'LIMITED_RESEARCH_7_DAYS' | 'METADATA_ONLY_AFTER_EXPIRY';
+    normalizedFacts: 'RETAIN_WITH_PROVENANCE';
+  };
+  liveAccessPolicy: RecipeSourceLiveAccessPolicy;
+  researchOnly: true;
+  directPublicationAllowed: false;
+};
+
+const RESEARCH_FIELD_POLICY: RecipeSourcePolicyContract['allowedFields'] = {
+  SOURCE_IDENTITY: 'LONG_LIVED_NORMALIZED_FACT',
+  SOURCE_URL: 'LONG_LIVED_NORMALIZED_FACT',
+  CAPTURE_METADATA: 'LONG_LIVED_NORMALIZED_FACT',
+  RAW_CANDIDATE_PAYLOAD: 'SHORT_LIVED_RAW',
+  NORMALIZED_FACTS: 'LONG_LIVED_NORMALIZED_FACT',
+  SOURCE_PROSE: 'DENIED',
+  SOURCE_NUTRITION: 'METADATA_ONLY',
+};
+
+const REGISTERED_RESEARCH_SOURCE_CODES = new Set(['food_ru', 'iamcook', 'russianfood']);
+
+/**
+ * Resolve policy without trusting adapter-provided permissions. Unknown sources
+ * are deliberately returned as UNKNOWN/DENY rather than being inferred from a
+ * hostname or adapter type.
+ */
+export function resolveRecipeSourcePolicy(sourceCode: string | null | undefined): RecipeSourcePolicyContract {
+  const code = String(sourceCode ?? '').trim().toLowerCase();
+  const registered = REGISTERED_RESEARCH_SOURCE_CODES.has(code);
+  return {
+    sourceCode: code || 'unknown',
+    state: registered ? 'PENDING_REVIEW' : 'UNKNOWN',
+    enabled: false,
+    rightsStatus: registered ? 'PENDING_REVIEW' : 'PENDING_REVIEW',
+    collectionMode: 'DISABLED',
+    adapterType: 'NOT_CONFIGURED',
+    allowedFields: RESEARCH_FIELD_POLICY,
+    retentionPolicy: {
+      rawSnapshot: registered ? 'LIMITED_RESEARCH_7_DAYS' : 'TEST_FIXTURE_7_DAYS',
+      normalizedFacts: 'RETAIN_WITH_PROVENANCE',
+    },
+    liveAccessPolicy: 'DENY',
+    researchOnly: true,
+    directPublicationAllowed: false,
+  };
+}
+
+export function assertRecipeSourceLiveAllowed(policy: RecipeSourcePolicyContract): void {
+  if (
+    policy.state !== 'ALLOWED' ||
+    !policy.enabled ||
+    policy.liveAccessPolicy !== 'ALLOW' ||
+    !AUTOMATABLE_RIGHTS.includes(policy.rightsStatus) ||
+    policy.collectionMode === 'DISABLED' ||
+    policy.adapterType === 'NOT_CONFIGURED'
+  ) {
+    throw new Error('RECIPE_SOURCE_POLICY_LIVE_DENIED');
+  }
+}
+
+export function assertRecipeSourceDirectPublicationDenied(policy: RecipeSourcePolicyContract): void {
+  if (policy.directPublicationAllowed !== false || policy.researchOnly !== true) {
+    throw new Error('RECIPE_SOURCE_DIRECT_PUBLICATION_POLICY_INVALID');
+  }
+  throw new Error('RECIPE_SOURCE_DIRECT_PUBLICATION_DENIED');
+}
 
 const RIGHTS: ReadonlySet<string> = new Set([
   'ACTIVE_LICENSED',

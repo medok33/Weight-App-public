@@ -1,0 +1,6 @@
+family,cohortOccurrences,clustersAffected,requestedOwnerDefault,canonicalProductId,nutritionVersion,activated,pendingResolved,blockReason
+"молоко","13","4","молоко 2.5%","milk_2_5pct","ProductNutritionVersion present","true","5",""
+"растительное масло","15","7","подсолнечное масло рафинированное","sunflower_oil","ProductNutritionVersion present","true","14",""
+"мука","12","3","пшеничная мука высшего сорта","wheat_flour","ProductNutritionVersion present","true","12",""
+"сметана","5","2","сметана 15%","sour_cream_15pct","ProductNutritionVersion present","true","1",""
+"кефир","1","1","кефир 2.5%","kefir_2_5pct","ProductNutritionVersion present","true","1",""

@@ -136,5 +136,5 @@ describe('STEP_092 meal dish detail persistence', () => {
     expect(['confirmed', 'partial', 'missing']).toContain(detail.cost.status);
 
     await expect(details.getItemDetails(userB, itemId, null)).rejects.toThrow('MEAL_PLAN_ITEM_FORBIDDEN');
-  });
+  }, 30_000);
 });

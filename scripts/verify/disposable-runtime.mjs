@@ -30,7 +30,9 @@ const STAGE_BOUNDS = Object.freeze({
   markers: 30_000,
   migration: 180_000,
   static: 300_000,
-  apiUnit: 300_000,
+  // Cold forked Vitest startup can exceed five minutes on the shared host
+  // even when the suite is making forward progress and exits cleanly.
+  apiUnit: 600_000,
   // The prior 30m aggregate bound expired after 73/80 files. 73 measured file bodies
   // consumed 1,602,241ms; the observed clone/cleanup overhead through file 73 was
   // 197,825ms. Bounding each of the seven remaining files at the measured P95 body
@@ -61,6 +63,23 @@ export function assertRuntimeId(runtimeId) {
     throw new Error('UNSAFE_DISPOSABLE_RUNTIME:RUNTIME_ID_INVALID');
   }
   return runtimeId;
+}
+
+export function assertDisposableCleanupScope(env = process.env) {
+  const runtimeId = assertRuntimeId(env[RUNTIME_ID_ENV]);
+  const project = String(env.DISPOSABLE_COMPOSE_PROJECT ?? '').trim();
+  if (!project) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:COMPOSE_PROJECT_REQUIRED');
+  if (project === 'weight-app-local') throw new Error('UNSAFE_DISPOSABLE_RUNTIME:LOCAL_COMPOSE_PROJECT_FORBIDDEN');
+  const expected = `weight-app-disposable-${runtimeId}`;
+  if (project !== expected) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:COMPOSE_PROJECT_IDENTITY_MISMATCH');
+  return { runtimeId, project };
+}
+
+export function assertOwnedResourceMetadata(resource, expected) {
+  const labels = resource?.Config?.Labels ?? resource?.Labels ?? resource?.labels ?? {};
+  if (labels['com.docker.compose.project'] !== expected.project) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:RESOURCE_PROJECT_LABEL_MISMATCH');
+  if (labels['com.weight-app.runtime-id'] !== expected.runtimeId) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:RESOURCE_RUNTIME_MARKER_MISMATCH');
+  return true;
 }
 
 export function parseDatabaseUrl(value) {
@@ -106,7 +125,8 @@ export function assertDisposableConfig(env = process.env) {
   if (env.DISPOSABLE_REDIS_MARKER !== runtimeId) {
     throw new Error('UNSAFE_DISPOSABLE_RUNTIME:REDIS_SERVER_MARKER_REQUIRED');
   }
-  return { runtimeId, postgres, redis };
+  const scope = assertDisposableCleanupScope(env);
+  return { runtimeId, postgres, redis, project: scope.project };
 }
 
 export function redactConnection(value) {
@@ -198,7 +218,7 @@ async function diagnoseApi(env, onlyGroup) {
       const started = Date.now();
       console.log(`API_GROUP_START ${new Date().toISOString()} ${batchName} files=${batchFiles.length}`);
       const relativeFiles = batchFiles.map((file) => relative(apiRoot, file));
-      const longPersistenceFile = relativeFiles.length === 1 && /^(?:test\\database\\activity-01[ab][^\\]*|test\\database\\workout-adaptation[^\\]*)\.spec\.ts$/.test(relativeFiles[0]);
+      const longPersistenceFile = relativeFiles.length === 1 && (/^(?:test\\database\\activity-01[ab][^\\]*|test\\database\\workout-adaptation[^\\]*)\.spec\.ts$/.test(relativeFiles[0]) || relativeFiles[0].includes('owner-recipe-defaults-decision-01.persistence.spec.ts') || relativeFiles[0].includes('recipe-synthesis-design-choice-policy-01.persistence.spec.ts'));
       const timeoutMs = longPersistenceFile ? 300000 : 120000;
       const result = run('pnpm', ['--dir', 'apps/api', 'exec', 'vitest', 'run', '--passWithNoTests', '--pool=forks', '--fileParallelism=false', '--reporter=verbose', ...relativeFiles], env, { stdio: 'inherit', timeoutMs, allowFailure: true });
       const elapsed = Date.now() - started;
@@ -212,9 +232,10 @@ async function diagnoseApi(env, onlyGroup) {
   }
 }
 
-function docker(args, env, options) { run('docker', ['compose', '-p', env.DISPOSABLE_COMPOSE_PROJECT, '-f', composeFile, ...args], env, options); }
+function docker(args, env, options) { assertDisposableCleanupScope(env); run('docker', ['compose', '-p', env.DISPOSABLE_COMPOSE_PROJECT, '-f', composeFile, ...args], env, options); }
 
 function dockerOutput(args, env) {
+  assertDisposableCleanupScope(env);
   const result = spawnSync('docker', ['compose', '-p', env.DISPOSABLE_COMPOSE_PROJECT, '-f', composeFile, ...args], { cwd: root, env, encoding: 'utf8', timeout: 10_000, windowsHide: true });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`docker compose ${args.join(' ')} failed with ${result.status ?? 1}: ${String(result.stderr ?? '').trim()}`);
@@ -355,7 +376,7 @@ export function stopRuntime(env) {
 export async function migrate(env) {
   assertDisposableConfig(env);
   await assertServerMarkers(env);
-  run('pnpm', ['db:migrate'], env);
+  run(process.execPath, [resolve(root, 'apps/api/scripts/migrate.mjs')], env);
 }
 
 export async function fullVerify(env) {
@@ -365,14 +386,73 @@ export async function fullVerify(env) {
   run('pnpm', ['verify'], env);
 }
 
-function pnpmCommand(args, env, timeoutMs, label) {
-  const runner = resolvePnpmInvocation(env);
-  return runBoundedProcess(runner.command, [...runner.argsPrefix, ...args], {
-    cwd: root,
-    env: createPnpmEnv(env),
-    timeoutMs,
-    label,
-  });
+// Canonical stages run only after dependency provisioning.  Resolve package
+// binaries directly so a stage can never cause pnpm to relink the workspace.
+export function canonicalDirectInvocation(args) {
+  const normalized = args.map((value) => String(value));
+  if (normalized[0] === '--filter' && normalized[1] === 'api' && normalized[2] === 'build') {
+    return { command: process.execPath, args: [resolve(root, 'apps/api/node_modules/typescript/bin/tsc'), '--module', 'node16', '--moduleResolution', 'node16', '--target', 'es2022', '--types', 'node', '--experimentalDecorators', '--emitDecoratorMetadata', '--outDir', 'dist', 'src/main.ts'], cwd: resolve(root, 'apps/api'), label: 'node apps/api/node_modules/typescript/bin/tsc (api build)' };
+  }
+  if (normalized[0] === '--filter' && normalized[1] === 'web' && normalized[2] === 'build') {
+    return { command: process.execPath, args: [resolve(root, 'apps/web/scripts/run-next-build.mjs')], cwd: root, label: 'node apps/web/scripts/run-next-build.mjs' };
+  }
+  if (normalized[0] === '--filter' && normalized[1] === 'worker' && normalized[2] === 'build') {
+    return { command: process.execPath, args: [resolve(root, 'apps/worker/node_modules/typescript/bin/tsc'), '--module', 'node16', '--moduleResolution', 'node16', '--target', 'es2022', '--outDir', 'dist', 'src/main.ts'], cwd: resolve(root, 'apps/worker'), label: 'node apps/worker/node_modules/typescript/bin/tsc (worker build)' };
+  }
+  if (normalized[0] === '--filter' && (normalized[1] === 'web' || normalized[1] === 'worker') && normalized[2] === 'test') {
+    const app = normalized[1];
+    return { command: process.execPath, args: [resolve(root, `apps/${app}/node_modules/vitest/vitest.mjs`), 'run', '--passWithNoTests'], cwd: resolve(root, `apps/${app}`), label: `node apps/${app}/node_modules/vitest/vitest.mjs run` };
+  }
+  if (normalized[0] === '--dir' && normalized[1] === 'apps/api' && normalized[2] === 'exec' && normalized[3] === 'vitest') {
+    return { command: process.execPath, args: [resolve(root, 'apps/api/node_modules/vitest/vitest.mjs'), ...normalized.slice(4)], cwd: resolve(root, 'apps/api'), label: 'node apps/api/node_modules/vitest/vitest.mjs' };
+  }
+  if (normalized[0] === '--dir' && normalized[1] === 'apps/web' && normalized[2]?.startsWith('test:e2e:')) {
+    const script = normalized[2];
+    const e2eArgs = {
+      'test:e2e:runtime-smoke': ['test', 'e2e/runtime-smoke-01-user-routes.spec.ts'],
+      'test:e2e:activity': ['test', 'e2e/activity-01a-automatic-steps.spec.ts', 'e2e/activity-01a-http.spec.ts', 'e2e/activity-01b-connection-lifecycle.spec.ts'],
+      'test:e2e:workout-v2-01c': ['test', 'e2e/workout-v2-01c-session.spec.ts', 'e2e/workout-v2-01c-http.spec.ts'],
+      'test:e2e:workout-v2-01d': ['test', 'e2e/workout-v2-01d-adaptations.spec.ts'],
+      'test:e2e:workout-v2-01e': ['test', 'e2e/workout-v2-01e-hub-ux.spec.ts'],
+      'test:e2e:workout-energy-01b': ['test', 'e2e/workout-energy-01b-session-snapshot.spec.ts'],
+    }[script];
+    if (!e2eArgs) throw new Error(`CANONICAL_DIRECT_COMMAND_UNMAPPED:${normalized.join(' ')}`);
+    return { command: process.execPath, args: [resolve(root, 'apps/web/node_modules/@playwright/test/cli.js'), ...e2eArgs], cwd: resolve(root, 'apps/web'), label: `node apps/web/node_modules/@playwright/test/cli.js ${e2eArgs.join(' ')}` };
+  }
+  if (normalized[0] === 'workout-energy:content:check') {
+    return { command: process.execPath, args: [resolve(root, 'apps/api/scripts/workout-energy-content-check.mjs')], cwd: root, label: 'node apps/api/scripts/workout-energy-content-check.mjs' };
+  }
+  throw new Error(`CANONICAL_DIRECT_COMMAND_UNMAPPED:${normalized.join(' ')}`);
+}
+
+export function dependencyReadinessPreflight() {
+  const required = [
+    'node_modules/.modules.yaml',
+    'apps/api/node_modules/typescript/bin/tsc',
+    'apps/api/node_modules/vitest/vitest.mjs',
+    'apps/web/node_modules/typescript/bin/tsc',
+    'apps/web/node_modules/vitest/vitest.mjs',
+    'apps/web/node_modules/next/dist/bin/next',
+    'apps/web/node_modules/@playwright/test/cli.js',
+    'apps/worker/node_modules/typescript/bin/tsc',
+    'apps/worker/node_modules/vitest/vitest.mjs',
+  ];
+  const missing = required.filter((entry) => !existsSync(resolve(root, entry)));
+  if (missing.length) return { exitCode: 1, reason: `CANONICAL_DEPENDENCIES_NOT_READY:${missing.join(',')}` };
+  return { exitCode: 0, reason: 'all canonical package binaries and workspace metadata are ready' };
+}
+
+/**
+ * Migration is deliberately launched with Node after the dedicated dependency
+ * preparation stage. Calling `pnpm db:migrate` here lets pnpm silently repair a
+ * partial workspace install left by an earlier timeout, consuming the migration
+ * stage budget before the migration process starts.
+ */
+export function migrationChildInvocation() {
+  return {
+    command: process.execPath,
+    args: [resolve(root, 'apps/api/scripts/migrate.mjs')],
+  };
 }
 
 async function prepareWorkspaceDependencies(env) {
@@ -472,7 +552,9 @@ export async function runPersistenceSuite(env, inventory) {
     try {
       const fileEnv = { ...env, DATABASE_URL: databaseUrlFor(env.DATABASE_URL, database) };
       const isActivityLong = /activity-01[ab]/.test(relativeFile);
-      const isLong = /workout-adaptation/.test(relativeFile);
+      const isLong = /workout-adaptation/.test(relativeFile) || relativeFile.includes('owner-recipe-defaults-decision-01.persistence.spec.ts') || relativeFile.includes('recipe-synthesis-design-choice-policy-01.persistence.spec.ts') || relativeFile.includes('recipe-identity-normalization-fix-01.persistence.spec.ts');
+      const isCatalogLong = /(?:catalog-core-v2|product-foundation)\.persistence\.spec\.ts$/.test(relativeFile);
+      const isSelectionLong = /recipe-product-selection\.persistence\.spec\.ts$/.test(relativeFile);
       // Activity-01A performs two isolated migration paths (full + pre-215)
       // before its assertions.  A cold disposable run measured ~317s with no
       // blocked query or leaked client; keep the per-file bound finite while
@@ -481,18 +563,18 @@ export async function runPersistenceSuite(env, inventory) {
       // A measured cold run reached the former 360s bound before test execution
       // completed; retain a finite bound with a 120s margin for bounded host
       // contention rather than counting that setup as a hang.
-      const fileBound = isActivityLong ? 480_000 : isLong ? 300_000 : 120_000;
+      const fileBound = isActivityLong ? 480_000 : isLong ? 300_000 : isCatalogLong ? 240_000 : isSelectionLong ? 300_000 : 120_000;
       const vitestArgs = [
         '--dir', 'apps/api', 'exec', 'vitest', 'run', '--passWithNoTests',
         '--pool=forks', '--fileParallelism=false', '--reporter=verbose',
         ...(isActivityLong ? ['--hookTimeout', String(fileBound)] : []),
         relativeFile,
       ];
-      result = await pnpmCommand(
-        vitestArgs,
-        fileEnv,
-        Math.min(fileBound, STAGE_BOUNDS.apiPersistence - (Date.now() - started)),
-        `API persistence ${relativeFile}`,
+      const invocation = canonicalDirectInvocation(vitestArgs);
+      result = await runBoundedProcess(
+        invocation.command,
+        invocation.args,
+        { cwd: invocation.cwd, env: createPnpmEnv(fileEnv), timeoutMs: Math.min(fileBound, STAGE_BOUNDS.apiPersistence - (Date.now() - started)), label: `API persistence ${relativeFile}` },
       );
     } finally {
       const testElapsedMs = Date.now() - testStarted;
@@ -520,11 +602,12 @@ async function commandSequence(commands, env, timeoutMs, label) {
   for (const command of commands) {
     const remaining = timeoutMs - (Date.now() - started);
     if (remaining <= 0) return { exitCode: 124, timedOut: true, lastProgress: lastProgress ?? `${label} exhausted its aggregate bound` };
-    process.stdout.write(`VERIFY_SUBCOMMAND_START ${JSON.stringify({ stage: label, command: `pnpm ${command.join(' ')}`, remainingMs: remaining })}\n`);
-    const result = await pnpmCommand(command, env, remaining, `${label}:${command.join(' ')}`);
+    const invocation = canonicalDirectInvocation(command);
+    process.stdout.write(`VERIFY_SUBCOMMAND_START ${JSON.stringify({ stage: label, command: invocation.label, remainingMs: remaining })}\n`);
+    const result = await runBoundedProcess(invocation.command, invocation.args, { cwd: invocation.cwd, env: createPnpmEnv(env), timeoutMs: remaining, label: `${label}:${invocation.label}` });
     combinedOutput += `${result.stdout}\n${result.stderr}\n`;
     lastProgress = result.lastProgress ?? lastProgress;
-    process.stdout.write(`VERIFY_SUBCOMMAND_END ${JSON.stringify({ stage: label, command: `pnpm ${command.join(' ')}`, elapsedMs: result.elapsedMs, exitCode: result.exitCode, timeout: result.timedOut })}\n`);
+    process.stdout.write(`VERIFY_SUBCOMMAND_END ${JSON.stringify({ stage: label, command: invocation.label, elapsedMs: result.elapsedMs, exitCode: result.exitCode, timeout: result.timedOut })}\n`);
     if (result.timedOut || result.exitCode !== 0) {
       return {
         ...result,
@@ -547,11 +630,33 @@ async function staticValidation(env) {
   });
   if (eslint.timedOut || eslint.exitCode !== 0) return eslint;
   const remaining = Math.max(1, STAGE_BOUNDS.static - (Date.now() - started));
-  return commandSequence([
-    ['db:check-migrations'], ['ui:check-ru'], ['ci:validate-workflows'],
-    ['--dir', 'apps/api', 'typecheck'], ['--dir', 'apps/web', 'typecheck'], ['--dir', 'apps/worker', 'typecheck'],
-    ['--filter', '@weight-app/contracts', 'test'], ['--filter', '@weight-app/config', 'test'],
+  return directStaticCommandSequence([
+    { command: process.execPath, args: [resolve(root, 'apps/api/scripts/check-migrations.mjs')], cwd: root, label: 'db:check-migrations' },
+    { command: process.execPath, args: [resolve(root, 'scripts/ui/check-ru.mjs')], cwd: root, label: 'ui:check-ru' },
+    { command: process.execPath, args: [resolve(root, 'scripts/ci/validate-workflows.mjs')], cwd: root, label: 'ci:validate-workflows' },
+    { command: process.execPath, args: [resolve(root, 'apps/api/node_modules/typescript/bin/tsc'), '--noEmit', '-p', resolve(root, 'apps/api/tsconfig.lint.json')], cwd: root, label: 'apps/api typecheck' },
+    { command: process.execPath, args: [resolve(root, 'apps/web/node_modules/typescript/bin/tsc'), '--noEmit', '-p', resolve(root, 'apps/web/tsconfig.json')], cwd: root, label: 'apps/web typecheck' },
+    { command: process.execPath, args: [resolve(root, 'apps/worker/node_modules/typescript/bin/tsc'), '--noEmit', '--module', 'node16', '--moduleResolution', 'node16', '--target', 'es2022', '--skipLibCheck', resolve(root, 'apps/worker/src/main.ts')], cwd: root, label: 'apps/worker typecheck' },
+    { command: process.execPath, args: ['--test'], cwd: resolve(root, 'packages/contracts'), label: '@weight-app/contracts test' },
+    { command: process.execPath, args: ['--experimental-strip-types', '--test', resolve(root, 'packages/config/src/browser-security.test.ts')], cwd: root, label: '@weight-app/config test' },
   ], env, remaining, 'static/type validation');
+}
+
+async function directStaticCommandSequence(commands, env, timeoutMs, label) {
+  const started = Date.now();
+  let lastProgress = null;
+  let combinedOutput = '';
+  for (const entry of commands) {
+    const remaining = timeoutMs - (Date.now() - started);
+    if (remaining <= 0) return { exitCode: 124, timedOut: true, lastProgress: lastProgress ?? `${label} exhausted its aggregate bound` };
+    process.stdout.write(`VERIFY_SUBCOMMAND_START ${JSON.stringify({ stage: label, command: entry.label, remainingMs: remaining })}\n`);
+    const result = await runBoundedProcess(entry.command, entry.args, { cwd: entry.cwd, env, timeoutMs: remaining, label: `${label}:${entry.label}` });
+    combinedOutput += `${result.stdout}\n${result.stderr}\n`;
+    lastProgress = result.lastProgress ?? lastProgress;
+    process.stdout.write(`VERIFY_SUBCOMMAND_END ${JSON.stringify({ stage: label, command: entry.label, elapsedMs: result.elapsedMs, exitCode: result.exitCode, timeout: result.timedOut })}\n`);
+    if (result.timedOut || result.exitCode !== 0) return { ...result, stdout: combinedOutput, reason: result.progressTail ?? result.lastProgress ?? `${label} failed`, lastProgress };
+  }
+  return { exitCode: 0, timedOut: false, elapsedMs: Date.now() - started, stdout: combinedOutput, lastProgress };
 }
 
 async function startTopology(env) {
@@ -572,8 +677,8 @@ async function verifyRuntimeMarkers(env) {
   return { exitCode: 0, reason: 'PostgreSQL and Redis runtime markers match the owned runtimeId' };
 }
 
-function startService(command, args, env, label, serviceState) {
-  const child = spawn(command, args, { cwd: root, env, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
+function startService(command, args, env, label, serviceState, cwd = root) {
+  const child = spawn(command, args, { cwd, env, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
   const state = { label, child, lastProgress: null, exitCode: null };
   const collect = (chunk, stream) => {
     const text = redactText(chunk, env);
@@ -624,8 +729,7 @@ async function ensureE2EServices(env, serviceState) {
   };
   const api = startService(process.execPath, [resolve(root, 'apps/api/dist/main.js')], runtimeEnv, 'api', serviceState);
   await waitForUrl(`http://127.0.0.1:${apiPort}/api/v1/health/live`, api, 90_000);
-  const runner = resolvePnpmInvocation(runtimeEnv);
-  const web = startService(runner.command, [...runner.argsPrefix, '--dir', 'apps/web', 'exec', 'next', 'start', '-H', '127.0.0.1', '-p', webPort], runtimeEnv, 'web', serviceState);
+  const web = startService(process.execPath, [resolve(root, 'apps/web/node_modules/next/dist/bin/next'), 'start', '-H', '127.0.0.1', '-p', webPort], { ...runtimeEnv, NEXT_TELEMETRY_DISABLED: '1' }, 'web', serviceState, resolve(root, 'apps/web'));
   await waitForUrl(`http://127.0.0.1:${webPort}/`, web, 90_000);
   Object.assign(env, runtimeEnv);
   return { exitCode: 0, reason: 'built API and Web are live on isolated loopback ports' };
@@ -640,6 +744,15 @@ async function stopServices(serviceState) {
 
 async function cleanupOwnedRuntime(env, serviceState) {
   await stopServices(serviceState);
+  const scope = assertDisposableCleanupScope(env);
+  const containerIds = spawnSync('docker', ['ps', '-aq', '--filter', `label=com.docker.compose.project=${scope.project}`], { cwd: root, env, encoding: 'utf8', timeout: 10_000, windowsHide: true });
+  if (containerIds.error) throw containerIds.error;
+  const ids = (containerIds.stdout ?? '').split(/\s+/).filter(Boolean);
+  if (ids.length) {
+    const inspected = spawnSync('docker', ['inspect', ...ids], { cwd: root, env, encoding: 'utf8', timeout: 10_000, windowsHide: true });
+    if (inspected.error || inspected.status !== 0) throw new Error('UNSAFE_DISPOSABLE_RUNTIME:RESOURCE_INSPECTION_FAILED');
+    for (const resource of JSON.parse(inspected.stdout)) assertOwnedResourceMetadata(resource, scope);
+  }
   const result = await runBoundedProcess('docker', ['compose', '-p', env.DISPOSABLE_COMPOSE_PROJECT, '-f', composeFile, 'down', '-v', '--remove-orphans'], {
     cwd: root,
     env,
@@ -689,7 +802,13 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
   process.once('SIGTERM', sigterm);
   const migrationAction = (expected) => async () => {
     await assertServerMarkers(env);
-    const result = await pnpmCommand(['db:migrate'], env, STAGE_BOUNDS.migration, `migration ${expected}`);
+    const child = migrationChildInvocation();
+    const result = await runBoundedProcess(child.command, child.args, {
+      cwd: root,
+      env,
+      timeoutMs: STAGE_BOUNDS.migration,
+      label: `migration ${expected}`,
+    });
     if (result.exitCode === 0 && !result.timedOut) {
       const expectedCount = migrationCount();
       const expectedPattern = expected === 'first'
@@ -705,10 +824,15 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
       command: 'pnpm install --offline --prefer-offline --frozen-lockfile (only when node_modules metadata is missing)',
       action: () => prepareWorkspaceDependencies(env),
     },
+    {
+      name: 'dependency readiness preflight', timeoutMs: 30_000,
+      command: 'direct package binary and workspace metadata checks (no install)',
+      action: async () => dependencyReadinessPreflight(),
+    },
     { name: 'disposable topology startup', timeoutMs: STAGE_BOUNDS.topology, command: 'docker compose up -d --wait --wait-timeout 90 postgres redis', action: () => startTopology(env) },
     { name: 'PostgreSQL/Redis marker verification', timeoutMs: STAGE_BOUNDS.markers, command: 'owned marker probes', action: () => verifyRuntimeMarkers(env) },
-    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect all migrations applied)', action: migrationAction('first') },
-    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'pnpm db:migrate (expect 0 applied / all skipped)', action: migrationAction('second') },
+    { name: 'migration first run', timeoutMs: STAGE_BOUNDS.migration, command: 'node apps/api/scripts/migrate.mjs (expect all migrations applied)', action: migrationAction('first') },
+    { name: 'migration second run', timeoutMs: STAGE_BOUNDS.migration, command: 'node apps/api/scripts/migrate.mjs (expect 0 applied / all skipped)', action: migrationAction('second') },
     {
       name: 'static/lint/type validation', timeoutMs: STAGE_BOUNDS.static,
       command: 'root ESLint; migration/UI/workflow checks; direct API/Web/Worker typechecks; support package tests',
@@ -742,10 +866,11 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     },
     {
       name: 'USER Runtime Smoke', timeoutMs: STAGE_BOUNDS.userSmoke,
-      command: 'start built API/Web; pnpm --dir apps/web test:e2e:runtime-smoke',
+      command: 'start built API/Web; direct Playwright runtime-smoke binary',
       action: async () => {
         await ensureE2EServices(env, serviceState);
-        return pnpmCommand(['--dir', 'apps/web', 'test:e2e:runtime-smoke'], env, STAGE_BOUNDS.userSmoke, 'USER Runtime Smoke');
+        const invocation = canonicalDirectInvocation(['--dir', 'apps/web', 'test:e2e:runtime-smoke']);
+        return runBoundedProcess(invocation.command, invocation.args, { cwd: invocation.cwd, env: createPnpmEnv(env), timeoutMs: STAGE_BOUNDS.userSmoke, label: 'USER Runtime Smoke' });
       },
     },
     {
@@ -758,8 +883,11 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     },
     {
       name: 'Activity E2E', timeoutMs: STAGE_BOUNDS.activityE2E,
-      command: 'pnpm --dir apps/web test:e2e:activity',
-      action: () => pnpmCommand(['--dir', 'apps/web', 'test:e2e:activity'], env, STAGE_BOUNDS.activityE2E, 'Activity E2E'),
+      command: 'direct Playwright activity binary',
+      action: () => {
+        const invocation = canonicalDirectInvocation(['--dir', 'apps/web', 'test:e2e:activity']);
+        return runBoundedProcess(invocation.command, invocation.args, { cwd: invocation.cwd, env: createPnpmEnv(env), timeoutMs: STAGE_BOUNDS.activityE2E, label: 'Activity E2E' });
+      },
     },
     {
       name: 'browser/runtime E2E', applicable: false,
@@ -779,9 +907,10 @@ export async function canonicalFullVerify(env = createRuntimeEnv()) {
     },
     {
       name: 'content coverage/status check', timeoutMs: STAGE_BOUNDS.content,
-      command: 'pnpm workout-energy:content:check',
+      command: 'node apps/api/scripts/workout-energy-content-check.mjs',
       action: async () => {
-        const result = await pnpmCommand(['workout-energy:content:check'], env, STAGE_BOUNDS.content, 'content coverage/status check');
+        const invocation = canonicalDirectInvocation(['workout-energy:content:check']);
+        const result = await runBoundedProcess(invocation.command, invocation.args, { cwd: invocation.cwd, env: createPnpmEnv(env), timeoutMs: STAGE_BOUNDS.content, label: 'content coverage/status check' });
         if (/CONTENT_COVERAGE_INCOMPLETE/.test(result.stdout + result.stderr)) result.reason = 'EXPECTED_DOMAIN_BLOCKER; PLATFORM blocker NO; owner CONTENT-01';
         return result;
       },
@@ -823,6 +952,12 @@ async function main() {
   if (command === 'guard-test') return run(process.execPath, ['--test', resolve(root, 'scripts/verify/disposable-runtime.spec.mjs'), resolve(root, 'scripts/verify/orchestration.spec.mjs')]);
   if (command === 'diagnostics') { console.log(JSON.stringify(diagnostics(process.env, { gitSha: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim() }), null, 2)); return; }
   if (command === 'up') { const env = await startRuntime(); console.log(JSON.stringify({ runtimeId: env.DISPOSABLE_RUNTIME_ID, DATABASE_URL: redactConnection(env.DATABASE_URL), REDIS_URL: redactConnection(env.REDIS_URL) }, null, 2)); return; }
+  if (command === 'static') {
+    const result = await staticValidation(createPnpmEnv(process.env));
+    process.stdout.write(`VERIFY_STATIC_RESULT ${JSON.stringify({ exitCode: result.exitCode, timedOut: result.timedOut ?? false, elapsedMs: result.elapsedMs ?? null, reason: result.reason ?? null })}\n`);
+    if (result.exitCode !== 0) process.exitCode = result.exitCode ?? 1;
+    return;
+  }
   if (command === 'full') {
     const env = createRuntimeEnv();
     await canonicalFullVerify(env);

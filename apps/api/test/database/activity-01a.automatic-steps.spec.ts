@@ -28,10 +28,14 @@ const ACTIVITY_RESET_TABLES = [
   "HealthPlatformConsent",
 ] as const;
 
+// This suite intentionally provisions two isolated databases (full history and
+// the pre-215 upgrade path). On the canonical disposable PostgreSQL runner the
+// healthy measured setup is ~304s, so the former 300s bound was below reality.
+// Keep a bounded margin for cold Docker/CI starts; this is not an unbounded wait.
 beforeAll(async () => {
   fullDb = await createDisposableMigratedDb();
   pre215Db = await createDisposableMigratedDb({ onlyUntil: M214 });
-}, 300_000);
+}, 420_000);
 
 afterAll(async () => {
   await pre215Db?.cleanup();

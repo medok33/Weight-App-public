@@ -121,6 +121,7 @@ export class FoodRuSourceAdapter implements RecipeSourceAdapter {
         fixtureScenario: context.testMode ? 'search-valid' : null,
         allowlist: FOOD_RU_HOSTNAME_ALLOWLIST,
         parserVersion: this.parserVersion,
+        pilotPolicy: context.collectionMode === 'CONTROLLED_PILOT' ? { sourceId: context.sourceId, allowControlledPilot: false, maxTotalRequests: 80, maxConcurrentRequests: 2, perHostMinIntervalMs: 2500, requestTimeoutMs: Math.min(context.requestTimeoutMs, 20000), maxRedirects: 3 } : undefined,
       });
       const cards = parseFoodRuSearchJson(response.bodyText);
       return cards.slice(0, input.resultLimit).map((card) => ({
@@ -174,6 +175,7 @@ export class FoodRuSourceAdapter implements RecipeSourceAdapter {
         fixtureScenario: context.testMode ? scenario : null,
         allowlist: FOOD_RU_HOSTNAME_ALLOWLIST,
         parserVersion: this.parserVersion,
+        pilotPolicy: context.collectionMode === 'CONTROLLED_PILOT' ? { sourceId: context.sourceId, allowControlledPilot: false, maxTotalRequests: 80, maxConcurrentRequests: 2, perHostMinIntervalMs: 2500, requestTimeoutMs: Math.min(context.requestTimeoutMs, 20000), maxRedirects: 3 } : undefined,
       });
       return parseFoodRuCandidateHtml({
         bodyText: response.bodyText,
@@ -202,6 +204,7 @@ export class FoodRuSourceAdapter implements RecipeSourceAdapter {
         fixtureScenario: context.testMode ? scenario : null,
         allowlist: FOOD_RU_HOSTNAME_ALLOWLIST,
         parserVersion: this.parserVersion,
+        pilotPolicy: context.collectionMode === 'CONTROLLED_PILOT' ? { sourceId: context.sourceId, allowControlledPilot: false, maxTotalRequests: 80, maxConcurrentRequests: 2, perHostMinIntervalMs: 2500, requestTimeoutMs: Math.min(context.requestTimeoutMs, 20000), maxRedirects: 3 } : undefined,
       });
       const available = response.statusCode >= 200 && response.statusCode < 300;
       return {

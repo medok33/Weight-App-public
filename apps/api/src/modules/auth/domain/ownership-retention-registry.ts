@@ -77,6 +77,8 @@ export const OWNERSHIP_RETENTION_REGISTRY = {
   Recipe: e('GLOBAL_SHARED', 'GLOBAL_NON_USER_DATA', false, 'PRESERVE_GLOBAL', 'Global recipe catalog.'),
   RecipeFamily: e('GLOBAL_SHARED', 'GLOBAL_NON_USER_DATA', false, 'PRESERVE_GLOBAL', 'Global recipe family.'),
   RecipeVersion: e('GLOBAL_SHARED', 'GLOBAL_NON_USER_DATA', false, 'PRESERVE_GLOBAL', 'Global recipe version.'),
+  RecipeEditorialReview: e('GLOBAL_SHARED', 'GLOBAL_NON_USER_DATA', false, 'PRESERVE_GLOBAL', 'Human editorial gate evidence for a global recipe version.'),
+  RecipeCookTest: e('GLOBAL_SHARED', 'GLOBAL_NON_USER_DATA', false, 'PRESERVE_GLOBAL', 'Cook-test gate evidence for a global recipe version.'),
   RecipeCoverageSlot: e('GLOBAL_SHARED', 'GLOBAL_NON_USER_DATA', false, 'PRESERVE_GLOBAL', 'Global recipe coverage slot.'),
   RecipeCoverageAssignment: e('GLOBAL_SHARED', 'GLOBAL_NON_USER_DATA', false, 'PRESERVE_GLOBAL', 'Global recipe coverage assignment.'),
   RecipeDuplicateCandidate: e('GLOBAL_SHARED', 'GLOBAL_NON_USER_DATA', false, 'PRESERVE_GLOBAL', 'Global duplicate candidate.'),

@@ -18,14 +18,15 @@ permissions:
 env:
   NODE_VERSION: "22"
   PNPM_VERSION: "11.9.0"
-  DISPOSABLE_POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}
+  DISPOSABLE_POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}_${{ github.run_attempt }}
   DISPOSABLE_POSTGRES_USER: weight_app_disposable
   DISPOSABLE_POSTGRES_PASSWORD: ci-disposable-postgres-password
-  DATABASE_URL: postgresql://weight_app_disposable:ci-disposable-postgres-password@localhost:5432/weight_app_disposable_ci_${{ github.run_id }}
+  DATABASE_URL: postgresql://weight_app_disposable:ci-disposable-postgres-password@localhost:5432/weight_app_disposable_ci_${{ github.run_id }}_${{ github.run_attempt }}
   WEIGHT_APP_DISPOSABLE_MODE: "1"
-  WEIGHT_APP_RUNTIME_ID: wa-ci-${{ github.run_id }}
-  DISPOSABLE_POSTGRES_MARKER: wa-ci-${{ github.run_id }}
-  DISPOSABLE_REDIS_MARKER: wa-ci-${{ github.run_id }}
+  WEIGHT_APP_RUNTIME_ID: wa-ci-${{ github.run_id }}-${{ github.run_attempt }}
+  DISPOSABLE_COMPOSE_PROJECT: weight-app-disposable-wa-ci-${{ github.run_id }}-${{ github.run_attempt }}
+  DISPOSABLE_POSTGRES_MARKER: wa-ci-${{ github.run_id }}-${{ github.run_attempt }}
+  DISPOSABLE_REDIS_MARKER: wa-ci-${{ github.run_id }}-${{ github.run_attempt }}
   REDIS_URL: redis://localhost:6379
   APP_ENV: LOCAL
   WEB_ALLOWED_ORIGINS: http://localhost:3000
@@ -48,14 +49,14 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}
+          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}_${{ github.run_attempt }}
           POSTGRES_USER: weight_app_disposable
           POSTGRES_PASSWORD: ci-disposable-postgres-password
           TZ: UTC
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}"
+          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}_${{ github.run_attempt }}"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
@@ -231,14 +232,14 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}
+          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}_${{ github.run_attempt }}
           POSTGRES_USER: weight_app_disposable
           POSTGRES_PASSWORD: ci-disposable-postgres-password
           TZ: UTC
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}"
+          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}_${{ github.run_attempt }}"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
@@ -368,14 +369,14 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}
+          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}_${{ github.run_attempt }}
           POSTGRES_USER: weight_app_disposable
           POSTGRES_PASSWORD: ci-disposable-postgres-password
           TZ: UTC
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}"
+          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}_${{ github.run_attempt }}"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
@@ -515,14 +516,14 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}
+          POSTGRES_DB: weight_app_disposable_ci_${{ github.run_id }}_${{ github.run_attempt }}
           POSTGRES_USER: weight_app_disposable
           POSTGRES_PASSWORD: ci-disposable-postgres-password
           TZ: UTC
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}"
+          --health-cmd "pg_isready -U weight_app_disposable -d weight_app_disposable_ci_${{ github.run_id }}_${{ github.run_attempt }}"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
