@@ -10,6 +10,8 @@ import { resolveIngredientForm, type IngredientIdentityCandidate } from '../src/
 import { aggregateResearchFacts, buildDishConceptCluster, buildSynthesisBrief, type ResearchCandidate, type SynthesisBrief } from '../src/modules/recipe-platform/domain/recipe-knowledge-synthesis.policy.ts';
 import { normalizeFoodText, normalizeUnit } from '../src/modules/recipe-platform/domain/recipe-research.policy.ts';
 import { attachIngredientStepEvidence, buildIngredientStepEvidence } from '../src/modules/recipe-platform/domain/recipe-step-ingredient-evidence.policy.ts';
+import { selectCanonicalProduct, type SelectionProduct } from '../src/modules/recipe-platform/domain/recipe-product-selection.policy.ts';
+import { computeBriefContentHash } from '../src/modules/recipe-platform/domain/recipe-synthesis-brief-approval.policy.ts';
 
 export type CorpusIngredient = { rawName?: string | null; normalizedName?: string | null; rawQuantity?: string | null; rawUnit?: string | null; normalizedQuantity?: { min?: number | null; max?: number | null } | null; normalizedUnit?: string | null; optional?: boolean; classification?: string | null };
 export type CorpusStep = { sourceOrder: number; researchOnlySourceText?: string | null; techniqueFacts?: string[]; durationFacts?: Array<{ min?: number | null; max?: number | null }>; temperatureFacts?: Array<{ min?: number | null; max?: number | null; c?: number | null }>; endConditions?: string[]; ingredientRefs?: Array<{ ingredientIndex: number; confidence: 'EXACT' | 'NORMALIZED_MATCH' | 'STEM_MATCH' | 'IMPLICIT' | 'UNRESOLVED' }> };
@@ -86,6 +88,29 @@ export function runPipeline(): PipelineResult {
   const targetCluster = clusters.find((cluster) => cluster.clusterId === 'dcluster_8c521f996b1e8844f530ff12');
   const targetBrief = briefs.find((brief) => brief.clusterId === 'dcluster_8c521f996b1e8844f530ff12');
   if (targetCluster && targetBrief) Object.assign(targetBrief, attachIngredientStepEvidence(targetBrief, buildIngredientStepEvidence({ cluster: targetCluster, candidates: mapped })));
+  // Materialize the same accepted deterministic selections used by readiness in
+  // the exact brief supplied to Editor. Optional/process inputs remain excluded.
+  const selectionCatalog: SelectionProduct[] = [...CATALOG_CORE_V2_PRODUCTS, ...CATALOG_CORE_V3_PRODUCTS]
+    .filter((product, index, all) => all.findIndex((candidate) => candidate.productKey === product.productKey) === index)
+    .map((product) => ({ productId: product.productKey, canonicalName: product.canonicalName, form: product.form, fatPercent: product.coefficients?.fatPercent ?? null, nutritionVersionPresent: Boolean(product.nutrition) }));
+  for (const brief of briefs) {
+    const cluster = clusters.find((item) => item.clusterId === brief.clusterId);
+    if (!cluster) continue;
+    const required = mapped.filter((candidate) => cluster.candidateIds.includes(candidate.candidateId)).flatMap((candidate) => candidate.ingredients.filter((item) => item.role === 'REQUIRED'));
+    const selections = required.map((ingredient) => {
+      const family = ingredient.productId?.startsWith('family:') ? ingredient.productId.slice('family:'.length) : ingredient.productId;
+      const decision = selectCanonicalProduct({ name: ingredient.name, identity: family ?? ingredient.name, family, productId: ingredient.productId, role: ingredient.role, quantity: ingredient.quantity, unit: ingredient.unit, allowSynthesisDefault: true, researchConflict: brief.status === 'BLOCKED_CONFLICT' }, selectionCatalog);
+      return { sourceLabel: ingredient.name, productId: decision.selectedProductId, quantity: ingredient.quantity ?? null, unit: ingredient.unit ?? null, role: ingredient.role ?? 'REQUIRED', optional: false, authority: decision.reason };
+    }).filter((item) => item.productId);
+    brief.approvedProducts = [...new Set(selections.map((item) => item.productId!).filter(Boolean))].sort();
+    brief.deterministicSelections = selections;
+    brief.ownerDecisions = { ...(brief.clusterId === 'dcluster_87b96a2fc22b24da2b6baa44' ? { tomatoOil: 'sunflower_oil', tomatoButterRequired: 'NO' } : {}), ...(brief.clusterId === 'dcluster_06210e70a9392b5421aa0155' ? { orangeZestRequired: 'NO', orangeZestIncluded: 'NO' } : {}) };
+    brief.exclusions = brief.clusterId === 'dcluster_06210e70a9392b5421aa0155' ? ['Апельсиновая цедра'] : [];
+    const representative = mapped.find((candidate) => candidate.candidateId === cluster.representativeCandidateId);
+    brief.servings = representative?.servings ?? null;
+    brief.totalTimeMinutes = representative?.preparationTime != null && representative?.cookingTime != null ? representative.preparationTime + representative.cookingTime : representative?.preparationTime ?? representative?.cookingTime ?? null;
+    brief.contentHash = computeBriefContentHash(brief);
+  }
   return { candidates: mapped.map((candidate) => applyBoundedContext(candidate, accepted)), clusters, facts: allFacts, briefs, readiness, conflicts: allFacts.filter((f) => f.requiresReview).length };
 }
 
