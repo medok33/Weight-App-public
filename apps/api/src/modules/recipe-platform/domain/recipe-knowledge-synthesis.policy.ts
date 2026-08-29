@@ -93,6 +93,13 @@ export type SynthesisBrief = {
   evidenceSummary: { candidateIds: string[]; sourceCodes: string[]; factIds: string[]; rejectedFactIds: string[]; conflictLevels: ConflictLevel[]; scores: { sourceQuality: number; weightAppFit: number }; ingredientStepEvidence?: unknown };
   status: 'DRAFT' | 'READY_FOR_REVIEW' | 'APPROVED_FOR_SYNTHESIS' | 'BLOCKED_CONFLICT' | 'REJECTED';
   approvalState: 'PENDING' | 'OWNER_APPROVED' | 'SYSTEM_BLOCKED';
+  /** Deterministic selection snapshot and content hash are populated before any Editor call. */
+  deterministicSelections?: Array<{ sourceLabel: string; productId: string | null; quantity: number | null; unit: string | null; role: string; optional: boolean; authority: string }>;
+  ownerDecisions?: Record<string, string>;
+  exclusions?: string[];
+  servings?: number | null;
+  totalTimeMinutes?: number | null;
+  contentHash?: string;
 };
 
 export type GrammageConstraint = { productId: string; role: string; minGrams: number; maxGrams: number; targetGrams?: number | null; stepGrams: number; fixed?: boolean; required?: boolean; reason: string; sourceFactIds: string[] };

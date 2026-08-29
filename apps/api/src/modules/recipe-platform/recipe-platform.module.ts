@@ -26,6 +26,7 @@ import { CHEF_EDITOR_PROVIDER, ChefEditorService, DeterministicChefEditorProvide
 import { RecipeAuthoringPersistence } from './application/recipe-authoring.persistence';
 import { RecipePublicationService } from './application/recipe-publication.service';
 import { RecipeQualityOrchestrator } from './application/recipe-quality.orchestrator';
+import { RecipeSynthesisBriefApprovalService } from './application/recipe-synthesis-brief-approval.service';
 
 @Module({
   imports: [DatabaseModule, AuthModule, ProductCatalogModule, AuditSecurityModule],
@@ -52,6 +53,7 @@ import { RecipeQualityOrchestrator } from './application/recipe-quality.orchestr
     RecipeAuthoringPersistence,
     RecipePublicationService,
     RecipeQualityOrchestrator,
+    RecipeSynthesisBriefApprovalService,
   ],
   exports: [
     RecipeVersionService,
@@ -73,6 +75,7 @@ import { RecipeQualityOrchestrator } from './application/recipe-quality.orchestr
     RecipeAuthoringPersistence,
     RecipePublicationService,
     RecipeQualityOrchestrator,
+    RecipeSynthesisBriefApprovalService,
   ],
 })
 export class RecipePlatformModule {}

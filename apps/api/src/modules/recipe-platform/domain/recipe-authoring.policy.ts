@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { SynthesisBrief } from './recipe-knowledge-synthesis.policy';
+import { computeBriefContentHash, isApprovalForCurrentBrief, type BriefApprovalRecord } from './recipe-synthesis-brief-approval.policy';
 
 export const CHEF_EDITOR_CONTRACT_VERSION = 'chef-editor/v1' as const;
 export const NUTRITION_ENERGY_TOLERANCE = 0.2;
@@ -14,6 +15,10 @@ export type ChefEditorResult = { status: 'SUCCESS' | 'PROVIDER_ERROR' | 'TIMEOUT
 const forbidden = /<\/?(script|iframe|style)\b|(?:ignore\s+(?:all\s+)?previous|system\s+message|publish|database|sql|insert\s+into|create\s+product|tool\s*\()/i;
 export function validateChefEditorInput(input: ChefEditorInput): void {
   if (!input.brief || input.brief.status === 'BLOCKED_CONFLICT' || input.brief.approvalState !== 'OWNER_APPROVED') throw new Error('SYNTHESIS_BRIEF_NOT_APPROVED');
+  if (input.brief.contentHash) {
+    const record = (input.evidenceSummary as { approvalRecord?: BriefApprovalRecord }).approvalRecord ?? null;
+    if (input.brief.contentHash !== computeBriefContentHash(input.brief) || !isApprovalForCurrentBrief(input.brief, record)) throw new Error('SYNTHESIS_BRIEF_APPROVAL_HASH_INVALID');
+  }
   if (!Array.isArray(input.grammage) || input.grammage.length === 0) throw new Error('GRAMMAGE_REQUIRED');
   const allowed = new Set(input.approvedProductIds);
   for (const item of input.grammage) { if (!allowed.has(item.productId)) throw new Error('PRODUCT_NOT_APPROVED'); if (!(item.amount > 0)) throw new Error('GRAMMAGE_INVALID'); }
