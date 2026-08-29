@@ -27,6 +27,7 @@ import { RecipeAuthoringPersistence } from './application/recipe-authoring.persi
 import { RecipePublicationService } from './application/recipe-publication.service';
 import { RecipeQualityOrchestrator } from './application/recipe-quality.orchestrator';
 import { RecipeSynthesisBriefApprovalService } from './application/recipe-synthesis-brief-approval.service';
+import { BoundedSynthesisOrchestrator } from './application/bounded-synthesis.orchestrator';
 
 @Module({
   imports: [DatabaseModule, AuthModule, ProductCatalogModule, AuditSecurityModule],
@@ -54,6 +55,7 @@ import { RecipeSynthesisBriefApprovalService } from './application/recipe-synthe
     RecipePublicationService,
     RecipeQualityOrchestrator,
     RecipeSynthesisBriefApprovalService,
+    BoundedSynthesisOrchestrator,
   ],
   exports: [
     RecipeVersionService,
@@ -76,6 +78,7 @@ import { RecipeSynthesisBriefApprovalService } from './application/recipe-synthe
     RecipePublicationService,
     RecipeQualityOrchestrator,
     RecipeSynthesisBriefApprovalService,
+    BoundedSynthesisOrchestrator,
   ],
 })
 export class RecipePlatformModule {}
