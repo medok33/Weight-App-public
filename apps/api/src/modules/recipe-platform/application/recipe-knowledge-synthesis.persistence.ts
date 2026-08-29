@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import type { DishConceptCluster, RecipeResearchFact, SynthesisBrief } from '../domain/recipe-knowledge-synthesis.policy';
+import { briefIdToStorageUuid } from '../domain/brief-identity';
 
 /** Persistence boundary for the research layer only. It cannot publish recipe content. */
 @Injectable()
@@ -32,7 +33,7 @@ export class RecipeKnowledgeSynthesisPersistence {
       `INSERT INTO "RecipeSynthesisBrief" ("id", "briefVersion", "clusterId", "coverageSlot", "objective", "approvedProducts", "forbiddenProducts", "targetNutrition", "targetCost", "targetCookTime", "allowedEquipment", "requiredTechniques", "optionalTechniques", "requiredFacts", "conflictingFacts", "unresolvedFacts", "differentiationReason", "evidenceSummary", "status", "approvalState")
        VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18::jsonb, $19, $20)
        ON CONFLICT ("id") DO UPDATE SET "updatedAt" = now(), "status" = EXCLUDED."status", "approvalState" = EXCLUDED."approvalState", "evidenceSummary" = EXCLUDED."evidenceSummary"`,
-      [toUuid(brief.briefId), brief.briefVersion, toUuid(brief.clusterId), brief.coverageSlot, brief.objective, json(brief.approvedProducts), json(brief.forbiddenProducts), brief.targetNutrition == null ? null : json(brief.targetNutrition), brief.targetCost ?? null, brief.targetCookTime ?? null, json(brief.allowedEquipment), json(brief.requiredTechniques), json(brief.optionalTechniques), json(brief.requiredFacts), json(brief.conflictingFacts), json(brief.unresolvedFacts), brief.differentiationReason, json({ ...brief.evidenceSummary, deterministicSelections: brief.deterministicSelections ?? [], ownerDecisions: brief.ownerDecisions ?? {}, exclusions: brief.exclusions ?? [], servings: brief.servings ?? null, totalTimeMinutes: brief.totalTimeMinutes ?? null }), brief.status, brief.approvalState === 'OWNER_APPROVED' ? 'PENDING' : brief.approvalState],
+      [briefIdToStorageUuid(brief.briefId), brief.briefVersion, toUuid(brief.clusterId), brief.coverageSlot, brief.objective, json(brief.approvedProducts), json(brief.forbiddenProducts), brief.targetNutrition == null ? null : json(brief.targetNutrition), brief.targetCost ?? null, brief.targetCookTime ?? null, json(brief.allowedEquipment), json(brief.requiredTechniques), json(brief.optionalTechniques), json(brief.requiredFacts), json(brief.conflictingFacts), json(brief.unresolvedFacts), brief.differentiationReason, json({ ...brief.evidenceSummary, deterministicSelections: brief.deterministicSelections ?? [], ownerDecisions: brief.ownerDecisions ?? {}, exclusions: brief.exclusions ?? [], servings: brief.servings ?? null, totalTimeMinutes: brief.totalTimeMinutes ?? null }), brief.status, brief.approvalState === 'OWNER_APPROVED' ? 'PENDING' : brief.approvalState],
     );
   }
 }
