@@ -42,7 +42,7 @@ function contractBase(recipeKey: string, title: string): Omit<RecipeContractV1, 
     servings: 2,
     yieldGrams: 400,
     totalTimeMinutes: 20,
-    ingredients: [{ ingredientId: 'i1', productId: 'p1', grams: 100, unit: 'g', optional: false }],
+    ingredients: [{ ingredientId: 'i1', productId: fixtureProductId, grams: 100, unit: 'g', optional: false }],
     equipment: ['pot'],
     methodSkeleton: skeleton,
     nutrition: {},
@@ -72,7 +72,7 @@ function inputOf(contract: RecipeContractV1, receipt: unknown, extra: Record<str
     description: contract.description,
     servings: contract.servings,
     yieldGrams: contract.yieldGrams,
-    ingredients: [{ id: 'i1', productId: 'p1', amount: 100, unit: 'g' }],
+    ingredients: [{ id: 'i1', productId: fixtureProductId, amount: 100, unit: 'g' }],
     steps: [{ index: 1, text: 'ok', ingredientIds: ['i1'] }],
     nutrition: { total: { kcal: 1, proteinG: 1, fatG: 1, carbohydratesG: 1 }, perServing: { kcal: 1, proteinG: 1, fatG: 1, carbohydratesG: 1 }, yieldGrams: 400, servings: 2, basis: 'CANONICAL_PRODUCT_NUTRITION' as const },
     cost: { status: 'UNAVAILABLE' },
@@ -84,6 +84,7 @@ function inputOf(contract: RecipeContractV1, receipt: unknown, extra: Record<str
 }
 
 let actorUserId = '';
+let fixtureProductId = '';
 
 async function versionState(versionId: string) {
   const row = await pool.query(
@@ -108,6 +109,12 @@ describe('07C2A-R2 draft boundary persistence (disposable local PostgreSQL)', ()
     await applyMigration('182_meal-item-recipe-version');
     await applyMigration('183_recipe-version-immutability');
     await applyMigration('184_recipe-version-lifecycle');
+    const product = await pool.query<{ id: string }>(
+      `INSERT INTO "Product" (id, "canonicalName", unit, "caloriesPer100g", "proteinPer100g", "fatPer100g", "carbsPer100g")
+       VALUES (gen_random_uuid(), $1, 'g', 100, 10, 1, 5) RETURNING id`,
+      [`r2_prod_${uniqueKey('draft-fixture')}`],
+    );
+    fixtureProductId = product.rows[0].id;
     const user = await pool.query<{ id: string }>(`INSERT INTO "User" (id) VALUES (gen_random_uuid()) RETURNING id`);
     actorUserId = user.rows[0].id;
     db = new PrismaService();
