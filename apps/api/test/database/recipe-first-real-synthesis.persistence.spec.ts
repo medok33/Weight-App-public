@@ -76,7 +76,8 @@ describe('RECIPE-FIRST-REAL-SYNTHESIS-01 disposable acceptance', () => {
       barrierDb.withTransaction = async (fn) => baseWithTransaction(async (query) => {
         let paused = false;
         const gatedQuery = async (text: string, values: unknown[] = []) => {
-          if (!paused && text.includes('SELECT id,"versionNumber" FROM "RecipeVersion" WHERE checksum')) {
+          const normalized = text.replace(/\s+/g, ' ').trim().toUpperCase();
+          if (!paused && normalized.includes('FROM "RECIPEVERSION" WHERE CHECKSUM')) {
             paused = true;
             ready += 1;
             if (ready === 2) markReady();
