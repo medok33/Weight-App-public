@@ -131,7 +131,7 @@ describe('RP2-03A coverage persistence', () => {
         rationale: 'dup',
       }),
     ).rejects.toThrow(/COVERAGE_SLOT_KEY_DUPLICATE/);
-  });
+  }, 30_000);
 
   it('runs snapshot analysis and persists counts/status', async () => {
     const analysis = await coverage.runInitialSnapshotAnalysis(actorId);

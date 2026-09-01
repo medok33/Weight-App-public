@@ -223,8 +223,11 @@ export class RecipeVersionService {
         [input.recipeId],
       );
       const versionNumber = Number(nextNumber.rows[0]?.n ?? 1);
-      // Snapshot content is always locked. Operational publish goes through publishVersion gates.
-      const lockSnapshot = true;
+      // Versions are always staged as immutable DRAFT rows first; publication
+      // is an explicit gated transition (publishVersion) that flips row status,
+      // lifecycle and currentVersionId atomically. No row may be inserted as
+      // already PUBLISHED before the gates have run (07C2A-R2 §6).
+      const stagedAsDraft = true;
       const changeType = input.changeType ?? 'MANUAL_PUBLISH';
       const provenance = role === 'OWNER' ? 'OWNER_PUBLISH' : 'ADMIN_PUBLISH';
       const checksum = computeRecipeVersionChecksum(snapshots);
@@ -254,7 +257,7 @@ export class RecipeVersionService {
         [
           input.recipeId,
           versionNumber,
-          lockSnapshot ? 'PUBLISHED' : 'DRAFT',
+          stagedAsDraft ? 'DRAFT' : 'PUBLISHED',
           JSON.stringify(snapshots.content),
           JSON.stringify(snapshots.ingredients),
           JSON.stringify(snapshots.steps),
@@ -267,7 +270,7 @@ export class RecipeVersionService {
           input.actorUserId,
           null,
           null,
-          lockSnapshot ? new Date() : null,
+          stagedAsDraft ? null : new Date(),
           checksum,
           parent.rows[0]?.id ?? null,
           provenance,
@@ -374,7 +377,7 @@ export class RecipeVersionService {
         recipeId: input.recipeId,
         versionNumber: version.versionNumber,
         checksum,
-        status: 'PUBLISHED',
+        status: stagedAsDraft ? 'DRAFT' : 'PUBLISHED',
         lifecycleStatus: 'IN_REVIEW',
         validationStatus: 'VALID',
         content: snapshots.content,

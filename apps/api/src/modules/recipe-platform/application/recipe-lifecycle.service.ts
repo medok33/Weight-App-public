@@ -472,11 +472,19 @@ export class RecipeLifecycleService {
       [input.recipeId, input.versionId],
     );
     // Fill publishedAt only when missing — full row updates trip RECIPE_VERSION_IMMUTABLE.
+    // Row status flips to PUBLISHED in the same statement so a staged DRAFT can
+    // never end up with lifecycle=PUBLISHED but status=DRAFT (07C2A-R2 defect 2).
+    // The guard keeps already-published rows untouched (restore path replays).
     await input.query(
       `UPDATE "RecipeVersion"
-       SET "publishedAt" = now()
-       WHERE id = $1 AND "publishedAt" IS NULL`,
-      [input.versionId],
+       SET "publishedAt" = now(),
+           status = 'PUBLISHED',
+           "approvedBy" = COALESCE("approvedBy", $2),
+           "approvedAt" = COALESCE("approvedAt", now())
+       WHERE id = $1
+         AND "publishedAt" IS NULL
+         AND status <> 'PUBLISHED'`,
+      [input.versionId, input.actorUserId],
     );
 
     await this.audit?.appendEvent({
