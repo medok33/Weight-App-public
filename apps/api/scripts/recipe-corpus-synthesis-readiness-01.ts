@@ -87,7 +87,7 @@ export function runPipeline(): PipelineResult {
     const readinessState = eligible ? (familyPending > 0 ? 'READY_FOR_PRODUCT_SELECTION' : brief?.status === 'READY_FOR_REVIEW' ? 'RESEARCH_ONLY_MORE_EVIDENCE_NEEDED' : 'READY_FOR_DETERMINISTIC_GRAMS') : !multiSource ? 'BLOCKED_CLUSTER_CONFIDENCE' : highConflicts ? 'BLOCKED_CONFLICT' : gaps > 0 ? 'BLOCKED_INGREDIENT_IDENTITY' : 'RESEARCH_ONLY_MORE_EVIDENCE_NEEDED'; const blocker = brief ? (brief.status === 'BLOCKED_CONFLICT' ? 'BLOCKED_CONFLICT' : brief.unresolvedFacts.length ? 'PRODUCT_SELECTION_PENDING' : familyPending > 0 ? 'PRODUCT_SELECTION_PENDING' : '') : readinessState; readiness.push({ clusterId: cluster.clusterId, workingConceptName: cluster.displayLabel, candidateCount: group.length, distinctSourceCount: cluster.sourceCount, sources: cluster.sourceCodes.join('|'), confidence: cluster.sourceQualityScore.score, ingredientSimilarity: 1, techniqueSimilarity: cluster.techniqueSignature.length ? 1 : 0, structuralSimilarity: 1, synthesisCandidate: Boolean(brief), blockReason: blocker }); }
   const targetCluster = clusters.find((cluster) => cluster.clusterId === 'dcluster_8c521f996b1e8844f530ff12');
   const targetBrief = briefs.find((brief) => brief.clusterId === 'dcluster_8c521f996b1e8844f530ff12');
-  if (targetCluster && targetBrief) Object.assign(targetBrief, attachIngredientStepEvidence(targetBrief, buildIngredientStepEvidence({ cluster: targetCluster, candidates: mapped })));
+  if (targetCluster && targetBrief) Object.assign(targetBrief, attachIngredientStepEvidence(targetBrief, buildIngredientStepEvidence({ cluster: targetCluster, candidates: mapped.map((candidate) => applyBoundedContext(candidate, accepted)) })));
   // Materialize the same accepted deterministic selections used by readiness in
   // the exact brief supplied to Editor. Optional/process inputs remain excluded.
   const selectionCatalog: SelectionProduct[] = [...CATALOG_CORE_V2_PRODUCTS, ...CATALOG_CORE_V3_PRODUCTS]
@@ -96,7 +96,9 @@ export function runPipeline(): PipelineResult {
   for (const brief of briefs) {
     const cluster = clusters.find((item) => item.clusterId === brief.clusterId);
     if (!cluster) continue;
-    const required = mapped.filter((candidate) => cluster.candidateIds.includes(candidate.candidateId)).flatMap((candidate) => candidate.ingredients.filter((item) => item.role === 'REQUIRED'));
+    // Selection is made from the bounded-context view. Raw donor rows are never
+    // allowed to reintroduce excluded ingredients or pre-policy identities.
+    const required = resultCandidatesForCluster(cluster, mapped, accepted).flatMap((candidate) => candidate.ingredients.filter((item) => item.role === 'REQUIRED'));
     const selections = required.map((ingredient) => {
       const family = ingredient.productId?.startsWith('family:') ? ingredient.productId.slice('family:'.length) : ingredient.productId;
       const decision = selectCanonicalProduct({ name: ingredient.name, identity: family ?? ingredient.name, family, productId: ingredient.productId, role: ingredient.role, quantity: ingredient.quantity, unit: ingredient.unit, allowSynthesisDefault: true, researchConflict: brief.status === 'BLOCKED_CONFLICT' }, selectionCatalog);
@@ -104,14 +106,25 @@ export function runPipeline(): PipelineResult {
     }).filter((item) => item.productId);
     brief.approvedProducts = [...new Set(selections.map((item) => item.productId!).filter(Boolean))].sort();
     brief.deterministicSelections = selections;
-    brief.ownerDecisions = { ...(brief.clusterId === 'dcluster_87b96a2fc22b24da2b6baa44' ? { tomatoOil: 'sunflower_oil', tomatoButterRequired: 'NO' } : {}), ...(brief.clusterId === 'dcluster_06210e70a9392b5421aa0155' ? { orangeZestRequired: 'NO', orangeZestIncluded: 'NO' } : {}) };
+    brief.ownerDecisions = { ...(brief.clusterId === 'dcluster_87b96a2fc22b24da2b6baa44' ? { sunflowerOil: 'sunflower_oil', butterRequired: 'NO' } : {}), ...(brief.clusterId === 'dcluster_06210e70a9392b5421aa0155' ? { orangeZestRequired: 'NO', orangeZestIncluded: 'NO' } : {}) };
     brief.exclusions = brief.clusterId === 'dcluster_06210e70a9392b5421aa0155' ? ['Апельсиновая цедра'] : [];
     const representative = mapped.find((candidate) => candidate.candidateId === cluster.representativeCandidateId);
     brief.servings = representative?.servings ?? null;
     brief.totalTimeMinutes = representative?.preparationTime != null && representative?.cookingTime != null ? representative.preparationTime + representative.cookingTime : representative?.preparationTime ?? representative?.cookingTime ?? null;
+    // Final readiness is evaluated only after all hash-bound selections and
+    // exclusions are materialized.
+    const readinessRow = readiness.find((row) => row.clusterId === brief.clusterId);
+    if (readinessRow && brief.unresolvedFacts.length === 0 && brief.conflictingFacts.length === 0 && selections.length > 0) {
+      readinessRow.blockReason = '';
+      readinessRow.readiness = 'READY_FOR_SYNTHESIS';
+    }
     brief.contentHash = computeBriefContentHash(brief);
   }
   return { candidates: mapped.map((candidate) => applyBoundedContext(candidate, accepted)), clusters, facts: allFacts, briefs, readiness, conflicts: allFacts.filter((f) => f.requiresReview).length };
+}
+
+function resultCandidatesForCluster(cluster: ReturnType<typeof buildDishConceptCluster>, mapped: ResearchCandidate[], accepted: IngredientIdentityCandidate[]): ResearchCandidate[] {
+  return mapped.filter((candidate) => cluster.candidateIds.includes(candidate.candidateId)).map((candidate) => applyBoundedContext(candidate, accepted));
 }
 
 async function persist(result: PipelineResult, connectionString: string): Promise<void> {

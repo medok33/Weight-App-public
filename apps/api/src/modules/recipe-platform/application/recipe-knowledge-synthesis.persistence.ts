@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import type { DishConceptCluster, RecipeResearchFact, SynthesisBrief } from '../domain/recipe-knowledge-synthesis.policy';
 import { briefIdToStorageUuid } from '../domain/brief-identity';
@@ -32,9 +33,28 @@ export class RecipeKnowledgeSynthesisPersistence {
     await this.db.query(
       `INSERT INTO "RecipeSynthesisBrief" ("id", "briefVersion", "clusterId", "coverageSlot", "objective", "approvedProducts", "forbiddenProducts", "targetNutrition", "targetCost", "targetCookTime", "allowedEquipment", "requiredTechniques", "optionalTechniques", "requiredFacts", "conflictingFacts", "unresolvedFacts", "differentiationReason", "evidenceSummary", "status", "approvalState")
        VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18::jsonb, $19, $20)
-       ON CONFLICT ("id") DO UPDATE SET "updatedAt" = now(), "status" = EXCLUDED."status", "approvalState" = EXCLUDED."approvalState", "evidenceSummary" = EXCLUDED."evidenceSummary"`,
+       ON CONFLICT ("id") DO UPDATE SET "briefVersion"=EXCLUDED."briefVersion", "clusterId"=EXCLUDED."clusterId", "coverageSlot"=EXCLUDED."coverageSlot", "objective"=EXCLUDED."objective", "approvedProducts"=EXCLUDED."approvedProducts", "forbiddenProducts"=EXCLUDED."forbiddenProducts", "targetNutrition"=EXCLUDED."targetNutrition", "targetCost"=EXCLUDED."targetCost", "targetCookTime"=EXCLUDED."targetCookTime", "allowedEquipment"=EXCLUDED."allowedEquipment", "requiredTechniques"=EXCLUDED."requiredTechniques", "optionalTechniques"=EXCLUDED."optionalTechniques", "requiredFacts"=EXCLUDED."requiredFacts", "conflictingFacts"=EXCLUDED."conflictingFacts", "unresolvedFacts"=EXCLUDED."unresolvedFacts", "differentiationReason"=EXCLUDED."differentiationReason", "evidenceSummary"=EXCLUDED."evidenceSummary", "status"=EXCLUDED."status", "approvalState"=EXCLUDED."approvalState", "updatedAt"=now()`,
       [briefIdToStorageUuid(brief.briefId), brief.briefVersion, toUuid(brief.clusterId), brief.coverageSlot, brief.objective, json(brief.approvedProducts), json(brief.forbiddenProducts), brief.targetNutrition == null ? null : json(brief.targetNutrition), brief.targetCost ?? null, brief.targetCookTime ?? null, json(brief.allowedEquipment), json(brief.requiredTechniques), json(brief.optionalTechniques), json(brief.requiredFacts), json(brief.conflictingFacts), json(brief.unresolvedFacts), brief.differentiationReason, json({ ...brief.evidenceSummary, deterministicSelections: brief.deterministicSelections ?? [], ownerDecisions: brief.ownerDecisions ?? {}, exclusions: brief.exclusions ?? [], servings: brief.servings ?? null, totalTimeMinutes: brief.totalTimeMinutes ?? null }), brief.status, brief.approvalState === 'OWNER_APPROVED' ? 'PENDING' : brief.approvalState],
     );
+  }
+
+  async loadBrief(briefId: string, domainClusterId?: string): Promise<SynthesisBrief | null> {
+    const result = await this.db.query<Record<string, unknown>>(`SELECT * FROM "RecipeSynthesisBrief" WHERE "id"=$1::uuid`, [briefIdToStorageUuid(briefId)]);
+    const row = result.rows[0] as any;
+    if (!row) return null;
+    const evidence = (row.evidenceSummary ?? {}) as Record<string, unknown>;
+    return {
+      briefId, briefVersion: String(row.briefVersion), clusterId: domainClusterId ?? String(evidence.clusterId ?? row.clusterId),
+      coverageSlot: row.coverageSlot as string | null, objective: String(row.objective),
+      approvedProducts: (row.approvedProducts ?? []) as string[], forbiddenProducts: (row.forbiddenProducts ?? []) as string[],
+      targetNutrition: row.targetNutrition as Record<string, number> | null, targetCost: row.targetCost as number | null, targetCookTime: row.targetCookTime as number | null,
+      allowedEquipment: (row.allowedEquipment ?? []) as string[], requiredTechniques: (row.requiredTechniques ?? []) as string[], optionalTechniques: (row.optionalTechniques ?? []) as string[],
+      requiredFacts: (row.requiredFacts ?? []) as string[], conflictingFacts: (row.conflictingFacts ?? []) as string[], unresolvedFacts: (row.unresolvedFacts ?? []) as string[],
+      differentiationReason: String(row.differentiationReason), evidenceSummary: evidence as any,
+      status: row.status as SynthesisBrief['status'], approvalState: row.approvalState as SynthesisBrief['approvalState'],
+      deterministicSelections: (evidence.deterministicSelections ?? []) as SynthesisBrief['deterministicSelections'], ownerDecisions: (evidence.ownerDecisions ?? {}) as Record<string, string>,
+      exclusions: (evidence.exclusions ?? []) as string[], servings: evidence.servings as number | null, totalTimeMinutes: evidence.totalTimeMinutes as number | null,
+    };
   }
 }
 
