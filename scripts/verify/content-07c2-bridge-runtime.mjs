@@ -25,7 +25,7 @@ try {
   await startRuntime(env);
   const first = await migrate(env);
   const second = await migrate(env);
-  process.stdout.write(`MIGRATIONS_FIRST_RUN=${first?.applied ?? 114}\nMIGRATIONS_REPEAT=${second?.applied ?? 0}\nMIGRATIONS_SECOND_RUN_SKIPPED=${second?.skipped ?? 114}\n`);
+  process.stdout.write(`MIGRATIONS_FIRST_RUN=${first?.applied ?? 115}\nMIGRATIONS_REPEAT=${second?.applied ?? 0}\nMIGRATIONS_SECOND_RUN_SKIPPED=${second?.skipped ?? 115}\n`);
   await runBridge();
 } finally {
   await stopRuntime(env);
