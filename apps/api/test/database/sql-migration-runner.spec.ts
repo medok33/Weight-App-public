@@ -88,9 +88,7 @@ describe.runIf(Boolean(DATABASE_URL))('sql migration runner against postgres', (
       await expect(runSqlMigrations(client, { migrationsRoot: root })).rejects.toThrow(/MIGRATION_FAILED:002_bad/);
     });
   // This creates and tears down an extra PostgreSQL database while the
-  // canonical suite is already running against a disposable instance. Keep a
-  // finite bound, but allow the observed cold-host lifecycle to complete.
-  }, 60_000);
+  }, 15_000);
 
   it('concurrent runners serialize via advisory lock', async () => {
     await withTempDb(async (client, root) => {
@@ -123,7 +121,7 @@ describe.runIf(Boolean(DATABASE_URL))('sql migration runner against postgres', (
       expect(rows.rows[0].c).toBe(1);
       expect(ADVISORY_LOCK_KEY).toBeTypeOf('number');
     });
-  }, 60_000);
+  }, 15_000);
 
   it('ensureLedger + drift gate', async () => {
     await withTempDb(async (client) => {

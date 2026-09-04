@@ -10,17 +10,7 @@ export function mapRecipeSynthesisBriefRow(briefId: string, row: Record<string, 
   const domainClusterId = typeof row.domainClusterId === 'string' ? row.domainClusterId.trim() : '';
   if (!domainClusterId) throw new Error('BRIEF_DOMAIN_CLUSTER_ID_MISSING');
   const storedEvidence = (row.evidenceSummary ?? {}) as Record<string, unknown>;
-  // These fields are denormalized into the JSON column for storage compatibility,
-  // but are separate hash-bound fields in the domain contract. Returning them in
-  // evidenceSummary as well changes the content hash after a persistence round trip.
-  const {
-    deterministicSelections = [],
-    ownerDecisions = {},
-    exclusions = [],
-    servings = null,
-    totalTimeMinutes = null,
-    ...evidence
-  } = storedEvidence;
+  const hasColumn = (key: string) => Object.prototype.hasOwnProperty.call(row, key) && row[key] !== null && row[key] !== undefined;
   return {
     briefId,
     briefVersion: String(row.briefVersion),
@@ -39,13 +29,13 @@ export function mapRecipeSynthesisBriefRow(briefId: string, row: Record<string, 
     conflictingFacts: (row.conflictingFacts ?? []) as string[],
     unresolvedFacts: (row.unresolvedFacts ?? []) as string[],
     differentiationReason: String(row.differentiationReason),
-    evidenceSummary: evidence as any,
+    evidenceSummary: storedEvidence as any,
     status: row.status as SynthesisBrief['status'],
     approvalState: row.approvalState as SynthesisBrief['approvalState'],
-    deterministicSelections: deterministicSelections as SynthesisBrief['deterministicSelections'],
-    ownerDecisions: ownerDecisions as Record<string, string>,
-    exclusions: exclusions as string[],
-    servings: servings as number | null,
-    totalTimeMinutes: totalTimeMinutes as number | null,
+    deterministicSelections: (hasColumn('deterministicSelections') ? row.deterministicSelections : storedEvidence.deterministicSelections ?? []) as SynthesisBrief['deterministicSelections'],
+    ownerDecisions: (hasColumn('ownerDecisions') ? row.ownerDecisions : storedEvidence.ownerDecisions ?? {}) as Record<string, string>,
+    exclusions: (hasColumn('exclusions') ? row.exclusions : storedEvidence.exclusions ?? []) as string[],
+    servings: (hasColumn('servings') ? row.servings : storedEvidence.servings ?? null) as number | null,
+    totalTimeMinutes: (hasColumn('totalTimeMinutes') ? row.totalTimeMinutes : storedEvidence.totalTimeMinutes ?? null) as number | null,
   };
 }
