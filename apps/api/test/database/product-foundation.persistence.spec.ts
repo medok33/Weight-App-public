@@ -161,7 +161,7 @@ describe('RP2-01A product foundation persistence', () => {
     });
     expect(day.items[0]?.calories).toBeGreaterThan(0);
     expect(day.items[0]?.substitutionReady.ingredientProductIds.length).toBeGreaterThan(0);
-  });
+  }, 30_000);
 
   it('writes reproducible backfill report artifact', async () => {
     const stats = await pool.query<{

@@ -87,6 +87,7 @@ describe.runIf(Boolean(DATABASE_URL))('sql migration runner against postgres', (
       writeMig(root, '002_bad', 'CREATE TABLE totally_broken (;;;);');
       await expect(runSqlMigrations(client, { migrationsRoot: root })).rejects.toThrow(/MIGRATION_FAILED:002_bad/);
     });
+  // This creates and tears down an extra PostgreSQL database while the
   }, 15_000);
 
   it('concurrent runners serialize via advisory lock', async () => {
