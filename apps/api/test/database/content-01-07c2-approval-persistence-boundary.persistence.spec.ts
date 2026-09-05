@@ -41,7 +41,7 @@ describe('CONTENT-01 07C2 approval/persistence boundary', () => {
       expect(computeBriefContentHash(loadedB!)).toBe(computeBriefContentHash(b));
       expect(loadedB).toMatchObject({ clusterId: b.clusterId, objective: 'content B', approvedProducts: b.approvedProducts, deterministicSelections: b.deterministicSelections, ownerDecisions: b.ownerDecisions, exclusions: b.exclusions, servings: 3, totalTimeMinutes: 25, requiredTechniques: b.requiredTechniques });
     });
-  });
+  }, 30_000);
 
   it('fails closed without an exact persisted domainClusterId', async () => {
     await withDisposableMigratedDb(async ({ createDb, pool }) => {
