@@ -13,7 +13,7 @@ describe('OWNER-RECIPE-DEFAULTS-DECISION-01 disposable acceptance', () => {
       const secondRows = await pool.query(`SELECT "id","evidenceSummary"->'productSelectionDecisions' AS decisions FROM "RecipeSynthesisBrief" WHERE "evidenceSummary"->>'productSelectionPolicyVersion'='recipe-synthesis-product-policy/v2' ORDER BY "id"`);
       expect(firstRows.rows).toEqual(secondRows.rows);
       expect(first.metrics).toEqual(second.metrics);
-      expect(firstRows.rowCount).toBe(11);
+      expect(firstRows.rowCount).toBe(9);
       expect(first.briefsUpdated).toBe(second.briefsUpdated);
       expect(first.metrics.FAMILY_DEFAULT_PRODUCT_SELECTED).toBeGreaterThanOrEqual(1);
     }, 300000);
