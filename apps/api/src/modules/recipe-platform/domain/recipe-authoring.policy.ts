@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { SynthesisBrief } from './recipe-knowledge-synthesis.policy';
 import { computeBriefContentHash, isApprovalForCurrentBrief, type BriefApprovalRecord } from './recipe-synthesis-brief-approval.policy';
+import { assertNoImplicitNutritionConversion } from './recipe-grammage-authority.policy';
 
 export const CHEF_EDITOR_CONTRACT_VERSION = 'chef-editor/v1' as const;
 export const NUTRITION_ENERGY_TOLERANCE = 0.2;
@@ -45,7 +46,7 @@ export type RecipeNutrition = { total: { kcal: number; proteinG: number; fatG: n
 const r2 = (n: number) => Math.round(n * 100) / 100;
 export function calculateRecipeNutrition(items: Array<{ productId: string; amountGrams: number }>, products: NutritionProduct[], servings: number, yieldGrams: number): RecipeNutrition {
   if (!(servings > 0) || !(yieldGrams > 0)) throw new Error('SERVINGS_AND_YIELD_REQUIRED'); const byId = new Map(products.map((p) => [p.productId, p]));
-  const total = items.reduce((a, item) => { const p = byId.get(item.productId); if (!p || !Number.isFinite(p.caloriesPer100g) || p.caloriesPer100g < 0) throw new Error('NUTRITION_UNRESOLVED'); const f = item.amountGrams / 100 * (p.conversionFactor ?? 1); a.kcal += p.caloriesPer100g * f; a.proteinG += p.proteinPer100g * f; a.fatG += p.fatPer100g * f; a.carbohydratesG += p.carbsPer100g * f; return a; }, { kcal: 0, proteinG: 0, fatG: 0, carbohydratesG: 0 });
+  const total = items.reduce((a, item) => { const p = byId.get(item.productId); if (!p || !Number.isFinite(p.caloriesPer100g) || p.caloriesPer100g < 0) throw new Error('NUTRITION_UNRESOLVED'); assertNoImplicitNutritionConversion(p.conversionFactor); const f = item.amountGrams / 100 * (p.conversionFactor ?? 1); a.kcal += p.caloriesPer100g * f; a.proteinG += p.proteinPer100g * f; a.fatG += p.fatPer100g * f; a.carbohydratesG += p.carbsPer100g * f; return a; }, { kcal: 0, proteinG: 0, fatG: 0, carbohydratesG: 0 });
   const out = { kcal: r2(total.kcal), proteinG: r2(total.proteinG), fatG: r2(total.fatG), carbohydratesG: r2(total.carbohydratesG) }; return { total: out, perServing: { kcal: r2(out.kcal / servings), proteinG: r2(out.proteinG / servings), fatG: r2(out.fatG / servings), carbohydratesG: r2(out.carbohydratesG / servings) }, yieldGrams, servings, basis: 'CANONICAL_PRODUCT_NUTRITION' };
 }
 export function validateNutritionConsistency(n: RecipeNutrition, representedMassGrams: number): { ok: boolean; reasons: string[] } { const derived = n.total.proteinG * 4 + n.total.carbohydratesG * 4 + n.total.fatG * 9; const reasons: string[] = []; if (n.total.kcal > 0 && Math.abs(derived - n.total.kcal) / n.total.kcal > NUTRITION_ENERGY_TOLERANCE) reasons.push('MACRO_ENERGY_MISMATCH'); if (representedMassGrams <= 0 || n.yieldGrams <= 0) reasons.push('YIELD_INVALID'); return { ok: reasons.length === 0, reasons }; }
