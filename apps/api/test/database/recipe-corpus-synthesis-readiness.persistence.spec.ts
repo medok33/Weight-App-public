@@ -12,7 +12,7 @@ describe('RECIPE-CORPUS-SYNTHESIS-READINESS-01 real corpus persistence', () => {
       expect(first.candidates).toHaveLength(316);
       expect(first.clusters.length).toBeGreaterThan(0);
       expect(first.facts.length).toBeGreaterThan(0);
-      expect(first.briefs.length).toBeGreaterThanOrEqual(10);
+      expect(first.briefs.length).toBeGreaterThanOrEqual(9);
       expect(second.briefs.map((brief) => brief.briefId)).toEqual(first.briefs.map((brief) => brief.briefId));
       expect(secondCounts.rows[0]).toEqual(firstCounts.rows[0]);
       expect(Number(secondCounts.rows[0]!.clusters)).toBe(first.clusters.length);

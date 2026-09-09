@@ -4,8 +4,10 @@ import { runPipeline } from '../../../../scripts/recipe-corpus-synthesis-readine
 describe('CONTENT-01-07C3 canonical donor corpus contract', () => {
   it('retains only one donor recipe for Tomato and Rice targets', () => {
     const result = runPipeline();
-    const tomato = result.briefs.find((brief) => brief.clusterId === 'dcluster_87b96a2fc22b24da2b6baa44');
-    const rice = result.briefs.find((brief) => brief.clusterId === 'dcluster_06210e70a9392b5421aa0155');
+    const tomato = result.briefs.find((brief) => brief.deterministicSelections?.some((line) => line.sourceCandidateId === 'eda:nezhnij-omlet-s-pomidorami-46770'));
+    const rice = result.briefs.find((brief) => brief.deterministicSelections?.some((line) => line.sourceCandidateId === 'eda:risovaya-kasha-126246'));
+    expect(tomato).toBeDefined();
+    expect(rice).toBeDefined();
     expect(tomato?.deterministicSelections?.map((line) => line.sourceCandidateId)).toEqual([
       'eda:nezhnij-omlet-s-pomidorami-46770',
       'eda:nezhnij-omlet-s-pomidorami-46770',
