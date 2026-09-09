@@ -21,6 +21,7 @@ export type ResearchCandidate = {
   techniques?: Array<string | null>;
   steps?: Array<{ ordinal: number; normalizedTechnique?: string | null; durationMinutes?: number | null; temperatureC?: number | null; qualitativeEndCondition?: string | null; sourceText?: string | null; ingredientRefs?: Array<{ ingredientIndex: number; confidence: IngredientStepReferenceConfidence }> }>;
   servings?: number | null;
+  servingsRaw?: string | null;
   preparationTime?: number | null;
   cookingTime?: number | null;
   temperatures?: string[];
@@ -112,6 +113,12 @@ export type CanonicalDonorSelection = {
   ranking: Array<{ candidateId: string; sourceQuality: number | null; weightAppFit: number | null; eligible: boolean; invalidFields: string[] }>;
   reason: string;
 };
+
+export type CanonicalDonorServingsResolution = { state: 'CANONICAL_DONOR_SERVINGS_RESOLVED' | 'CANONICAL_DONOR_SERVINGS_UNRESOLVED'; servings: number | null; provenance: { clusterId: string; canonicalDonorCandidateId: string; source: string | null; rawServings: string | null; normalizedServings: number | null; sourceField: string; resolutionState: string; reason?: string } };
+export function resolveCanonicalDonorServings(candidate: ResearchCandidate, clusterId: string): CanonicalDonorServingsResolution {
+  const value = candidate.servings; const valid = value != null && Number.isFinite(value) && Number.isInteger(value) && value > 0;
+  return valid ? { state: 'CANONICAL_DONOR_SERVINGS_RESOLVED', servings: value, provenance: { clusterId, canonicalDonorCandidateId: candidate.candidateId, source: candidate.sourceCode, rawServings: candidate.servingsRaw ?? String(value), normalizedServings: value, sourceField: 'recipeFacts.portions', resolutionState: 'CANONICAL_DONOR_SERVINGS_RESOLVED' } } : { state: 'CANONICAL_DONOR_SERVINGS_UNRESOLVED', servings: null, provenance: { clusterId, canonicalDonorCandidateId: candidate.candidateId, source: candidate.sourceCode, rawServings: candidate.servingsRaw ?? null, normalizedServings: null, sourceField: 'recipeFacts.portions', resolutionState: 'CANONICAL_DONOR_SERVINGS_UNRESOLVED', reason: 'MISSING_OR_INVALID_CANONICAL_DONOR_SERVINGS' } };
+}
 
 /** Selects one complete donor recipe before any ingredient-level mapping. */
 export function selectCanonicalDonor(candidates: ResearchCandidate[]): CanonicalDonorSelection {
