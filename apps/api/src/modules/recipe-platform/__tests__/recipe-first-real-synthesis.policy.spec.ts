@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeUnit } from '../domain/recipe-research.policy';
-import { FIRST_REAL_SYNTHESIS_PRODUCTS, FIRST_REAL_SYNTHESIS_SERVINGS, OLIVE_OIL_CONVERSION_PROVENANCE, OLIVE_OIL_DENSITY_AUTHORITY, OLIVE_OIL_DENSITY_G_PER_ML, OLIVE_OIL_GRAMS, firstRealSynthesisAuthoringSteps, firstRealSynthesisIngredients, firstRealSynthesisNutrition, firstRealSynthesisSkeleton, validateFirstRealSynthesisScope } from '../domain/recipe-first-real-synthesis.policy';
+import { FIRST_REAL_SYNTHESIS_PRODUCTS, FIRST_REAL_SYNTHESIS_SERVINGS, OLIVE_OIL_CONVERSION_PROVENANCE, OLIVE_OIL_DENSITY_AUTHORITY, OLIVE_OIL_DENSITY_G_PER_ML, firstRealSynthesisAuthoringSteps, firstRealSynthesisIngredients, firstRealSynthesisNutrition, firstRealSynthesisSkeleton, validateFirstRealSynthesisScope } from '../domain/recipe-first-real-synthesis.policy';
 import { evaluateCulinarySafety } from '../domain/recipe-authoring.policy';
 import { aggregateResearchFacts, buildDishConceptCluster } from '../domain/recipe-knowledge-synthesis.policy';
 import { toCandidate } from '../../../../scripts/recipe-corpus-synthesis-readiness-01';
