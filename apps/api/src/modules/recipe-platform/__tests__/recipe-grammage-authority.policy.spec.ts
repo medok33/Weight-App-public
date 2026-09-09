@@ -24,5 +24,17 @@ describe('recipe grammage authority', () => {
   it('tracks optional/process inputs without inventing grams', () => {
     expect(resolveIngredientGrams({ amount: null, unit: null, optional: true })).toMatchObject({ state: 'EXCLUDED_OPTIONAL', grams: null });
     expect(resolveIngredientGrams({ amount: null, unit: null, processInput: true })).toMatchObject({ state: 'PROCESS_INPUT_TRACKED', grams: null });
+    expect(resolveIngredientGrams({ amount: 250, unit: 'ml', processInput: true })).toMatchObject({ state: 'PROCESS_INPUT_TRACKED', grams: null });
+  });
+  it('rejects malformed authority and invalid quantities', () => {
+    for (const amount of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 0, -1]) {
+      expect(resolveIngredientGrams({ amount, unit: 'g' }).state).toBe('BLOCKED_INVALID_INPUT');
+    }
+    expect(resolveIngredientGrams({ amount: 1, unit: 'ml', density: 1, authority: { id: '', version: 'v1', source: 'x' } }).state).toBe('BLOCKED_MISSING_AUTHORITY');
+    expect(resolveIngredientGrams({ amount: 1, unit: 'piece', averagePieceWeightGrams: 0, authority }).state).toBe('BLOCKED_MISSING_AUTHORITY');
+  });
+  it('retains unit and density provenance for tbsp round-trip', () => {
+    const result = resolveIngredientGrams({ amount: 2, unit: 'tbsp', density: 0.91, authority });
+    expect(result.provenance).toMatchObject({ rawQuantity: 2, rawUnit: 'tbsp', normalizedUnit: 'tbsp', unitCoefficient: 15, unitCoefficientType: 'ML_PER_TBSP', coefficient: 0.91, authority, computedGrams: 27.3 });
   });
 });

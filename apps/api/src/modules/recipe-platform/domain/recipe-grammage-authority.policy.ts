@@ -24,6 +24,8 @@ export type GrammageResolution = {
     normalizedUnit: string | null;
     coefficient: number | null;
     coefficientType: 'NONE' | 'DENSITY_G_PER_ML' | 'MASS_PER_PIECE' | 'ML_PER_TBSP' | null;
+    unitCoefficient: number | null;
+    unitCoefficientType: 'NONE' | 'ML_PER_TBSP' | null;
     authority: GrammageAuthority | null;
     computedGrams: number | null;
   };
@@ -46,7 +48,7 @@ const blocked = (input: GrammageInput, normalizedUnit: string | null, reason: st
   state: 'BLOCKED_INVALID_INPUT', grams: null, normalizedUnit, reason,
   provenance: {
     rawQuantity: input.rawQuantity ?? input.amount ?? null, rawUnit: input.rawUnit ?? input.unit ?? null,
-    normalizedUnit, coefficient: null, coefficientType: null, authority: input.authority ?? null, computedGrams: null,
+    normalizedUnit, coefficient: null, coefficientType: null, unitCoefficient: null, unitCoefficientType: null, authority: input.authority ?? null, computedGrams: null,
   },
 });
 
@@ -55,13 +57,13 @@ export function resolveIngredientGrams(input: GrammageInput): GrammageResolution
   const normalizedUnit = input.unit ? canonicalizeUnitToken(input.unit) : null;
   const rawQuantity = input.rawQuantity ?? input.amount ?? null;
   const rawUnit = input.rawUnit ?? input.unit ?? null;
-  const base = (state: GrammageResolutionState, grams: number | null, coefficient: number | null, coefficientType: GrammageResolution['provenance']['coefficientType'], reason?: string): GrammageResolution => ({
+  const base = (state: GrammageResolutionState, grams: number | null, coefficient: number | null, coefficientType: GrammageResolution['provenance']['coefficientType'], reason?: string, unitCoefficient: number | null = null, unitCoefficientType: GrammageResolution['provenance']['unitCoefficientType'] = null): GrammageResolution => ({
     state, grams, normalizedUnit, reason,
-    provenance: { rawQuantity, rawUnit, normalizedUnit, coefficient, coefficientType, authority: input.authority ?? null, computedGrams: grams },
+    provenance: { rawQuantity, rawUnit, normalizedUnit, coefficient, coefficientType, unitCoefficient, unitCoefficientType, authority: input.authority ?? null, computedGrams: grams },
   });
 
+  if (input.processInput) return base('PROCESS_INPUT_TRACKED', null, null, 'NONE');
   if (input.optional && (input.amount == null || input.unit == null)) return base('EXCLUDED_OPTIONAL', null, null, 'NONE');
-  if (input.processInput && (input.amount == null || input.unit == null)) return base('PROCESS_INPUT_TRACKED', null, null, 'NONE');
   if (input.amount == null || !Number.isFinite(input.amount) || input.amount <= 0 || !normalizedUnit) return blocked(input, normalizedUnit, 'AMOUNT_OR_UNIT_INVALID');
 
   if (normalizedUnit === 'g' || normalizedUnit === 'kg') {
@@ -72,15 +74,15 @@ export function resolveIngredientGrams(input: GrammageInput): GrammageResolution
   const densityUnit = normalizedUnit === 'ml' || normalizedUnit === 'l' || normalizedUnit === 'tbsp';
   if (densityUnit) {
     const density = input.density;
-    if (!input.authority || !Number.isFinite(density) || density <= 0) return { ...blocked(input, normalizedUnit, 'DENSITY_AUTHORITY_REQUIRED'), state: 'BLOCKED_MISSING_AUTHORITY' };
+    if (!isValidAuthority(input.authority) || !Number.isFinite(density) || density <= 0) return { ...blocked(input, normalizedUnit, 'DENSITY_AUTHORITY_REQUIRED'), state: 'BLOCKED_MISSING_AUTHORITY' };
     const ml = normalizedUnit === 'tbsp' ? input.amount * 15 : normalizedUnit === 'l' ? input.amount * 1000 : input.amount;
     const grams = ml * density;
-    return Number.isFinite(grams) && grams > 0 ? base('CONVERTED_WITH_AUTHORITY', grams, density, 'DENSITY_G_PER_ML') : blocked(input, normalizedUnit, 'COMPUTED_GRAMS_INVALID');
+    return Number.isFinite(grams) && grams > 0 ? base('CONVERTED_WITH_AUTHORITY', grams, density, 'DENSITY_G_PER_ML', undefined, normalizedUnit === 'tbsp' ? 15 : null, normalizedUnit === 'tbsp' ? 'ML_PER_TBSP' : null) : blocked(input, normalizedUnit, 'COMPUTED_GRAMS_INVALID');
   }
 
   if (normalizedUnit === 'piece') {
     const mass = input.averagePieceWeightGrams;
-    if (!input.authority || !Number.isFinite(mass) || mass <= 0) return { ...blocked(input, normalizedUnit, 'PIECE_WEIGHT_AUTHORITY_REQUIRED'), state: 'BLOCKED_MISSING_AUTHORITY' };
+    if (!isValidAuthority(input.authority) || !Number.isFinite(mass) || mass <= 0) return { ...blocked(input, normalizedUnit, 'PIECE_WEIGHT_AUTHORITY_REQUIRED'), state: 'BLOCKED_MISSING_AUTHORITY' };
     const grams = input.amount * mass;
     return Number.isFinite(grams) && grams > 0 ? base('CONVERTED_WITH_AUTHORITY', grams, mass, 'MASS_PER_PIECE') : blocked(input, normalizedUnit, 'COMPUTED_GRAMS_INVALID');
   }
@@ -88,6 +90,6 @@ export function resolveIngredientGrams(input: GrammageInput): GrammageResolution
   return blocked(input, normalizedUnit, 'UNIT_UNSUPPORTED');
 }
 
-export function assertNoImplicitNutritionConversion(conversionFactor: number | null | undefined): void {
-  if (conversionFactor != null && (!Number.isFinite(conversionFactor) || conversionFactor <= 0)) throw new Error('NUTRITION_CONVERSION_FACTOR_INVALID');
+function isValidAuthority(value: GrammageAuthority | null | undefined): value is GrammageAuthority {
+  return !!value && [value.id, value.version, value.source].every((part) => typeof part === 'string' && part.trim().length > 0);
 }

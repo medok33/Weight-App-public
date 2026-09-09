@@ -44,7 +44,7 @@ export function firstRealSynthesisAuthoringSteps(): AuthoringStep[] {
 
 export function firstRealSynthesisNutrition(products: NutritionProduct[]) {
   const ingredients = firstRealSynthesisIngredients();
-  const nutrition = calculateRecipeNutrition(ingredients.map((item) => ({ productId: item.productId, amountGrams: item.amount })), products, FIRST_REAL_SYNTHESIS_SERVINGS, ingredients.reduce((sum, item) => sum + item.amount, 0));
+  const nutrition = calculateRecipeNutrition(ingredients.map((item) => ({ productId: item.productId, amountGrams: item.amount, grammageState: 'EXACT_METRIC' as const, grammageOrigin: 'RESOLVED_BY_AUTHORITY_CORE' as const })), products, FIRST_REAL_SYNTHESIS_SERVINGS, ingredients.reduce((sum, item) => sum + item.amount, 0));
   return { nutrition, gate: validateNutritionConsistency(nutrition, ingredients.reduce((sum, item) => sum + item.amount, 0)) };
 }
 
