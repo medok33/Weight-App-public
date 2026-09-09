@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeUnit } from '../domain/recipe-research.policy';
-import { FIRST_REAL_SYNTHESIS_PRODUCTS, FIRST_REAL_SYNTHESIS_SERVINGS, OLIVE_OIL_CONVERSION_PROVENANCE, OLIVE_OIL_DENSITY_AUTHORITY, OLIVE_OIL_DENSITY_G_PER_ML, OLIVE_OIL_GRAMS, firstRealSynthesisAuthoringSteps, firstRealSynthesisIngredients, firstRealSynthesisNutrition, firstRealSynthesisSkeleton, validateFirstRealSynthesisScope } from '../domain/recipe-first-real-synthesis.policy';
+import { FIRST_REAL_SYNTHESIS_PRODUCTS, FIRST_REAL_SYNTHESIS_SERVINGS, OLIVE_OIL_CONVERSION_PROVENANCE, OLIVE_OIL_DENSITY_AUTHORITY, OLIVE_OIL_DENSITY_G_PER_ML, firstRealSynthesisAuthoringSteps, firstRealSynthesisIngredients, firstRealSynthesisNutrition, firstRealSynthesisSkeleton, validateFirstRealSynthesisScope } from '../domain/recipe-first-real-synthesis.policy';
 import { evaluateCulinarySafety } from '../domain/recipe-authoring.policy';
 import { aggregateResearchFacts, buildDishConceptCluster } from '../domain/recipe-knowledge-synthesis.policy';
 import { toCandidate } from '../../../../scripts/recipe-corpus-synthesis-readiness-01';
@@ -17,9 +17,9 @@ describe('RECIPE-FIRST-REAL-SYNTHESIS-01 deterministic core', () => {
   it('freezes the classic Julienne core without rice or mayonnaise', () => {
     const ingredients = firstRealSynthesisIngredients();
     expect(ingredients.map((item) => item.productId)).toEqual(FIRST_REAL_SYNTHESIS_PRODUCTS);
-    expect(ingredients).toContainEqual(expect.objectContaining({ productId: 'olive_oil', amount: OLIVE_OIL_GRAMS }));
+    expect(ingredients).toContainEqual(expect.objectContaining({ productId: 'olive_oil', amount: 2, unit: 'tbsp', density: OLIVE_OIL_DENSITY_G_PER_ML }));
     expect(ingredients.some((item) => /rice|mayonnaise/.test(item.productId))).toBe(false);
-    expect(ingredients.map((item) => item.amount)).toEqual([600, 300, 400, 100, 27.3]);
+    expect(ingredients.map((item) => item.amount)).toEqual([600, 300, 400, 100, 2]);
   });
   it('normalizes tablespoon spellings and retains an explicit oil conversion policy', () => {
     expect(normalizeUnit('стол.л.')).toEqual({ unit: 'tbsp', status: 'KNOWN' });
