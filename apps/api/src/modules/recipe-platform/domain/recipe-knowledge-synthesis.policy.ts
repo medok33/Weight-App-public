@@ -16,7 +16,8 @@ export type ResearchCandidate = {
   title: string;
   conceptKey?: string | null;
   rightsStatus: 'APPROVED' | 'PENDING_REVIEW' | 'REJECTED' | 'DISABLED';
-  ingredients: Array<{ productId?: string | null; name: string; role?: string | null; quantity?: number | null; unit?: string | null }>;
+  ingredients: Array<{ productId?: string | null; name: string; role?: string | null; quantity?: number | null; unit?: string | null; sourceIngredientOrdinal?: number | null; sourceClassification?: string | null }>;
+  sourceIngredientCount?: number | null;
   techniques?: Array<string | null>;
   steps?: Array<{ ordinal: number; normalizedTechnique?: string | null; durationMinutes?: number | null; temperatureC?: number | null; qualitativeEndCondition?: string | null; sourceText?: string | null; ingredientRefs?: Array<{ ingredientIndex: number; confidence: IngredientStepReferenceConfidence }> }>;
   servings?: number | null;
@@ -94,7 +95,7 @@ export type SynthesisBrief = {
   status: 'DRAFT' | 'READY_FOR_REVIEW' | 'APPROVED_FOR_SYNTHESIS' | 'BLOCKED_CONFLICT' | 'REJECTED';
   approvalState: 'PENDING' | 'OWNER_APPROVED' | 'SYSTEM_BLOCKED';
   /** Deterministic selection snapshot and content hash are populated before any Editor call. */
-  deterministicSelections?: Array<{ sourceLabel: string; productId: string | null; quantity: number | null; unit: string | null; role: string; optional: boolean; authority: string }>;
+  deterministicSelections?: Array<{ sourceLabel: string; productId: string | null; quantity: number | null; unit: string | null; role: string; optional: boolean; authority: string; sourceCandidateId?: string; sourceIngredientOrdinal?: number | null }>;
   ownerDecisions?: Record<string, string>;
   exclusions?: string[];
   servings?: number | null;
@@ -104,6 +105,60 @@ export type SynthesisBrief = {
 
 export type GrammageConstraint = { productId: string; role: string; minGrams: number; maxGrams: number; targetGrams?: number | null; stepGrams: number; fixed?: boolean; required?: boolean; reason: string; sourceFactIds: string[] };
 export type GrammagePlan = { version: string; briefId: string; servingCount: number; ingredients: Array<GrammageConstraint & { grams: number }>; checksum: string };
+
+export type CanonicalDonorSelection = {
+  state: 'CANONICAL_DONOR_SELECTED' | 'CANONICAL_DONOR_UNRESOLVED';
+  donor: ResearchCandidate | null;
+  ranking: Array<{ candidateId: string; sourceQuality: number | null; weightAppFit: number | null; eligible: boolean; invalidFields: string[] }>;
+  reason: string;
+};
+
+/** Selects one complete donor recipe before any ingredient-level mapping. */
+export function selectCanonicalDonor(candidates: ResearchCandidate[]): CanonicalDonorSelection {
+  if (candidates.length === 0) return { state: 'CANONICAL_DONOR_UNRESOLVED', donor: null, ranking: [], reason: 'NO_DONOR_CANDIDATES' };
+  const assessed = candidates.map((candidate) => {
+    const invalidFields = invalidDonorFields(candidate);
+    if (invalidFields.length) return { candidate, sourceQuality: null, weightAppFit: null, eligible: false, invalidFields };
+    const quality = sourceQualityScore(candidate, 1).score;
+    const fit = weightAppFitScore(candidate).score;
+    if (!Number.isFinite(quality) || !Number.isFinite(fit)) return { candidate, sourceQuality: Number.isFinite(quality) ? quality : null, weightAppFit: Number.isFinite(fit) ? fit : null, eligible: false, invalidFields: ['score'] };
+    if (!isCompleteCanonicalDonor(candidate)) return { candidate, sourceQuality: quality, weightAppFit: fit, eligible: false, invalidFields: ['INCOMPLETE_CANONICAL_DONOR'] };
+    return { candidate, sourceQuality: quality, weightAppFit: fit, eligible: true, invalidFields: [] };
+  });
+  const ranking = assessed.filter((item) => item.eligible)
+    .sort((a, b) => b.sourceQuality! - a.sourceQuality! || b.weightAppFit! - a.weightAppFit! || a.candidate.candidateId.localeCompare(b.candidate.candidateId));
+  const snapshot = [...assessed].sort((a, b) => a.candidate.candidateId.localeCompare(b.candidate.candidateId)).map((item) => ({ candidateId: item.candidate.candidateId, sourceQuality: item.sourceQuality, weightAppFit: item.weightAppFit, eligible: item.eligible, invalidFields: item.invalidFields }));
+  if (assessed.some((item) => item.invalidFields.some((field) => field !== 'INCOMPLETE_CANONICAL_DONOR'))) return { state: 'CANONICAL_DONOR_UNRESOLVED', donor: null, ranking: snapshot, reason: 'INVALID_DONOR_SCORE' };
+  if (!ranking.length) return { state: 'CANONICAL_DONOR_UNRESOLVED', donor: null, ranking: snapshot, reason: 'INCOMPLETE_CANONICAL_DONOR' };
+  const top = ranking[0]!;
+  const tied = ranking.filter((item) => item.sourceQuality === top.sourceQuality && item.weightAppFit === top.weightAppFit);
+  if (tied.length > 1) return { state: 'CANONICAL_DONOR_UNRESOLVED', donor: null, ranking: snapshot, reason: 'EQUAL_DETERMINISTIC_DONOR_RANKING' };
+  return { state: 'CANONICAL_DONOR_SELECTED', donor: top.candidate, ranking: snapshot, reason: 'HIGHEST_SOURCE_QUALITY_THEN_WEIGHT_APP_FIT' };
+}
+
+function invalidDonorFields(candidate: ResearchCandidate): string[] {
+  const invalid: string[] = [];
+  const check = (name: string, value: number | null | undefined): void => { if (value != null && !Number.isFinite(value)) invalid.push(name); };
+  check('parseConfidence', candidate.parseConfidence); check('normalizationConfidence', candidate.normalizationConfidence); check('servings', candidate.servings); check('preparationTime', candidate.preparationTime); check('cookingTime', candidate.cookingTime);
+  candidate.ingredients.forEach((ingredient) => { check('ingredient.quantity', ingredient.quantity); });
+  candidate.steps?.forEach((step, index) => { check(`steps[${index}].durationMinutes`, step.durationMinutes); check(`steps[${index}].temperatureC`, step.temperatureC); });
+  return invalid;
+}
+
+function isCompleteCanonicalDonor(candidate: ResearchCandidate): boolean {
+  if (!candidate.provenance?.sourceUrl || !candidate.provenance.rawSnapshotHash) return false;
+  if (!Number.isFinite(candidate.sourceIngredientCount) || !Number.isInteger(candidate.sourceIngredientCount) || candidate.sourceIngredientCount <= 0 || candidate.sourceIngredientCount !== candidate.ingredients.length) return false;
+  const ordinals = candidate.ingredients.map((ingredient) => ingredient.sourceIngredientOrdinal);
+  if (ordinals.some((ordinal) => !Number.isFinite(ordinal) || !Number.isInteger(ordinal) || ordinal <= 0 || ordinal > candidate.sourceIngredientCount!)) return false;
+  const sortedOrdinals = [...ordinals].sort((a, b) => (a ?? 0) - (b ?? 0));
+  if (sortedOrdinals.some((ordinal, index) => ordinal !== index + 1)) return false;
+  return candidate.ingredients.every((ingredient) => {
+    if (!Number.isInteger(ingredient.sourceIngredientOrdinal) || ingredient.sourceIngredientOrdinal! <= 0) return false;
+    const classification = String(ingredient.sourceClassification ?? '').toUpperCase();
+    if (classification === 'OPTIONAL' || classification === 'PROCESS_INPUT' || classification === 'NON_FOOD' || ingredient.role === 'OPTIONAL') return true;
+    return Boolean(ingredient.productId);
+  });
+}
 
 function clamp(value: number): number { return Math.max(0, Math.min(1, Number(value.toFixed(6)))); }
 function sortedUnique(values: string[]): string[] { return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b)); }

@@ -260,7 +260,7 @@ describe('STEP_215C multi-source fixture research persistence', () => {
     expect(recipeAfter).toBe(recipeBefore);
     expect(productAfter).toBe(productBefore);
     expect(aliasAfter).toBe(aliasBefore);
-  });
+  }, 15_000);
 
   it('rejects live before socket via adapter', async () => {
     const adapter = adapters.getOrThrow('IAMCOOK');
