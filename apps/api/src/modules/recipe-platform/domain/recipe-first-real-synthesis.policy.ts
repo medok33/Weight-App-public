@@ -16,7 +16,7 @@ export function firstRealSynthesisIngredients(): AuthoringIngredient[] {
     { id: 'mushrooms', productId: 'mushroom_champignon_raw', amount: 300, unit: 'g', displayName: 'Шампиньоны' },
     { id: 'sour-cream', productId: 'sour_cream_15pct', amount: 400, unit: 'g', displayName: 'Сметана 15%' },
     { id: 'cheese', productId: 'hard_cheese_45pct', amount: 100, unit: 'g', displayName: 'Твёрдый сыр 45%' },
-    { id: 'olive-oil', productId: 'olive_oil', amount: OLIVE_OIL_GRAMS, unit: 'g', displayName: 'Оливковое масло' },
+    { id: 'olive-oil', productId: 'olive_oil', amount: 2, unit: 'tbsp', density: OLIVE_OIL_DENSITY_G_PER_ML, authority: { id: OLIVE_OIL_DENSITY_AUTHORITY, version: 'v1', source: OLIVE_OIL_DENSITY_AUTHORITY }, displayName: 'Оливковое масло' },
   ];
 }
 
@@ -44,8 +44,8 @@ export function firstRealSynthesisAuthoringSteps(): AuthoringStep[] {
 
 export function firstRealSynthesisNutrition(products: NutritionProduct[]) {
   const ingredients = firstRealSynthesisIngredients();
-  const nutrition = calculateRecipeNutrition(ingredients.map((item) => ({ productId: item.productId, amountGrams: item.amount, grammageState: 'EXACT_METRIC' as const, grammageOrigin: 'RESOLVED_BY_AUTHORITY_CORE' as const })), products, FIRST_REAL_SYNTHESIS_SERVINGS, ingredients.reduce((sum, item) => sum + item.amount, 0));
-  return { nutrition, gate: validateNutritionConsistency(nutrition, ingredients.reduce((sum, item) => sum + item.amount, 0)) };
+  const nutrition = calculateRecipeNutrition(ingredients, products, FIRST_REAL_SYNTHESIS_SERVINGS);
+  return { nutrition, gate: validateNutritionConsistency(nutrition) };
 }
 
 export function validateFirstRealSynthesisScope(input: { ingredients: AuthoringIngredient[]; steps: AuthoringStep[] }) {

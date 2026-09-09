@@ -7,7 +7,7 @@ export const CHEF_EDITOR_CONTRACT_VERSION = 'chef-editor/v1' as const;
 export const NUTRITION_ENERGY_TOLERANCE = 0.2;
 export const SOURCE_NEAR_CLONE_THRESHOLD = 0.9;
 
-export type AuthoringIngredient = { id: string; productId: string; amount: number; unit: string; optional?: boolean; displayName?: string };
+export type AuthoringIngredient = GrammageInput & { id: string; productId: string; amount: number; unit: string; displayName?: string };
 export type AuthoringStep = { index: number; text: string; ingredientIds: string[]; durationMinutes?: number; temperatureC?: number };
 export type ChefEditorOutput = { contractVersion: typeof CHEF_EDITOR_CONTRACT_VERSION; title: string; description: string; steps: AuthoringStep[]; method: string; presentation: string; notes: string[] };
 export type ChefEditorInput = { brief: SynthesisBrief; grammage: AuthoringIngredient[]; approvedProductIds: string[]; evidenceSummary: Record<string, unknown>; unresolvedReviewFlags: string[] };
@@ -42,18 +42,20 @@ export function validateChefEditorOutput(value: unknown, ingredientIds: string[]
 export function assertNoDirectSourceRewrite(input: { sourceUrl?: string; rawSourceText?: string; brief?: unknown }): void { if (input.sourceUrl || input.rawSourceText) throw new Error('DIRECT_SOURCE_REWRITE_BLOCKED'); if (!input.brief) throw new Error('STRUCTURED_BRIEF_REQUIRED'); }
 
 export type NutritionProduct = { productId: string; state: 'raw'|'dry'|'cooked'|'edible'; caloriesPer100g: number; proteinPer100g: number; fatPer100g: number; carbsPer100g: number };
-export type RecipeNutrition = { total: { kcal: number; proteinG: number; fatG: number; carbohydratesG: number }; perServing: { kcal: number; proteinG: number; fatG: number; carbohydratesG: number }; yieldGrams: number; servings: number; basis: 'CANONICAL_PRODUCT_NUTRITION' };
+export type RecipeNutrition = { total: { kcal: number; proteinG: number; fatG: number; carbohydratesG: number }; perServing: { kcal: number; proteinG: number; fatG: number; carbohydratesG: number }; representedInputMassGrams: number; authoritativeCookedYieldGrams: null; servingWeightGrams: null; ingredientResolutions: Array<{ productId: string; resolution: GrammageResolution }>; servings: number; basis: 'CANONICAL_PRODUCT_NUTRITION' };
 const r2 = (n: number) => Math.round(n * 100) / 100;
-export type NormalizedNutritionItem = { productId: string; amountGrams: number; grammageState: 'EXACT_METRIC' | 'CONVERTED_WITH_AUTHORITY'; grammageOrigin: 'RESOLVED_BY_AUTHORITY_CORE' };
-export function resolveAuthoringGrammage(input: GrammageInput): GrammageResolution {
-  return resolveIngredientGrams(input);
+export type AuthoringNutritionInput = GrammageInput & { productId: string };
+export function resolveAuthoringGrammage(input: GrammageInput): GrammageResolution { return resolveIngredientGrams(input); }
+export function calculateRecipeNutrition(items: AuthoringNutritionInput[], products: NutritionProduct[], servings: number): RecipeNutrition {
+  if (!(servings > 0)) throw new Error('SERVINGS_REQUIRED'); const byId = new Map(products.map((p) => [p.productId, p]));
+  const ingredientResolutions = items.map((item) => ({ productId: item.productId, resolution: resolveIngredientGrams(item) }));
+  for (const { resolution } of ingredientResolutions) if (resolution.state === 'BLOCKED_MISSING_AUTHORITY' || resolution.state === 'BLOCKED_INVALID_INPUT') throw new Error('GRAMMAGE_UNRESOLVED');
+  const nutritional = ingredientResolutions.filter(({ resolution }) => resolution.state === 'EXACT_METRIC' || resolution.state === 'CONVERTED_WITH_AUTHORITY');
+  const representedInputMassGrams = nutritional.reduce((sum, { resolution }) => sum + (resolution.grams ?? 0), 0);
+  const total = nutritional.reduce((a, { productId, resolution }) => { const p = byId.get(productId); if (!p || !Number.isFinite(p.caloriesPer100g) || p.caloriesPer100g < 0) throw new Error('NUTRITION_UNRESOLVED'); const f = (resolution.grams ?? 0) / 100; a.kcal += p.caloriesPer100g * f; a.proteinG += p.proteinPer100g * f; a.fatG += p.fatPer100g * f; a.carbohydratesG += p.carbsPer100g * f; return a; }, { kcal: 0, proteinG: 0, fatG: 0, carbohydratesG: 0 });
+  const out = { kcal: r2(total.kcal), proteinG: r2(total.proteinG), fatG: r2(total.fatG), carbohydratesG: r2(total.carbohydratesG) }; return { total: out, perServing: { kcal: r2(out.kcal / servings), proteinG: r2(out.proteinG / servings), fatG: r2(out.fatG / servings), carbohydratesG: r2(out.carbohydratesG / servings) }, representedInputMassGrams, authoritativeCookedYieldGrams: null, servingWeightGrams: null, ingredientResolutions, servings, basis: 'CANONICAL_PRODUCT_NUTRITION' };
 }
-export function calculateRecipeNutrition(items: NormalizedNutritionItem[], products: NutritionProduct[], servings: number, yieldGrams: number): RecipeNutrition {
-  if (!(servings > 0) || !(yieldGrams > 0)) throw new Error('SERVINGS_AND_YIELD_REQUIRED'); const byId = new Map(products.map((p) => [p.productId, p]));
-  const total = items.reduce((a, item) => { const p = byId.get(item.productId); if (!p || item.grammageOrigin !== 'RESOLVED_BY_AUTHORITY_CORE' || !['EXACT_METRIC', 'CONVERTED_WITH_AUTHORITY'].includes(item.grammageState) || !Number.isFinite(item.amountGrams) || item.amountGrams <= 0 || !Number.isFinite(p.caloriesPer100g) || p.caloriesPer100g < 0) throw new Error('NUTRITION_UNRESOLVED'); const f = item.amountGrams / 100; a.kcal += p.caloriesPer100g * f; a.proteinG += p.proteinPer100g * f; a.fatG += p.fatPer100g * f; a.carbohydratesG += p.carbsPer100g * f; return a; }, { kcal: 0, proteinG: 0, fatG: 0, carbohydratesG: 0 });
-  const out = { kcal: r2(total.kcal), proteinG: r2(total.proteinG), fatG: r2(total.fatG), carbohydratesG: r2(total.carbohydratesG) }; return { total: out, perServing: { kcal: r2(out.kcal / servings), proteinG: r2(out.proteinG / servings), fatG: r2(out.fatG / servings), carbohydratesG: r2(out.carbohydratesG / servings) }, yieldGrams, servings, basis: 'CANONICAL_PRODUCT_NUTRITION' };
-}
-export function validateNutritionConsistency(n: RecipeNutrition, representedMassGrams: number): { ok: boolean; reasons: string[] } { const derived = n.total.proteinG * 4 + n.total.carbohydratesG * 4 + n.total.fatG * 9; const reasons: string[] = []; if (n.total.kcal > 0 && Math.abs(derived - n.total.kcal) / n.total.kcal > NUTRITION_ENERGY_TOLERANCE) reasons.push('MACRO_ENERGY_MISMATCH'); if (representedMassGrams <= 0 || n.yieldGrams <= 0) reasons.push('YIELD_INVALID'); return { ok: reasons.length === 0, reasons }; }
+export function validateNutritionConsistency(n: RecipeNutrition, representedMassGrams = n.representedInputMassGrams): { ok: boolean; reasons: string[] } { const derived = n.total.proteinG * 4 + n.total.carbohydratesG * 4 + n.total.fatG * 9; const reasons: string[] = []; if (n.total.kcal > 0 && Math.abs(derived - n.total.kcal) / n.total.kcal > NUTRITION_ENERGY_TOLERANCE) reasons.push('MACRO_ENERGY_MISMATCH'); if (representedMassGrams <= 0) reasons.push('INPUT_MASS_INVALID'); return { ok: reasons.length === 0, reasons }; }
 
 export type CostLine = { productId: string; amount: number; unit: string; referencePrice: number | null; currency: string; scope: string };
 export function calculateConsumedReferenceCost(lines: CostLine[]): { status: 'PASS'|'UNAVAILABLE'; currency: 'RUB'; consumedIngredientReferenceCost: number | null; packagePurchaseCost: null; lines: CostLine[] } { if (!Array.isArray(lines) || lines.some((l) => l.currency !== 'RUB' || l.referencePrice == null || l.referencePrice < 0)) return { status: 'UNAVAILABLE', currency: 'RUB', consumedIngredientReferenceCost: null, packagePurchaseCost: null, lines }; return { status: 'PASS', currency: 'RUB', consumedIngredientReferenceCost: r2(lines.reduce((s, l) => s + l.referencePrice! * l.amount, 0)), packagePurchaseCost: null, lines }; }

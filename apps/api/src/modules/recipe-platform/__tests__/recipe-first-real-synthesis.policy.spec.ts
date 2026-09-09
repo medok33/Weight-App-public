@@ -17,9 +17,9 @@ describe('RECIPE-FIRST-REAL-SYNTHESIS-01 deterministic core', () => {
   it('freezes the classic Julienne core without rice or mayonnaise', () => {
     const ingredients = firstRealSynthesisIngredients();
     expect(ingredients.map((item) => item.productId)).toEqual(FIRST_REAL_SYNTHESIS_PRODUCTS);
-    expect(ingredients).toContainEqual(expect.objectContaining({ productId: 'olive_oil', amount: OLIVE_OIL_GRAMS }));
+    expect(ingredients).toContainEqual(expect.objectContaining({ productId: 'olive_oil', amount: 2, unit: 'tbsp', density: OLIVE_OIL_DENSITY_G_PER_ML }));
     expect(ingredients.some((item) => /rice|mayonnaise/.test(item.productId))).toBe(false);
-    expect(ingredients.map((item) => item.amount)).toEqual([600, 300, 400, 100, 27.3]);
+    expect(ingredients.map((item) => item.amount)).toEqual([600, 300, 400, 100, 2]);
   });
   it('normalizes tablespoon spellings and retains an explicit oil conversion policy', () => {
     expect(normalizeUnit('стол.л.')).toEqual({ unit: 'tbsp', status: 'KNOWN' });
