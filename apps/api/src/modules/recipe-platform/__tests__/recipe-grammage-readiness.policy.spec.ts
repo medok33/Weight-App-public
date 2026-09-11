@@ -21,7 +21,7 @@ describe('grammage readiness gate', () => {
   });
   it('does not let optional, representative, or another donor close a gap', () => {
     const result = evaluateBriefGrammageReadiness({ ...base, selections: [line({ quantity: 2, unit: 'piece', optional: true }), line({ quantity: 2, unit: 'piece', sourceCandidateId: 'other:donor' })] });
-    expect(result.unresolvedRequiredLines).toBe(1);
+    expect(result.unresolvedRequiredLines).toBe(2);
     expect(result.lines[0]?.canonicalDonorCandidateId).toBe('eda:donor');
   });
   it('is order independent and ledger remains line-complete across duplicate gaps', () => {
@@ -34,5 +34,25 @@ describe('grammage readiness gate', () => {
     const result = evaluateBriefGrammageReadiness({ ...base, selections: [line()] });
     expect(result).not.toHaveProperty('servingWeightGrams');
     expect(result).not.toHaveProperty('cookedYieldGrams');
+  });
+  it('fails closed for donor identity and caller-controlled optional markers', () => {
+    const missing = evaluateBriefGrammageReadiness({ ...base, selections: [line({ sourceCandidateId: undefined, optional: true })] });
+    const foreign = evaluateBriefGrammageReadiness({ ...base, selections: [line({ sourceCandidateId: 'representative:other', required: false })] });
+    expect(missing.readiness).toBe('NOT_READY_FOR_SYNTHESIS');
+    expect(foreign.readiness).toBe('NOT_READY_FOR_SYNTHESIS');
+    expect(missing.unresolvedRequiredLines).toBe(1);
+    expect(foreign.unresolvedRequiredLines).toBe(1);
+  });
+  it('never throws for malformed runtime amount or unit values', () => {
+    for (const value of [null, undefined, {}, [], true, 'NaN', Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => evaluateBriefGrammageReadiness({ ...base, selections: [line({ quantity: value, unit: value })] })).not.toThrow();
+      expect(evaluateBriefGrammageReadiness({ ...base, selections: [line({ quantity: value, unit: value })] }).readiness).toBe('NOT_READY_FOR_SYNTHESIS');
+    }
+  });
+  it('groups equivalent units while preserving line count', () => {
+    const result = evaluateBriefGrammageReadiness({ ...base, selections: [line({ unit: 'tbsp' }), line({ unit: 'STOL_L', sourceIngredientOrdinal: 2 })] });
+    const ledger = buildAuthorityGapLedger([result]);
+    expect(new Set(ledger.map((row) => row.gapKey)).size).toBe(1);
+    expect(ledger).toHaveLength(2);
   });
 });

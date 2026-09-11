@@ -23,7 +23,7 @@ export type BriefApprovalRecord = {
 };
 
 function canonicalize(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalize).sort().join(',')}]`;
+  if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`;
   if (value && typeof value === 'object') return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${canonicalize(v)}`).join(',')}}`;
   return JSON.stringify(value ?? null);
 }
@@ -50,6 +50,7 @@ export function briefContentPayload(brief: SynthesisBrief & { deterministicSelec
     unresolvedFacts: brief.unresolvedFacts,
     allowedEquipment: brief.allowedEquipment,
     evidenceSummary: brief.evidenceSummary,
+    grammageReadiness: (brief as SynthesisBrief & { grammageReadiness?: unknown }).grammageReadiness ?? null,
   };
 }
 

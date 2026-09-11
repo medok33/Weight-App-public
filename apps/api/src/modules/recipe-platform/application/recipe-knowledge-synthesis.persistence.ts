@@ -31,6 +31,7 @@ export class RecipeKnowledgeSynthesisPersistence {
   }
 
   async saveBrief(brief: SynthesisBrief): Promise<void> {
+    if (brief.grammageReadiness && (brief.grammageReadiness.readiness !== 'READY_FOR_SYNTHESIS' || brief.grammageReadiness.unresolvedRequiredLines !== 0)) throw new Error('GRAMMAGE_READINESS_REQUIRED');
     const preApprovalStatus = brief.status === 'APPROVED_FOR_SYNTHESIS' ? 'READY_FOR_REVIEW' : brief.status;
     const preApprovalState = brief.approvalState === 'OWNER_APPROVED' ? 'PENDING' : brief.approvalState;
     await this.db.query(

@@ -25,41 +25,43 @@ export type GrammageReadiness = {
 };
 
 const resolvedStates = new Set<GrammageResolutionState>(['EXACT_METRIC', 'CONVERTED_WITH_AUTHORITY', 'PROCESS_INPUT_TRACKED']);
-function normalizeSourceUnit(value: string | null): string | null {
-  if (!value) return null;
+function normalizeSourceUnit(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
   const internal: Record<string, string> = { SHT: 'piece', STOL_L: 'tbsp', CHAYN_L: 'tsp' };
   const normalized = normalizeUnit(value).unit;
   return internal[value.trim().toUpperCase()] ?? normalized ?? value.trim();
 }
 
-function gapClass(line: { amount: number | null; unit: string | null }, resolution: GrammageResolution): GrammageGapClass | null {
+function gapClass(line: { amount: unknown; unit: unknown }, resolution: GrammageResolution): GrammageGapClass | null {
   if (resolvedStates.has(resolution.state)) return null;
   if (resolution.state === 'BLOCKED_MISSING_AUTHORITY') {
     if (resolution.normalizedUnit === 'piece') return 'PIECE_WEIGHT_AUTHORITY';
     if (resolution.normalizedUnit === 'ml' || resolution.normalizedUnit === 'l' || resolution.normalizedUnit === 'tbsp') return 'DENSITY_AUTHORITY';
   }
   if (resolution.reason === 'UNIT_UNSUPPORTED') return 'UNSUPPORTED_UNIT';
-  if (line.amount == null || !Number.isFinite(line.amount) || line.amount <= 0 || !line.unit) return 'MISSING_OR_MALFORMED_QUANTITY';
+  if (typeof line.amount !== 'number' || !Number.isFinite(line.amount) || line.amount <= 0 || typeof line.unit !== 'string' || !line.unit.trim()) return 'MISSING_OR_MALFORMED_QUANTITY';
   return 'OTHER';
 }
 
 /** Evaluates only canonical-donor selections; no representative or other donor data is consulted. */
-export function evaluateBriefGrammageReadiness(input: { clusterId: string; canonicalDonorCandidateId: string; selections: Array<{ sourceLabel: string; productId: string | null; quantity: number | null; unit: string | null; role: string; optional: boolean; sourceCandidateId?: string; sourceIngredientOrdinal?: number | null }> }): GrammageReadiness {
-  const lines = input.selections.filter((selection) => selection.role === 'REQUIRED' && !selection.optional).map((selection) => {
+export function evaluateBriefGrammageReadiness(input: { clusterId: string; canonicalDonorCandidateId: string; selections: Array<{ sourceLabel: unknown; productId: string | null; quantity: unknown; unit: unknown; role?: string; optional?: boolean; isOptional?: boolean; required?: boolean; sourceCandidateId?: string; sourceIngredientOrdinal?: number | null }> }): GrammageReadiness {
+  const lines = input.selections.map((selection) => {
     const normalizedSourceUnit = normalizeSourceUnit(selection.unit);
-    const resolution = resolveIngredientGrams({ amount: selection.quantity, unit: normalizedSourceUnit, rawQuantity: selection.quantity, rawUnit: selection.unit, processInput: selection.role === 'PROCESS_INPUT' });
+    const sourceId = typeof selection.sourceCandidateId === 'string' ? selection.sourceCandidateId : undefined;
+    const identityInvalid = sourceId !== input.canonicalDonorCandidateId || typeof selection.sourceIngredientOrdinal !== 'number' || !Number.isInteger(selection.sourceIngredientOrdinal) || selection.sourceIngredientOrdinal < 1;
+    const resolution = identityInvalid ? resolveIngredientGrams({ amount: null, unit: null, rawQuantity: null, rawUnit: typeof selection.unit === 'string' ? selection.unit : null }) : resolveIngredientGrams({ amount: typeof selection.quantity === 'number' ? selection.quantity : null, unit: normalizedSourceUnit, rawQuantity: typeof selection.quantity === 'number' ? selection.quantity : null, rawUnit: typeof selection.unit === 'string' ? selection.unit : null, processInput: selection.role === 'PROCESS_INPUT' });
     const blocker = gapClass({ amount: selection.quantity, unit: selection.unit }, resolution);
     return {
       clusterId: input.clusterId,
       canonicalDonorCandidateId: input.canonicalDonorCandidateId,
       sourceCandidateId: selection.sourceCandidateId,
       sourceIngredientOrdinal: selection.sourceIngredientOrdinal,
-      rawIngredientName: selection.sourceLabel,
+      rawIngredientName: typeof selection.sourceLabel === 'string' ? selection.sourceLabel : '',
       normalizedIngredientIdentity: selection.productId,
-      rawAmount: selection.quantity,
-      rawUnit: selection.unit,
+      rawAmount: typeof selection.quantity === 'number' ? selection.quantity : null,
+      rawUnit: typeof selection.unit === 'string' ? selection.unit : null,
       resolution,
-      blockerClass: blocker,
+      blockerClass: identityInvalid ? 'OTHER' : blocker,
       requiredAuthorityType: blocker === 'DENSITY_AUTHORITY' ? 'DENSITY_G_PER_ML' : blocker === 'PIECE_WEIGHT_AUTHORITY' ? 'MASS_PER_PIECE' : null,
     } satisfies GrammageReadinessLine;
   });
@@ -70,5 +72,5 @@ export function evaluateBriefGrammageReadiness(input: { clusterId: string; canon
 export type AuthorityGapLedgerRow = GrammageReadinessLine & { gapKey: string };
 
 export function buildAuthorityGapLedger(readiness: GrammageReadiness[]): AuthorityGapLedgerRow[] {
-  return readiness.flatMap((brief) => brief.lines.filter((line) => line.blockerClass !== null).map((line) => ({ ...line, gapKey: `${line.blockerClass}:${line.rawUnit ?? 'MISSING_UNIT'}:${line.normalizedIngredientIdentity ?? line.rawIngredientName}` })));
+  return readiness.flatMap((brief) => brief.lines.filter((line) => line.blockerClass !== null).map((line) => ({ ...line, gapKey: `${line.blockerClass}:${line.resolution.normalizedUnit ?? 'MISSING_UNIT'}:${line.normalizedIngredientIdentity ?? line.rawIngredientName}:${line.requiredAuthorityType ?? 'NONE'}` })));
 }
