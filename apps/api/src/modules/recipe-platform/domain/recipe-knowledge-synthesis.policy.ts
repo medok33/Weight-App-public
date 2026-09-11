@@ -102,6 +102,7 @@ export type SynthesisBrief = {
   servings?: number | null;
   totalTimeMinutes?: number | null;
   contentHash?: string;
+  grammageReadiness?: { state: 'GRAMMAGE_RESOLVED' | 'GRAMMAGE_UNRESOLVED'; readiness: 'READY_FOR_SYNTHESIS' | 'NOT_READY_FOR_SYNTHESIS'; resolvedRequiredLines: number; unresolvedRequiredLines: number };
 };
 
 export type GrammageConstraint = { productId: string; role: string; minGrams: number; maxGrams: number; targetGrams?: number | null; stepGrams: number; fixed?: boolean; required?: boolean; reason: string; sourceFactIds: string[] };

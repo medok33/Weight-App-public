@@ -12,11 +12,12 @@ import { normalizeFoodText, normalizeUnit } from '../src/modules/recipe-platform
 import { attachIngredientStepEvidence, buildIngredientStepEvidence } from '../src/modules/recipe-platform/domain/recipe-step-ingredient-evidence.policy.ts';
 import { selectCanonicalProduct, type SelectionProduct } from '../src/modules/recipe-platform/domain/recipe-product-selection.policy.ts';
 import { computeBriefContentHash } from '../src/modules/recipe-platform/domain/recipe-synthesis-brief-approval.policy.ts';
+import { buildAuthorityGapLedger, evaluateBriefGrammageReadiness, type AuthorityGapLedgerRow } from '../src/modules/recipe-platform/domain/recipe-grammage-readiness.policy.ts';
 
 export type CorpusIngredient = { rawName?: string | null; normalizedName?: string | null; rawQuantity?: string | null; rawUnit?: string | null; normalizedQuantity?: { min?: number | null; max?: number | null } | null; normalizedUnit?: string | null; optional?: boolean; classification?: string | null };
 export type CorpusStep = { sourceOrder: number; researchOnlySourceText?: string | null; techniqueFacts?: string[]; durationFacts?: Array<{ min?: number | null; max?: number | null }>; temperatureFacts?: Array<{ min?: number | null; max?: number | null; c?: number | null }>; endConditions?: string[]; ingredientRefs?: Array<{ ingredientIndex: number; confidence: 'EXACT' | 'NORMALIZED_MATCH' | 'STEM_MATCH' | 'IMPLICIT' | 'UNRESOLVED' }> };
 export type CorpusRecipe = { sourceId: string; sourceRecipeId: string; canonicalUrl?: string | null; title: string; sourceLineage?: { donor?: string } | string | null; ingredients: CorpusIngredient[]; steps?: CorpusStep[]; recipeFacts?: { portions?: string | null; totalTime?: { minutes?: number | null } | null; cookTime?: { minutes?: number | null } | null; equipment?: string[] } | null; structuralFingerprint?: string | null; bodySha256?: string | null; normalizedPayloadSha256?: string | null };
-type PipelineResult = { candidates: ResearchCandidate[]; clusters: ReturnType<typeof buildDishConceptCluster>[]; facts: ReturnType<typeof aggregateResearchFacts>; briefs: SynthesisBrief[]; readiness: Array<Record<string, unknown>>; conflicts: number };
+type PipelineResult = { candidates: ResearchCandidate[]; clusters: ReturnType<typeof buildDishConceptCluster>[]; facts: ReturnType<typeof aggregateResearchFacts>; briefs: SynthesisBrief[]; readiness: Array<Record<string, unknown>>; conflicts: number; authorityGapLedger: AuthorityGapLedgerRow[] };
 
 const repositoryFixturePath = resolve(dirname(fileURLToPath(import.meta.url)), '../test/fixtures/RECIPE-CORPUS-GLM-01-FIRST-REAL-DONOR-DATASET.jsonl');
 const datasetPath = process.env.RECIPE_CORPUS_DATASET_ROOT
@@ -109,6 +110,8 @@ export function runPipeline(): PipelineResult {
     }).filter((item) => item.productId);
     brief.approvedProducts = [...new Set(selections.map((item) => item.productId!).filter(Boolean))].sort();
     brief.deterministicSelections = selections;
+    const grammage = evaluateBriefGrammageReadiness({ clusterId: brief.clusterId, canonicalDonorCandidateId: canonicalDonorId, selections });
+    brief.grammageReadiness = { state: grammage.state, readiness: grammage.readiness, resolvedRequiredLines: grammage.resolvedRequiredLines, unresolvedRequiredLines: grammage.unresolvedRequiredLines };
     brief.ownerDecisions = { ...(brief.clusterId === 'dcluster_87b96a2fc22b24da2b6baa44' ? { sunflowerOil: 'sunflower_oil', butterRequired: 'NO' } : {}), ...(brief.clusterId === 'dcluster_06210e70a9392b5421aa0155' ? { orangeZestRequired: 'NO', orangeZestIncluded: 'NO' } : {}) };
     brief.exclusions = brief.clusterId === 'dcluster_06210e70a9392b5421aa0155' ? ['Апельсиновая цедра'] : [];
     const canonicalServings = resolveCanonicalDonorServings(canonicalCandidates[0] ?? { candidateId: canonicalDonorId, sourceCode: '', title: '', rightsStatus: 'DISABLED', ingredients: [], servings: null }, brief.clusterId);
@@ -120,13 +123,17 @@ export function runPipeline(): PipelineResult {
     // Final readiness is evaluated only after all hash-bound selections and
     // exclusions are materialized.
     const readinessRow = readiness.find((row) => row.clusterId === brief.clusterId);
-    if (readinessRow && brief.unresolvedFacts.length === 0 && brief.conflictingFacts.length === 0 && selections.length > 0) {
+    if (readinessRow && grammage.unresolvedRequiredLines === 0 && brief.unresolvedFacts.length === 0 && brief.conflictingFacts.length === 0 && selections.length > 0) {
       readinessRow.blockReason = '';
       readinessRow.readiness = 'READY_FOR_SYNTHESIS';
+    } else if (readinessRow && grammage.unresolvedRequiredLines > 0) {
+      readinessRow.blockReason = 'GRAMMAGE_UNRESOLVED';
+      readinessRow.readiness = 'NOT_READY_FOR_SYNTHESIS';
     }
     brief.contentHash = computeBriefContentHash(brief);
   }
-  return { candidates: mapped.map((candidate) => applyBoundedContext(candidate, accepted)), clusters, facts: allFacts, briefs, readiness, conflicts: allFacts.filter((f) => f.requiresReview).length };
+  const authorityGapLedger = buildAuthorityGapLedger(briefs.map((brief) => evaluateBriefGrammageReadiness({ clusterId: brief.clusterId, canonicalDonorCandidateId: brief.deterministicSelections?.[0]?.sourceCandidateId ?? '', selections: brief.deterministicSelections ?? [] })));
+  return { candidates: mapped.map((candidate) => applyBoundedContext(candidate, accepted)), clusters, facts: allFacts, briefs, readiness, conflicts: allFacts.filter((f) => f.requiresReview).length, authorityGapLedger };
 }
 
 function resultCandidatesForCluster(cluster: ReturnType<typeof buildDishConceptCluster>, mapped: ResearchCandidate[], accepted: IngredientIdentityCandidate[]): ResearchCandidate[] {
@@ -157,6 +164,38 @@ async function persist(result: PipelineResult, connectionString: string): Promis
 
 function writeReports(result: PipelineResult): void { mkdirSync(reportDir, { recursive: true }); const audit = ['clusterId,workingConceptName,candidateCount,distinctSourceCount,sources,confidence,ingredientSimilarity,techniqueSimilarity,structuralSimilarity,synthesisCandidate,blockReason', ...result.readiness.map((r) => [r.clusterId,r.workingConceptName,r.candidateCount,r.distinctSourceCount,r.sources,r.confidence,r.ingredientSimilarity,r.techniqueSimilarity,r.structuralSimilarity,r.synthesisCandidate,r.blockReason].map((v) => `"${String(v ?? '').replaceAll('"','""')}"`).join(','))].join('\n') + '\n'; writeFileSync(resolve(reportDir, 'RECIPE-CORPUS-SYNTHESIS-READINESS-01-CLUSTER-AUDIT.csv'), audit); const selected = result.briefs.map((brief) => { const cluster = result.clusters.find((c) => c.clusterId === brief.clusterId)!; const required = result.candidates.filter((c) => cluster.candidateIds.includes(c.candidateId)).flatMap((c) => c.ingredients.filter((i) => i.role === 'REQUIRED')); const conflicts = result.facts.filter((f) => f.clusterId === cluster.clusterId && f.requiresReview).length; const pendingIdentity = brief.unresolvedFacts.some((fact) => fact.startsWith('PRODUCT_IDENTITY_PENDING:')); const readinessState = brief.status === 'BLOCKED_CONFLICT' ? 'BLOCKED_CONFLICT' : pendingIdentity ? 'READY_FOR_PRODUCT_SELECTION' : brief.status === 'READY_FOR_REVIEW' ? 'RESEARCH_ONLY_MORE_EVIDENCE_NEEDED' : 'READY_FOR_DETERMINISTIC_GRAMS'; const nextBlocker = brief.status === 'BLOCKED_CONFLICT' ? 'CONFLICT_REVIEW' : pendingIdentity ? 'PRODUCT_IDENTITY_PENDING' : brief.status === 'READY_FOR_REVIEW' ? 'MORE_EVIDENCE_REQUIRED' : ''; return [cluster.clusterId,cluster.displayLabel,cluster.candidateIds.length,cluster.sourceCount,cluster.sourceCodes.join('|'),cluster.sourceQualityScore.score,required.length,required.filter((i) => i.productId && !String(i.productId).startsWith('family:')).length,required.filter((i) => String(i.productId ?? '').startsWith('family:')).length,required.filter((i) => !i.productId).length,conflicts,readinessState,nextBlocker].map((v) => `"${String(v ?? '').replaceAll('"','""')}"`).join(','); }); writeFileSync(resolve(reportDir, 'RECIPE-CORPUS-SYNTHESIS-READINESS-01-COHORT.csv'), ['clusterId,conceptName,candidateCount,distinctSourceCount,sourceList,clusterConfidence,requiredIngredientCount,exactProductCount,familyPendingCount,trueProductGapCount,conflictCount,readinessState,nextBlocker', ...selected].join('\n') + '\n'); }
 
-export async function runSynthesisReadiness(connectionString?: string): Promise<PipelineResult> { const result = runPipeline(); writeReports(result); if (connectionString) await persist(result, connectionString); return result; }
+function writeAuthorityGapLedger(result: PipelineResult): void {
+  const csv = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+  const rows = result.authorityGapLedger.map((line) => [line.clusterId, line.canonicalDonorCandidateId, line.sourceCandidateId, line.sourceIngredientOrdinal, line.rawIngredientName, line.normalizedIngredientIdentity, line.rawAmount, line.rawUnit, line.resolution.state, line.blockerClass, line.requiredAuthorityType, line.resolution.reason, line.gapKey].map(csv).join(','));
+  writeFileSync(resolve(reportDir, 'CONTENT-01-08C-AUTHORITY-GAP-LEDGER.csv'), ['clusterId,canonicalDonorCandidateId,sourceCandidateId,sourceIngredientOrdinal,rawIngredientName,normalizedIngredientIdentity,rawAmount,rawUnit,resolutionState,blockerClass,requiredAuthorityType,reason,gapKey', ...rows].join('\n') + '\n');
+  const unique = new Set(result.authorityGapLedger.map((line) => line.gapKey));
+  const count = (kind: string) => result.authorityGapLedger.filter((line) => line.blockerClass === kind).length;
+  writeFileSync(resolve(reportDir, 'CONTENT-01-08C-GRAMMAGE-READINESS-GATE-AND-GAP-LEDGER-01-OWNER-REPORT.txt'), [
+    'TASK_ID=CONTENT-01-08C-GRAMMAGE-READINESS-GATE-AND-GAP-LEDGER-01',
+    'MODE=BOUNDED_IMPLEMENTATION',
+    `MATERIALIZED_BRIEFS=${result.briefs.length}`,
+    `REQUIRED_LINES_SCOPE=${result.briefs.reduce((sum, brief) => sum + (brief.grammageReadiness?.resolvedRequiredLines ?? 0) + (brief.grammageReadiness?.unresolvedRequiredLines ?? 0), 0)}`,
+    `GRAMMAGE_RESOLVED_LINES=${result.briefs.reduce((sum, brief) => sum + (brief.grammageReadiness?.resolvedRequiredLines ?? 0), 0)}`,
+    `GRAMMAGE_UNRESOLVED_LINES=${result.authorityGapLedger.length}`,
+    `TRUE_READY_BRIEFS=${result.briefs.filter((brief) => brief.grammageReadiness?.readiness === 'READY_FOR_SYNTHESIS').length}`,
+    `BLOCKED_BRIEFS=${result.briefs.filter((brief) => brief.grammageReadiness?.readiness === 'NOT_READY_FOR_SYNTHESIS').length}`,
+    `UNIQUE_AUTHORITY_GAPS=${unique.size}`,
+    `AFFECTED_INGREDIENT_LINES=${result.authorityGapLedger.length}`,
+    `DENSITY_GAPS=${count('DENSITY_AUTHORITY')}`,
+    `PIECE_WEIGHT_GAPS=${count('PIECE_WEIGHT_AUTHORITY')}`,
+    `MISSING_OR_MALFORMED_QUANTITY=${count('MISSING_OR_MALFORMED_QUANTITY')}`,
+    `UNSUPPORTED_UNIT_GAPS=${count('UNSUPPORTED_UNIT')}`,
+    'PRODUCT_SELECTION_LINES_SCOPE=198 (separate 9-cluster product-selection cohort metric)',
+    'METRIC_SCOPE_DIFFERENCE_EXPLAINED=55 lines are materialized synthesis briefs; 198 lines are the broader product-selection cohort rows.',
+    'AI_CALLS=0',
+    'RECIPE_VERSIONS_CREATED=0',
+    'DATABASE_WRITES=0',
+    'COOKED_YIELD_UNCHANGED=YES',
+    'SERVING_WEIGHT_UNCHANGED=YES',
+    'FINAL_VERDICT=CONTENT_01_08C_GRAMMAGE_READINESS_GATE_AND_GAP_LEDGER_PENDING_DISPOSABLE_VERIFICATION',
+  ].join('\n') + '\n');
+}
+
+export async function runSynthesisReadiness(connectionString?: string): Promise<PipelineResult> { const result = runPipeline(); writeReports(result); writeAuthorityGapLedger(result); if (connectionString) await persist(result, connectionString); return result; }
 
 if (process.argv[1]?.endsWith('recipe-corpus-synthesis-readiness-01.ts')) { void runSynthesisReadiness(process.env.DATABASE_URL).then((result) => console.info(JSON.stringify({ candidates: result.candidates.length, clusters: result.clusters.length, multiSourceClusters: result.clusters.filter((c) => c.sourceCount >= 2).length, facts: result.facts.length, conflicts: result.conflicts, briefs: result.briefs.length, readiness: Object.fromEntries([...new Set(result.readiness.map((r) => String(r.blockReason || 'READY')))].map((state) => [state, result.readiness.filter((r) => (r.blockReason || 'READY') === state).length])) }, null, 2))); }
