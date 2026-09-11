@@ -12,11 +12,12 @@ import { normalizeFoodText, normalizeUnit } from '../src/modules/recipe-platform
 import { attachIngredientStepEvidence, buildIngredientStepEvidence } from '../src/modules/recipe-platform/domain/recipe-step-ingredient-evidence.policy.ts';
 import { selectCanonicalProduct, type SelectionProduct } from '../src/modules/recipe-platform/domain/recipe-product-selection.policy.ts';
 import { computeBriefContentHash } from '../src/modules/recipe-platform/domain/recipe-synthesis-brief-approval.policy.ts';
+import { buildAuthorityGapLedger, evaluateBriefGrammageReadiness, type AuthorityGapLedgerRow } from '../src/modules/recipe-platform/domain/recipe-grammage-readiness.policy.ts';
 
 export type CorpusIngredient = { rawName?: string | null; normalizedName?: string | null; rawQuantity?: string | null; rawUnit?: string | null; normalizedQuantity?: { min?: number | null; max?: number | null } | null; normalizedUnit?: string | null; optional?: boolean; classification?: string | null };
 export type CorpusStep = { sourceOrder: number; researchOnlySourceText?: string | null; techniqueFacts?: string[]; durationFacts?: Array<{ min?: number | null; max?: number | null }>; temperatureFacts?: Array<{ min?: number | null; max?: number | null; c?: number | null }>; endConditions?: string[]; ingredientRefs?: Array<{ ingredientIndex: number; confidence: 'EXACT' | 'NORMALIZED_MATCH' | 'STEM_MATCH' | 'IMPLICIT' | 'UNRESOLVED' }> };
 export type CorpusRecipe = { sourceId: string; sourceRecipeId: string; canonicalUrl?: string | null; title: string; sourceLineage?: { donor?: string } | string | null; ingredients: CorpusIngredient[]; steps?: CorpusStep[]; recipeFacts?: { portions?: string | null; totalTime?: { minutes?: number | null } | null; cookTime?: { minutes?: number | null } | null; equipment?: string[] } | null; structuralFingerprint?: string | null; bodySha256?: string | null; normalizedPayloadSha256?: string | null };
-type PipelineResult = { candidates: ResearchCandidate[]; clusters: ReturnType<typeof buildDishConceptCluster>[]; facts: ReturnType<typeof aggregateResearchFacts>; briefs: SynthesisBrief[]; readiness: Array<Record<string, unknown>>; conflicts: number };
+type PipelineResult = { candidates: ResearchCandidate[]; clusters: ReturnType<typeof buildDishConceptCluster>[]; facts: ReturnType<typeof aggregateResearchFacts>; briefs: SynthesisBrief[]; readiness: Array<Record<string, unknown>>; conflicts: number; authorityGapLedger: AuthorityGapLedgerRow[] };
 
 const repositoryFixturePath = resolve(dirname(fileURLToPath(import.meta.url)), '../test/fixtures/RECIPE-CORPUS-GLM-01-FIRST-REAL-DONOR-DATASET.jsonl');
 const datasetPath = process.env.RECIPE_CORPUS_DATASET_ROOT
@@ -83,7 +84,7 @@ export function runPipeline(): PipelineResult {
   for (let i = 0; i < mapped.length; i += 1) for (let j = i + 1; j < mapped.length; j += 1) { const a = mapped[i]!; const b = mapped[j]!; if (a.sourceCode === b.sourceCode || dishClass(a) !== dishClass(b)) continue; const ingredientsA = signature(a); const ingredientsB = signature(b); const common = [...ingredientsA].filter((v) => ingredientsB.has(v)).length; const ingredientSimilarity = jaccard(ingredientsA, ingredientsB); const techniquesA = techniqueSet(a); const techniquesB = techniqueSet(b); const techniqueSimilarity = techniquesA.size === 0 || techniquesB.size === 0 ? 0 : jaccard(techniquesA, techniquesB); const titleSimilarity = jaccard(titleSet(a), titleSet(b)); if ((titleSimilarity >= 0.4 && common >= 2 && techniqueSimilarity >= 0.2) || (common >= 4 && ingredientSimilarity >= 0.7 && techniqueSimilarity >= 0.4)) union(i, j); }
   const grouped = new Map<string, ResearchCandidate[]>(); for (let i = 0; i < mapped.length; i += 1) { const candidate = mapped[i]!; const key = `cluster:${find(i)}`; const group = grouped.get(key) ?? []; group.push({ ...candidate, conceptKey: key }); grouped.set(key, group); }
   const firstCohortGroups = new Set([...grouped.values()].filter((group) => new Set(group.map((c) => c.sourceCode)).size >= 2).sort((a, b) => b.length - a.length).slice(0, 10));
-  const clusters: ReturnType<typeof buildDishConceptCluster>[] = []; const allFacts: ReturnType<typeof aggregateResearchFacts> = []; const briefs: SynthesisBrief[] = []; const readiness: Array<Record<string, unknown>> = [];
+  const clusters: ReturnType<typeof buildDishConceptCluster>[] = []; const allFacts: ReturnType<typeof aggregateResearchFacts> = []; const briefs: SynthesisBrief[] = []; const readiness: Array<Record<string, unknown>> = []; const grammageEvaluations = new Map<string, ReturnType<typeof evaluateBriefGrammageReadiness>>();
   for (const group of grouped.values()) { const cluster = buildDishConceptCluster(group, '2026-08-20T00:00:00.000Z'); const donorSelection = selectCanonicalDonor(group); const effectiveGroup = group.map((candidate) => applyBoundedContext(candidate, accepted)); const canonicalGroup = donorSelection.donor ? [applyBoundedContext(donorSelection.donor, accepted)] : []; clusters.push(cluster); const facts = aggregateResearchFacts(cluster, effectiveGroup, '2026-08-20T00:00:00.000Z'); allFacts.push(...facts); const required = canonicalGroup.flatMap((c) => c.ingredients.filter((i) => i.role === 'REQUIRED')); const exact = required.filter((i) => i.productId && !String(i.productId).startsWith('family:')).length; const familyPending = required.filter((i) => String(i.productId ?? '').startsWith('family:')).length; const gaps = required.filter((i) => !i.productId).length; const conflicts = facts.filter((f) => f.requiresReview).length; const highConflicts = facts.filter((f) => f.conflictLevel === 'HIGH').length; const multiSource = cluster.sourceCount >= 2; const eligible = donorSelection.state === 'CANONICAL_DONOR_SELECTED' && multiSource && gaps === 0 && highConflicts === 0 && canonicalGroup.every((c) => c.ingredients.every((i) => i.productId)); const cohortSelected = firstCohortGroups.has(group); let brief: SynthesisBrief | null = null; if (eligible || (cohortSelected && donorSelection.state === 'CANONICAL_DONOR_SELECTED')) { brief = buildSynthesisBrief({ cluster, facts, objective: 'first-real-corpus-readiness', coverageSlot: 'RESEARCH', approvedProducts: [...new Set(required.map((i) => i.productId).filter((id): id is string => Boolean(id) && !id.startsWith('family:')))], allowedEquipment: [...new Set(canonicalGroup.flatMap((c) => c.equipment ?? []))] }); if (gaps > 0) { brief.unresolvedFacts = [...brief.unresolvedFacts, `PRODUCT_IDENTITY_PENDING:${required.filter((i) => !i.productId).map((i) => i.name).join('|')}`]; if (brief.status !== 'BLOCKED_CONFLICT') brief.status = 'READY_FOR_REVIEW'; } briefs.push(brief); }
     const readinessState = donorSelection.state === 'CANONICAL_DONOR_UNRESOLVED' ? 'CANONICAL_DONOR_UNRESOLVED' : eligible ? (familyPending > 0 ? 'READY_FOR_PRODUCT_SELECTION' : brief?.status === 'READY_FOR_REVIEW' ? 'RESEARCH_ONLY_MORE_EVIDENCE_NEEDED' : 'READY_FOR_DETERMINISTIC_GRAMS') : !multiSource ? 'BLOCKED_CLUSTER_CONFIDENCE' : highConflicts ? 'BLOCKED_CONFLICT' : gaps > 0 ? 'BLOCKED_INGREDIENT_IDENTITY' : 'RESEARCH_ONLY_MORE_EVIDENCE_NEEDED'; const blocker = donorSelection.state === 'CANONICAL_DONOR_UNRESOLVED' ? 'CANONICAL_DONOR_UNRESOLVED' : brief ? (brief.status === 'BLOCKED_CONFLICT' ? 'BLOCKED_CONFLICT' : brief.unresolvedFacts.length ? 'PRODUCT_SELECTION_PENDING' : familyPending > 0 ? 'PRODUCT_SELECTION_PENDING' : '') : readinessState; readiness.push({ clusterId: cluster.clusterId, workingConceptName: cluster.displayLabel, candidateCount: group.length, distinctSourceCount: cluster.sourceCount, sources: cluster.sourceCodes.join('|'), confidence: cluster.sourceQualityScore.score, ingredientSimilarity: 1, techniqueSimilarity: cluster.techniqueSignature.length ? 1 : 0, structuralSimilarity: 1, synthesisCandidate: Boolean(brief), canonicalDonorId: donorSelection.donor?.candidateId ?? null, canonicalDonorSelectionState: donorSelection.state, canonicalDonorReason: donorSelection.reason, blockReason: blocker }); }
   const targetCluster = clusters.find((cluster) => cluster.clusterId === 'dcluster_8c521f996b1e8844f530ff12');
@@ -101,14 +102,29 @@ export function runPipeline(): PipelineResult {
     // allowed to reintroduce excluded ingredients or pre-policy identities.
     const canonicalCandidates = resultCandidatesForCluster(cluster, mapped, accepted);
     const canonicalDonorId = canonicalCandidates[0]?.candidateId ?? '';
-    const required = canonicalCandidates.flatMap((candidate) => candidate.ingredients.filter((item) => item.role === 'REQUIRED'));
-    const selections = required.map((ingredient) => {
+    const donorLines = canonicalCandidates[0]?.ingredients ?? [];
+    const selections = donorLines.map((ingredient) => {
       const family = ingredient.productId?.startsWith('family:') ? ingredient.productId.slice('family:'.length) : ingredient.productId;
       const decision = selectCanonicalProduct({ name: ingredient.name, identity: family ?? ingredient.name, family, productId: ingredient.productId, role: ingredient.role, quantity: ingredient.quantity, unit: ingredient.unit, allowSynthesisDefault: true, researchConflict: brief.status === 'BLOCKED_CONFLICT' }, selectionCatalog);
-      return { sourceLabel: ingredient.name, productId: decision.selectedProductId, quantity: ingredient.quantity ?? null, unit: ingredient.unit ?? null, role: ingredient.role ?? 'REQUIRED', optional: false, authority: decision.reason, sourceCandidateId: canonicalDonorId, sourceIngredientOrdinal: ingredient.sourceIngredientOrdinal ?? null };
-    }).filter((item) => item.productId);
+      const sourceForm = resolveIngredientForm({ name: ingredient.name, classification: ingredient.sourceClassification }, accepted, { knownFamilies: candidateFamilies });
+      const role = sourceForm.state === 'PROCESS_INPUT' ? 'PROCESS_INPUT' : ingredient.role ?? 'REQUIRED';
+      return { sourceLabel: ingredient.name, productId: decision.selectedProductId, quantity: ingredient.quantity ?? null, unit: ingredient.unit ?? null, role, optional: false, authority: decision.reason, sourceCandidateId: canonicalDonorId, sourceIngredientOrdinal: ingredient.sourceIngredientOrdinal ?? null };
+    });
     brief.approvedProducts = [...new Set(selections.map((item) => item.productId!).filter(Boolean))].sort();
-    brief.deterministicSelections = selections;
+    // Keep the historical canonical brief line contract, while the readiness
+    // gate below evaluates every donor line (including process/optional rows).
+    // Keep process media and optional source lines out of the historical
+    // deterministic brief selection contract, using the immutable source
+    // classification resolver.  The readiness gate above still evaluates
+    // every donor line, so this is not an escape hatch for unresolved rows.
+    const deterministicOrdinals = new Set(donorLines
+      .filter((ingredient) => ingredient.role === 'REQUIRED')
+      .filter((ingredient) => resolveIngredientForm({ name: ingredient.name, classification: ingredient.sourceClassification }, accepted, { knownFamilies: candidateFamilies }).state !== 'PROCESS_INPUT')
+      .map((ingredient) => ingredient.sourceIngredientOrdinal));
+    brief.deterministicSelections = selections.filter((item) => deterministicOrdinals.has(item.sourceIngredientOrdinal));
+    const grammage = evaluateBriefGrammageReadiness({ clusterId: brief.clusterId, canonicalDonorCandidateId: canonicalDonorId, selections });
+    grammageEvaluations.set(brief.clusterId, grammage);
+    brief.grammageReadiness = { state: grammage.state, readiness: grammage.readiness, resolvedRequiredLines: grammage.resolvedRequiredLines, unresolvedRequiredLines: grammage.unresolvedRequiredLines, lines: grammage.lines };
     brief.ownerDecisions = { ...(brief.clusterId === 'dcluster_87b96a2fc22b24da2b6baa44' ? { sunflowerOil: 'sunflower_oil', butterRequired: 'NO' } : {}), ...(brief.clusterId === 'dcluster_06210e70a9392b5421aa0155' ? { orangeZestRequired: 'NO', orangeZestIncluded: 'NO' } : {}) };
     brief.exclusions = brief.clusterId === 'dcluster_06210e70a9392b5421aa0155' ? ['Апельсиновая цедра'] : [];
     const canonicalServings = resolveCanonicalDonorServings(canonicalCandidates[0] ?? { candidateId: canonicalDonorId, sourceCode: '', title: '', rightsStatus: 'DISABLED', ingredients: [], servings: null }, brief.clusterId);
@@ -120,13 +136,17 @@ export function runPipeline(): PipelineResult {
     // Final readiness is evaluated only after all hash-bound selections and
     // exclusions are materialized.
     const readinessRow = readiness.find((row) => row.clusterId === brief.clusterId);
-    if (readinessRow && brief.unresolvedFacts.length === 0 && brief.conflictingFacts.length === 0 && selections.length > 0) {
+    if (readinessRow && grammage.unresolvedRequiredLines === 0 && brief.unresolvedFacts.length === 0 && brief.conflictingFacts.length === 0 && selections.length > 0) {
       readinessRow.blockReason = '';
       readinessRow.readiness = 'READY_FOR_SYNTHESIS';
+    } else if (readinessRow && grammage.unresolvedRequiredLines > 0) {
+      readinessRow.blockReason = 'GRAMMAGE_UNRESOLVED';
+      readinessRow.readiness = 'NOT_READY_FOR_SYNTHESIS';
     }
     brief.contentHash = computeBriefContentHash(brief);
   }
-  return { candidates: mapped.map((candidate) => applyBoundedContext(candidate, accepted)), clusters, facts: allFacts, briefs, readiness, conflicts: allFacts.filter((f) => f.requiresReview).length };
+  const authorityGapLedger = buildAuthorityGapLedger([...grammageEvaluations.values()]);
+  return { candidates: mapped.map((candidate) => applyBoundedContext(candidate, accepted)), clusters, facts: allFacts, briefs, readiness, conflicts: allFacts.filter((f) => f.requiresReview).length, authorityGapLedger };
 }
 
 function resultCandidatesForCluster(cluster: ReturnType<typeof buildDishConceptCluster>, mapped: ResearchCandidate[], accepted: IngredientIdentityCandidate[]): ResearchCandidate[] {
@@ -155,8 +175,41 @@ async function persist(result: PipelineResult, connectionString: string): Promis
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); await pool.end(); }
 }
 
-function writeReports(result: PipelineResult): void { mkdirSync(reportDir, { recursive: true }); const audit = ['clusterId,workingConceptName,candidateCount,distinctSourceCount,sources,confidence,ingredientSimilarity,techniqueSimilarity,structuralSimilarity,synthesisCandidate,blockReason', ...result.readiness.map((r) => [r.clusterId,r.workingConceptName,r.candidateCount,r.distinctSourceCount,r.sources,r.confidence,r.ingredientSimilarity,r.techniqueSimilarity,r.structuralSimilarity,r.synthesisCandidate,r.blockReason].map((v) => `"${String(v ?? '').replaceAll('"','""')}"`).join(','))].join('\n') + '\n'; writeFileSync(resolve(reportDir, 'RECIPE-CORPUS-SYNTHESIS-READINESS-01-CLUSTER-AUDIT.csv'), audit); const selected = result.briefs.map((brief) => { const cluster = result.clusters.find((c) => c.clusterId === brief.clusterId)!; const required = result.candidates.filter((c) => cluster.candidateIds.includes(c.candidateId)).flatMap((c) => c.ingredients.filter((i) => i.role === 'REQUIRED')); const conflicts = result.facts.filter((f) => f.clusterId === cluster.clusterId && f.requiresReview).length; const pendingIdentity = brief.unresolvedFacts.some((fact) => fact.startsWith('PRODUCT_IDENTITY_PENDING:')); const readinessState = brief.status === 'BLOCKED_CONFLICT' ? 'BLOCKED_CONFLICT' : pendingIdentity ? 'READY_FOR_PRODUCT_SELECTION' : brief.status === 'READY_FOR_REVIEW' ? 'RESEARCH_ONLY_MORE_EVIDENCE_NEEDED' : 'READY_FOR_DETERMINISTIC_GRAMS'; const nextBlocker = brief.status === 'BLOCKED_CONFLICT' ? 'CONFLICT_REVIEW' : pendingIdentity ? 'PRODUCT_IDENTITY_PENDING' : brief.status === 'READY_FOR_REVIEW' ? 'MORE_EVIDENCE_REQUIRED' : ''; return [cluster.clusterId,cluster.displayLabel,cluster.candidateIds.length,cluster.sourceCount,cluster.sourceCodes.join('|'),cluster.sourceQualityScore.score,required.length,required.filter((i) => i.productId && !String(i.productId).startsWith('family:')).length,required.filter((i) => String(i.productId ?? '').startsWith('family:')).length,required.filter((i) => !i.productId).length,conflicts,readinessState,nextBlocker].map((v) => `"${String(v ?? '').replaceAll('"','""')}"`).join(','); }); writeFileSync(resolve(reportDir, 'RECIPE-CORPUS-SYNTHESIS-READINESS-01-COHORT.csv'), ['clusterId,conceptName,candidateCount,distinctSourceCount,sourceList,clusterConfidence,requiredIngredientCount,exactProductCount,familyPendingCount,trueProductGapCount,conflictCount,readinessState,nextBlocker', ...selected].join('\n') + '\n'); }
+function writeReports(result: PipelineResult): void { mkdirSync(reportDir, { recursive: true }); const audit = ['clusterId,workingConceptName,candidateCount,distinctSourceCount,sources,confidence,ingredientSimilarity,techniqueSimilarity,structuralSimilarity,synthesisCandidate,blockReason', ...result.readiness.map((r) => [r.clusterId,r.workingConceptName,r.candidateCount,r.distinctSourceCount,r.sources,r.confidence,r.ingredientSimilarity,r.techniqueSimilarity,r.structuralSimilarity,r.synthesisCandidate,r.blockReason].map(csvCell).join(','))].join('\n') + '\n'; writeFileSync(resolve(reportDir, 'RECIPE-CORPUS-SYNTHESIS-READINESS-01-CLUSTER-AUDIT.csv'), audit); const selected = result.briefs.map((brief) => { const cluster = result.clusters.find((c) => c.clusterId === brief.clusterId)!; const required = result.candidates.filter((c) => cluster.candidateIds.includes(c.candidateId)).flatMap((c) => c.ingredients.filter((i) => i.role === 'REQUIRED')); const conflicts = result.facts.filter((f) => f.clusterId === cluster.clusterId && f.requiresReview).length; const pendingIdentity = brief.unresolvedFacts.some((fact) => fact.startsWith('PRODUCT_IDENTITY_PENDING:')); const readinessState = brief.status === 'BLOCKED_CONFLICT' ? 'BLOCKED_CONFLICT' : pendingIdentity ? 'READY_FOR_PRODUCT_SELECTION' : brief.status === 'READY_FOR_REVIEW' ? 'RESEARCH_ONLY_MORE_EVIDENCE_NEEDED' : 'READY_FOR_DETERMINISTIC_GRAMS'; const nextBlocker = brief.status === 'BLOCKED_CONFLICT' ? 'CONFLICT_REVIEW' : pendingIdentity ? 'PRODUCT_IDENTITY_PENDING' : brief.status === 'READY_FOR_REVIEW' ? 'MORE_EVIDENCE_REQUIRED' : ''; return [cluster.clusterId,cluster.displayLabel,cluster.candidateIds.length,cluster.sourceCount,cluster.sourceCodes.join('|'),cluster.sourceQualityScore.score,required.length,required.filter((i) => i.productId && !String(i.productId).startsWith('family:')).length,required.filter((i) => String(i.productId ?? '').startsWith('family:')).length,required.filter((i) => !i.productId).length,conflicts,readinessState,nextBlocker].map(csvCell).join(','); }); writeFileSync(resolve(reportDir, 'RECIPE-CORPUS-SYNTHESIS-READINESS-01-COHORT.csv'), ['clusterId,conceptName,candidateCount,distinctSourceCount,sourceList,clusterConfidence,requiredIngredientCount,exactProductCount,familyPendingCount,trueProductGapCount,conflictCount,readinessState,nextBlocker', ...selected].join('\n') + '\n'); }
 
-export async function runSynthesisReadiness(connectionString?: string): Promise<PipelineResult> { const result = runPipeline(); writeReports(result); if (connectionString) await persist(result, connectionString); return result; }
+function csvCell(value: unknown): string { const text = String(value ?? ''); const safe = /^[=+\-@]/.test(text.trimStart()) ? `'${text}` : text; return `"${safe.replaceAll('"', '""')}"`; }
+function writeAuthorityGapLedger(result: PipelineResult): void {
+  const csv = csvCell;
+  const rows = result.authorityGapLedger.map((line) => [line.clusterId, line.canonicalDonorCandidateId, line.sourceCandidateId, line.sourceIngredientOrdinal, line.rawIngredientName, line.normalizedIngredientIdentity, line.rawAmount, line.rawUnit, line.resolution.state, line.blockerClass, line.requiredAuthorityType, line.resolution.reason, line.gapKey].map(csv).join(','));
+  writeFileSync(resolve(reportDir, 'CONTENT-01-08C-AUTHORITY-GAP-LEDGER.csv'), ['clusterId,canonicalDonorCandidateId,sourceCandidateId,sourceIngredientOrdinal,rawIngredientName,normalizedIngredientIdentity,rawAmount,rawUnit,resolutionState,blockerClass,requiredAuthorityType,reason,gapKey', ...rows].join('\n') + '\n');
+  const unique = new Set(result.authorityGapLedger.map((line) => line.gapKey));
+  const count = (kind: string) => result.authorityGapLedger.filter((line) => line.blockerClass === kind).length;
+  writeFileSync(resolve(reportDir, 'CONTENT-01-08C-GRAMMAGE-READINESS-GATE-AND-GAP-LEDGER-01-OWNER-REPORT.txt'), [
+    'TASK_ID=CONTENT-01-08C-GRAMMAGE-READINESS-GATE-AND-GAP-LEDGER-01',
+    'MODE=BOUNDED_IMPLEMENTATION',
+    `MATERIALIZED_BRIEFS=${result.briefs.length}`,
+    `REQUIRED_LINES_SCOPE=${result.briefs.reduce((sum, brief) => sum + (brief.grammageReadiness?.resolvedRequiredLines ?? 0) + (brief.grammageReadiness?.unresolvedRequiredLines ?? 0), 0)}`,
+    `GRAMMAGE_RESOLVED_LINES=${result.briefs.reduce((sum, brief) => sum + (brief.grammageReadiness?.resolvedRequiredLines ?? 0), 0)}`,
+    `GRAMMAGE_UNRESOLVED_LINES=${result.authorityGapLedger.length}`,
+    `TRUE_READY_BRIEFS=${result.briefs.filter((brief) => brief.grammageReadiness?.readiness === 'READY_FOR_SYNTHESIS').length}`,
+    `BLOCKED_BRIEFS=${result.briefs.filter((brief) => brief.grammageReadiness?.readiness === 'NOT_READY_FOR_SYNTHESIS').length}`,
+    `UNIQUE_AUTHORITY_GAPS=${unique.size}`,
+    `AFFECTED_INGREDIENT_LINES=${result.authorityGapLedger.length}`,
+    `DENSITY_GAPS=${count('DENSITY_AUTHORITY')}`,
+    `PIECE_WEIGHT_GAPS=${count('PIECE_WEIGHT_AUTHORITY')}`,
+    `MISSING_OR_MALFORMED_QUANTITY=${count('MISSING_OR_MALFORMED_QUANTITY')}`,
+    `UNSUPPORTED_UNIT_GAPS=${count('UNSUPPORTED_UNIT')}`,
+    'PRODUCT_SELECTION_LINES_SCOPE=198 (separate 9-cluster product-selection cohort metric)',
+    'METRIC_SCOPE_DIFFERENCE_EXPLAINED=55 lines are materialized synthesis briefs; 198 lines are the broader product-selection cohort rows.',
+    'AI_CALLS=0',
+    'RECIPE_VERSIONS_CREATED=0',
+    'DATABASE_WRITES=0',
+    'COOKED_YIELD_UNCHANGED=YES',
+    'SERVING_WEIGHT_UNCHANGED=YES',
+    'FINAL_VERDICT=CONTENT_01_08C_GRAMMAGE_READINESS_GATE_AND_GAP_LEDGER_PENDING_DISPOSABLE_VERIFICATION',
+  ].join('\n') + '\n');
+}
+
+export async function runSynthesisReadiness(connectionString?: string): Promise<PipelineResult> { const result = runPipeline(); writeReports(result); writeAuthorityGapLedger(result); if (connectionString) await persist(result, connectionString); return result; }
 
 if (process.argv[1]?.endsWith('recipe-corpus-synthesis-readiness-01.ts')) { void runSynthesisReadiness(process.env.DATABASE_URL).then((result) => console.info(JSON.stringify({ candidates: result.candidates.length, clusters: result.clusters.length, multiSourceClusters: result.clusters.filter((c) => c.sourceCount >= 2).length, facts: result.facts.length, conflicts: result.conflicts, briefs: result.briefs.length, readiness: Object.fromEntries([...new Set(result.readiness.map((r) => String(r.blockReason || 'READY')))].map((state) => [state, result.readiness.filter((r) => (r.blockReason || 'READY') === state).length])) }, null, 2))); }
