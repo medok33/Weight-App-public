@@ -23,8 +23,9 @@ describe('recipe grammage authority', () => {
   });
   it('tracks optional/process inputs without inventing grams', () => {
     expect(resolveIngredientGrams({ amount: null, unit: null, optional: true })).toMatchObject({ state: 'EXCLUDED_OPTIONAL', grams: null });
-    expect(resolveIngredientGrams({ amount: null, unit: null, processInput: true })).toMatchObject({ state: 'PROCESS_INPUT_TRACKED', grams: null });
-    expect(resolveIngredientGrams({ amount: 250, unit: 'ml', processInput: true })).toMatchObject({ state: 'PROCESS_INPUT_TRACKED', grams: null });
+    expect(resolveIngredientGrams({ amount: null, unit: null, processInput: true }).state).toBe('BLOCKED_INVALID_INPUT');
+    expect(resolveIngredientGrams({ amount: 250, unit: 'ml', processInput: true }).state).toBe('BLOCKED_MISSING_AUTHORITY');
+    expect(resolveIngredientGrams({ amount: 250, unit: 'ml', sourceClassification: 'PROCESS_INPUT' })).toMatchObject({ state: 'PROCESS_INPUT_TRACKED', grams: null });
   });
   it('rejects malformed authority and invalid quantities', () => {
     for (const amount of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 0, -1]) {

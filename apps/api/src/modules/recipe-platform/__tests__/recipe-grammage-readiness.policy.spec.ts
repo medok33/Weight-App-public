@@ -55,4 +55,10 @@ describe('grammage readiness gate', () => {
     expect(new Set(ledger.map((row) => row.gapKey)).size).toBe(1);
     expect(ledger).toHaveLength(2);
   });
+  it('accepts process-input only from immutable source classification, never a caller role', () => {
+    const forged = evaluateBriefGrammageReadiness({ ...base, selections: [line({ quantity: null, unit: null, role: 'PROCESS_INPUT' })] });
+    expect(forged.readiness).toBe('NOT_READY_FOR_SYNTHESIS');
+    const sourceClassified = evaluateBriefGrammageReadiness({ ...base, selections: [line({ quantity: null, unit: null, role: 'REQUIRED', sourceClassification: 'PROCESS_INPUT' })] });
+    expect(sourceClassified.lines[0]?.resolution.state).toBe('PROCESS_INPUT_TRACKED');
+  });
 });

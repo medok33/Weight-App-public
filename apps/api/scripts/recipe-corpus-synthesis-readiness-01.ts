@@ -40,7 +40,7 @@ function candidates(): IngredientIdentityCandidate[] {
 }
 
 export function toCandidate(recipe: CorpusRecipe, accepted: IngredientIdentityCandidate[]): ResearchCandidate {
-  const ingredients = recipe.ingredients.map((item) => { const name = String(item.rawName ?? item.normalizedName ?? '').trim(); const resolved = resolveIngredientForm({ name, classification: item.classification }, accepted, { knownFamilies: candidateFamilies }); const quantity = item.normalizedQuantity?.min ?? null; const fallbackUnit = normalizeUnit(item.rawUnit).unit; return { productId: resolved.productId ?? (resolved.candidateFamily ? `family:${resolved.candidateFamily}` : null), name, role: item.optional ? 'OPTIONAL' : 'REQUIRED', quantity, unit: item.normalizedUnit ?? fallbackUnit, sourceIngredientOrdinal: (item as CorpusIngredient & { sourceOrder?: number }).sourceOrder ?? null, sourceClassification: item.classification ?? null }; });
+  const ingredients = recipe.ingredients.map((item) => { const name = String(item.rawName ?? item.normalizedName ?? '').trim(); const resolved = resolveIngredientForm({ name, classification: item.classification }, accepted, { knownFamilies: candidateFamilies }); const quantity = item.normalizedQuantity?.min ?? null; const fallbackUnit = normalizeUnit(item.rawUnit).unit; const sourceClassification = item.classification === 'PROCESS_INPUT' ? 'PROCESS_INPUT' : null; return { productId: resolved.productId ?? (resolved.candidateFamily ? `family:${resolved.candidateFamily}` : null), name, role: sourceClassification ? 'PROCESS_INPUT' : item.optional ? 'OPTIONAL' : 'REQUIRED', quantity, unit: item.normalizedUnit ?? fallbackUnit, sourceIngredientOrdinal: (item as CorpusIngredient & { sourceOrder?: number }).sourceOrder ?? null, sourceClassification }; });
   const steps = (recipe.steps ?? []).map((step) => ({ ordinal: step.sourceOrder, normalizedTechnique: step.techniqueFacts?.[0] ?? null, durationMinutes: step.durationFacts?.[0]?.min ?? null, temperatureC: step.temperatureFacts?.[0]?.c ?? step.temperatureFacts?.[0]?.min ?? null, qualitativeEndCondition: step.endConditions?.[0] ?? null, sourceText: step.researchOnlySourceText ?? null, ingredientRefs: step.ingredientRefs }));
   const donor = typeof recipe.sourceLineage === 'string' ? recipe.sourceLineage : recipe.sourceLineage?.donor ?? recipe.sourceId;
   const rawServings = recipe.recipeFacts?.portions ?? null; const parsedServings = rawServings == null ? null : Number(rawServings);
@@ -108,7 +108,7 @@ export function runPipeline(): PipelineResult {
       const decision = selectCanonicalProduct({ name: ingredient.name, identity: family ?? ingredient.name, family, productId: ingredient.productId, role: ingredient.role, quantity: ingredient.quantity, unit: ingredient.unit, allowSynthesisDefault: true, researchConflict: brief.status === 'BLOCKED_CONFLICT' }, selectionCatalog);
       const sourceForm = resolveIngredientForm({ name: ingredient.name, classification: ingredient.sourceClassification }, accepted, { knownFamilies: candidateFamilies });
       const role = sourceForm.state === 'PROCESS_INPUT' ? 'PROCESS_INPUT' : ingredient.role ?? 'REQUIRED';
-      return { sourceLabel: ingredient.name, productId: decision.selectedProductId, quantity: ingredient.quantity ?? null, unit: ingredient.unit ?? null, role, optional: false, authority: decision.reason, sourceCandidateId: canonicalDonorId, sourceIngredientOrdinal: ingredient.sourceIngredientOrdinal ?? null };
+      return { sourceLabel: ingredient.name, productId: decision.selectedProductId, quantity: ingredient.quantity ?? null, unit: ingredient.unit ?? null, role, sourceClassification: ingredient.sourceClassification, optional: false, authority: decision.reason, sourceCandidateId: canonicalDonorId, sourceIngredientOrdinal: ingredient.sourceIngredientOrdinal ?? null };
     });
     brief.approvedProducts = [...new Set(selections.map((item) => item.productId!).filter(Boolean))].sort();
     // Keep the historical canonical brief line contract, while the readiness
@@ -119,7 +119,7 @@ export function runPipeline(): PipelineResult {
     // every donor line, so this is not an escape hatch for unresolved rows.
     const deterministicOrdinals = new Set(donorLines
       .filter((ingredient) => ingredient.role === 'REQUIRED')
-      .filter((ingredient) => resolveIngredientForm({ name: ingredient.name, classification: ingredient.sourceClassification }, accepted, { knownFamilies: candidateFamilies }).state !== 'PROCESS_INPUT')
+      .filter((ingredient) => ingredient.sourceClassification !== 'PROCESS_INPUT')
       .map((ingredient) => ingredient.sourceIngredientOrdinal));
     brief.deterministicSelections = selections.filter((item) => deterministicOrdinals.has(item.sourceIngredientOrdinal));
     const grammage = evaluateBriefGrammageReadiness({ clusterId: brief.clusterId, canonicalDonorCandidateId: canonicalDonorId, selections });

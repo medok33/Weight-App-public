@@ -44,12 +44,12 @@ function gapClass(line: { amount: unknown; unit: unknown }, resolution: Grammage
 }
 
 /** Evaluates only canonical-donor selections; no representative or other donor data is consulted. */
-export function evaluateBriefGrammageReadiness(input: { clusterId: string; canonicalDonorCandidateId: string; selections: Array<{ sourceLabel: unknown; productId: string | null; quantity: unknown; unit: unknown; role?: string; optional?: boolean; isOptional?: boolean; required?: boolean; sourceCandidateId?: string; sourceIngredientOrdinal?: number | null }> }): GrammageReadiness {
+export function evaluateBriefGrammageReadiness(input: { clusterId: string; canonicalDonorCandidateId: string; selections: Array<{ sourceLabel: unknown; productId: string | null; quantity: unknown; unit: unknown; role?: string; sourceClassification?: string | null; optional?: boolean; isOptional?: boolean; required?: boolean; sourceCandidateId?: string; sourceIngredientOrdinal?: number | null }> }): GrammageReadiness {
   const lines = input.selections.map((selection) => {
     const normalizedSourceUnit = normalizeSourceUnit(selection.unit);
     const sourceId = typeof selection.sourceCandidateId === 'string' ? selection.sourceCandidateId : undefined;
     const identityInvalid = sourceId !== input.canonicalDonorCandidateId || typeof selection.sourceIngredientOrdinal !== 'number' || !Number.isInteger(selection.sourceIngredientOrdinal) || selection.sourceIngredientOrdinal < 1;
-    const resolution = identityInvalid ? resolveIngredientGrams({ amount: null, unit: null, rawQuantity: null, rawUnit: typeof selection.unit === 'string' ? selection.unit : null }) : resolveIngredientGrams({ amount: typeof selection.quantity === 'number' ? selection.quantity : null, unit: normalizedSourceUnit, rawQuantity: typeof selection.quantity === 'number' ? selection.quantity : null, rawUnit: typeof selection.unit === 'string' ? selection.unit : null, processInput: selection.role === 'PROCESS_INPUT' });
+    const resolution = identityInvalid ? resolveIngredientGrams({ amount: null, unit: null, rawQuantity: null, rawUnit: typeof selection.unit === 'string' ? selection.unit : null }) : resolveIngredientGrams({ amount: typeof selection.quantity === 'number' ? selection.quantity : null, unit: normalizedSourceUnit, rawQuantity: typeof selection.quantity === 'number' ? selection.quantity : null, rawUnit: typeof selection.unit === 'string' ? selection.unit : null, sourceClassification: (selection as { sourceClassification?: string | null }).sourceClassification });
     const blocker = gapClass({ amount: selection.quantity, unit: selection.unit }, resolution);
     return {
       clusterId: input.clusterId,

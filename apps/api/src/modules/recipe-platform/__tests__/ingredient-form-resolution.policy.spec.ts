@@ -53,7 +53,7 @@ describe('ingredient identity / product form resolution', () => {
   it('keeps process inputs explicit and rejects unsupported wording', () => {
     const salt = resolveIngredientForm({ name: 'соль, по вкусу', classification: 'PROCESS_INPUT' }, products);
     expect(salt.state).toBe('PROCESS_INPUT');
-    expect(salt.accountingRequired).toBe(true);
+    expect(salt.accountingRequired).toBe(false);
     expect(resolveIngredientForm({ name: 'вода', classification: 'PROCESS_INPUT' }, products).accountingRequired).toBe(false);
     expect(resolveIngredientForm({ name: 'экзотический продукт' }, products).state).toBe('PRODUCT_MISSING');
   });

@@ -50,7 +50,6 @@ const FORM_WORDS = new Set([
   'отварной', 'отварная', 'отварное', 'топленый', 'топленая', 'натуральный', 'натуральная',
 ]);
 
-const PROCESS_MARKERS = new Set(['вода', 'соль', 'перец', 'специи', 'приправа', 'по вкусу']);
 const NON_IDENTITY_ADJECTIVES = new Set(['домашний', 'домашняя', 'домашнее', 'молотый', 'молотая', 'молотое', 'молотые']);
 const SAFE_WORD_ALIASES: Record<string, string> = {
   'картошка': 'картофель',
@@ -207,9 +206,10 @@ export function resolveIngredientForm(
     const compoundParts = deterministicParts(source.replace(/\s*,?\s*по вкусу\s*$/i, ''), /[,;]/);
     if (compoundParts.length >= 2) return resultBase('COMPOUND_INGREDIENT_LINE', normalizedIngredient, { productSelectionPending: true, compoundParts, reason: 'deterministic comma-separated compound' });
   }
-  if (classification === 'PROCESS_INPUT' || PROCESS_MARKERS.has(withoutTaste)) {
-    const accountingRequired = withoutTaste !== 'вода';
-    return resultBase('PROCESS_INPUT', normalizedIngredient, { ingredientIdentity: identityFromName(withoutTaste) || withoutTaste, candidateFamily: identityFromName(withoutTaste) || withoutTaste, accountingRequired, sourceTextKind: 'PROCESS_INPUT', reason: accountingRequired ? 'process ingredient remains in accounting' : 'non-purchased process medium' });
+  // Process-input status is source-derived only. Never infer it from a name
+  // (water/salt/etc. may be legitimate ingredients in a donor recipe).
+  if (classification === 'PROCESS_INPUT') {
+    return resultBase('PROCESS_INPUT', normalizedIngredient, { ingredientIdentity: identityFromName(withoutTaste) || withoutTaste, candidateFamily: identityFromName(withoutTaste) || withoutTaste, accountingRequired: false, sourceTextKind: 'PROCESS_INPUT', reason: 'immutable source classification' });
   }
 
   const exact = exactMatch(withoutQuantityToken, candidates);
