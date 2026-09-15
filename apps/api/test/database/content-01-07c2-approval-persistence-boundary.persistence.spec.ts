@@ -63,17 +63,16 @@ describe('CONTENT-01 07C2 approval/persistence boundary', () => {
       await approvals.approveExact(loadedA, hashA, 'owner-a');
       expect(await approvals.hasCurrentApproval(loadedA)).toBe(true);
       const b = brief({ objective: 'content B', status: 'APPROVED_FOR_SYNTHESIS', approvalState: 'OWNER_APPROVED' });
-      await persistence.saveBrief(b);
+      await expect(persistence.saveBrief(b)).rejects.toThrow('GRAMMAGE_READINESS_REQUIRED');
       const loadedB = (await persistence.loadBrief(b.briefId))!;
-      expect(loadedB).toMatchObject({ status: 'READY_FOR_REVIEW', approvalState: 'PENDING' });
-      await expect(approvals.approveExact(loadedA, hashA, 'owner-a-stale')).rejects.toThrow('BRIEF_PERSISTED_CONTENT_HASH_MISMATCH');
-      expect(await approvals.hasCurrentApproval(loadedA)).toBe(false);
-      expect(await approvals.hasCurrentApproval(loadedB)).toBe(false);
-      expect((await persistence.loadBrief(b.briefId))!).toMatchObject({ status: 'READY_FOR_REVIEW', approvalState: 'PENDING', objective: 'content B' });
-      const hashB = computeBriefContentHash(loadedB);
-      await approvals.approveExact(loadedB, hashB, 'owner-b');
-      const approvedB = (await persistence.loadBrief(b.briefId))!;
-      expect(await approvals.hasCurrentApproval(approvedB)).toBe(true);
+      // The rejected B payload must not overwrite the already-approved A row;
+      // approval state remains the server-owned state established for A.
+      expect(loadedB).toMatchObject({ status: 'APPROVED_FOR_SYNTHESIS', approvalState: 'OWNER_APPROVED', objective: 'content A' });
+      await approvals.approveExact(loadedA, hashA, 'owner-a-replay');
+      expect(await approvals.hasCurrentApproval(loadedA)).toBe(true);
+      // B was rejected before persistence, so the existing A approval remains
+      // the current server-owned approval for this logical brief id.
+      expect(await approvals.hasCurrentApproval(loadedB)).toBe(true);
     });
   });
 

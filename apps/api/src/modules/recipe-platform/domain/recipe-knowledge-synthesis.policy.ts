@@ -92,7 +92,7 @@ export type SynthesisBrief = {
   conflictingFacts: string[];
   unresolvedFacts: string[];
   differentiationReason: string;
-  evidenceSummary: { candidateIds: string[]; sourceCodes: string[]; factIds: string[]; rejectedFactIds: string[]; conflictLevels: ConflictLevel[]; scores: { sourceQuality: number; weightAppFit: number }; ingredientStepEvidence?: unknown };
+  evidenceSummary: { candidateIds: string[]; sourceCodes: string[]; factIds: string[]; rejectedFactIds: string[]; conflictLevels: ConflictLevel[]; scores: { sourceQuality: number; weightAppFit: number }; ingredientStepEvidence?: unknown; canonicalDonorServings?: unknown };
   status: 'DRAFT' | 'READY_FOR_REVIEW' | 'APPROVED_FOR_SYNTHESIS' | 'BLOCKED_CONFLICT' | 'REJECTED';
   approvalState: 'PENDING' | 'OWNER_APPROVED' | 'SYSTEM_BLOCKED';
   /** Deterministic selection snapshot and content hash are populated before any Editor call. */
@@ -102,6 +102,7 @@ export type SynthesisBrief = {
   servings?: number | null;
   totalTimeMinutes?: number | null;
   contentHash?: string;
+  grammageReadiness?: { state: 'GRAMMAGE_RESOLVED' | 'GRAMMAGE_UNRESOLVED'; readiness: 'READY_FOR_SYNTHESIS' | 'NOT_READY_FOR_SYNTHESIS'; resolvedRequiredLines: number; unresolvedRequiredLines: number; lines?: unknown[] };
 };
 
 export type GrammageConstraint = { productId: string; role: string; minGrams: number; maxGrams: number; targetGrams?: number | null; stepGrams: number; fixed?: boolean; required?: boolean; reason: string; sourceFactIds: string[] };
