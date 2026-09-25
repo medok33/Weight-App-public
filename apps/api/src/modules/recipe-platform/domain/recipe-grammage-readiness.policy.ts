@@ -25,6 +25,10 @@ export type GrammageReadiness = {
 };
 
 const resolvedStates = new Set<GrammageResolutionState>(['EXACT_METRIC', 'CONVERTED_WITH_AUTHORITY', 'PROCESS_INPUT_TRACKED']);
+const serverOwnedReadiness = new WeakSet<object>();
+
+/** Marks a readiness result produced by this server-side evaluator. */
+export function isServerOwnedReadiness(value: unknown): boolean { return !!value && typeof value === 'object' && serverOwnedReadiness.has(value); }
 function normalizeSourceUnit(value: unknown): string | null {
   if (typeof value !== 'string' || !value.trim()) return null;
   const internal: Record<string, string> = { SHT: 'piece', STOL_L: 'tbsp', CHAYN_L: 'tsp' };
@@ -49,7 +53,10 @@ export function evaluateBriefGrammageReadiness(input: { clusterId: string; canon
     const normalizedSourceUnit = normalizeSourceUnit(selection.unit);
     const sourceId = typeof selection.sourceCandidateId === 'string' ? selection.sourceCandidateId : undefined;
     const identityInvalid = sourceId !== input.canonicalDonorCandidateId || typeof selection.sourceIngredientOrdinal !== 'number' || !Number.isInteger(selection.sourceIngredientOrdinal) || selection.sourceIngredientOrdinal < 1;
-    const resolution = identityInvalid ? resolveIngredientGrams({ amount: null, unit: null, rawQuantity: null, rawUnit: typeof selection.unit === 'string' ? selection.unit : null }) : resolveIngredientGrams({ amount: typeof selection.quantity === 'number' ? selection.quantity : null, unit: normalizedSourceUnit, rawQuantity: typeof selection.quantity === 'number' ? selection.quantity : null, rawUnit: typeof selection.unit === 'string' ? selection.unit : null, sourceClassification: (selection as { sourceClassification?: string | null }).sourceClassification });
+    // Runtime role/optional/process markers are never trusted at this boundary.
+    // Every canonical-donor source line is an ingredient line for this stage;
+    // only the authoritative quantity/unit and donor identity are evaluated.
+    const resolution = identityInvalid ? resolveIngredientGrams({ amount: null, unit: null, rawQuantity: null, rawUnit: typeof selection.unit === 'string' ? selection.unit : null }) : resolveIngredientGrams({ amount: typeof selection.quantity === 'number' ? selection.quantity : null, unit: normalizedSourceUnit, rawQuantity: typeof selection.quantity === 'number' ? selection.quantity : null, rawUnit: typeof selection.unit === 'string' ? selection.unit : null });
     const blocker = gapClass({ amount: selection.quantity, unit: selection.unit }, resolution);
     return {
       clusterId: input.clusterId,
@@ -66,7 +73,9 @@ export function evaluateBriefGrammageReadiness(input: { clusterId: string; canon
     } satisfies GrammageReadinessLine;
   });
   const unresolvedRequiredLines = lines.filter((line) => line.blockerClass !== null).length;
-  return { state: unresolvedRequiredLines === 0 ? 'GRAMMAGE_RESOLVED' : 'GRAMMAGE_UNRESOLVED', readiness: unresolvedRequiredLines === 0 ? 'READY_FOR_SYNTHESIS' : 'NOT_READY_FOR_SYNTHESIS', resolvedRequiredLines: lines.length - unresolvedRequiredLines, unresolvedRequiredLines, lines };
+  const result: GrammageReadiness = { state: unresolvedRequiredLines === 0 ? 'GRAMMAGE_RESOLVED' : 'GRAMMAGE_UNRESOLVED', readiness: unresolvedRequiredLines === 0 ? 'READY_FOR_SYNTHESIS' : 'NOT_READY_FOR_SYNTHESIS', resolvedRequiredLines: lines.length - unresolvedRequiredLines, unresolvedRequiredLines, lines };
+  serverOwnedReadiness.add(result);
+  return result;
 }
 
 export type AuthorityGapLedgerRow = GrammageReadinessLine & { gapKey: string };

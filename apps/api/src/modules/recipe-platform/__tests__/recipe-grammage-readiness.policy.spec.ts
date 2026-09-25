@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAuthorityGapLedger, evaluateBriefGrammageReadiness } from '../domain/recipe-grammage-readiness.policy';
+import { buildAuthorityGapLedger, evaluateBriefGrammageReadiness, isServerOwnedReadiness } from '../domain/recipe-grammage-readiness.policy';
 
 const base = { clusterId: 'cluster', canonicalDonorCandidateId: 'eda:donor' };
 const line = (overrides: Record<string, unknown> = {}) => ({ sourceLabel: 'ingredient', productId: 'product', quantity: 100, unit: 'g', role: 'REQUIRED', optional: false, sourceCandidateId: 'eda:donor', sourceIngredientOrdinal: 1, ...overrides });
@@ -55,10 +55,16 @@ describe('grammage readiness gate', () => {
     expect(new Set(ledger.map((row) => row.gapKey)).size).toBe(1);
     expect(ledger).toHaveLength(2);
   });
-  it('accepts process-input only from immutable source classification, never a caller role', () => {
+  it('rejects all runtime process-input markers at the canonical readiness boundary', () => {
     const forged = evaluateBriefGrammageReadiness({ ...base, selections: [line({ quantity: null, unit: null, role: 'PROCESS_INPUT' })] });
     expect(forged.readiness).toBe('NOT_READY_FOR_SYNTHESIS');
     const sourceClassified = evaluateBriefGrammageReadiness({ ...base, selections: [line({ quantity: null, unit: null, role: 'REQUIRED', sourceClassification: 'PROCESS_INPUT' })] });
-    expect(sourceClassified.lines[0]?.resolution.state).toBe('PROCESS_INPUT_TRACKED');
+    expect(sourceClassified.readiness).toBe('NOT_READY_FOR_SYNTHESIS');
+    expect(sourceClassified.lines[0]?.resolution.state).toBe('BLOCKED_INVALID_INPUT');
+  });
+  it('marks only evaluator output as server-owned readiness', () => {
+    const evaluated = evaluateBriefGrammageReadiness({ ...base, selections: [line()] });
+    expect(isServerOwnedReadiness(evaluated)).toBe(true);
+    expect(isServerOwnedReadiness({ ...evaluated })).toBe(false);
   });
 });
