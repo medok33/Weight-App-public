@@ -28,7 +28,7 @@ const STAGE_BOUNDS = Object.freeze({
   topology: 120_000,
   dependencyPrep: 600_000,
   markers: 30_000,
-  migration: 300_000,
+  migration: 180_000,
   static: 600_000,
   // Cold forked Vitest startup can exceed five minutes on the shared host
   // even when the suite is making forward progress and exits cleanly.
