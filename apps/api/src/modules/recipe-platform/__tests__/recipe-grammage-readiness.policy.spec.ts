@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAuthorityGapLedger, evaluateBriefGrammageReadiness, isServerOwnedReadiness } from '../domain/recipe-grammage-readiness.policy';
+import { buildAuthorityGapLedger, evaluateBriefGrammageReadiness, recomputeBriefGrammageReadiness } from '../domain/recipe-grammage-readiness.policy';
 
 const base = { clusterId: 'cluster', canonicalDonorCandidateId: 'eda:donor' };
 const line = (overrides: Record<string, unknown> = {}) => ({ sourceLabel: 'ingredient', productId: 'product', quantity: 100, unit: 'g', role: 'REQUIRED', optional: false, sourceCandidateId: 'eda:donor', sourceIngredientOrdinal: 1, ...overrides });
@@ -62,9 +62,13 @@ describe('grammage readiness gate', () => {
     expect(sourceClassified.readiness).toBe('NOT_READY_FOR_SYNTHESIS');
     expect(sourceClassified.lines[0]?.resolution.state).toBe('BLOCKED_INVALID_INPUT');
   });
-  it('marks only evaluator output as server-owned readiness', () => {
-    const evaluated = evaluateBriefGrammageReadiness({ ...base, selections: [line()] });
-    expect(isServerOwnedReadiness(evaluated)).toBe(true);
-    expect(isServerOwnedReadiness({ ...evaluated })).toBe(false);
+  it('recomputes readiness from the brief scope and ignores caller receipts', () => {
+    const evidenceSummary = { candidateIds: ['eda:donor'], sourceCodes: ['eda'], factIds: [], rejectedFactIds: [], conflictLevels: [], scores: { sourceQuality: 1, weightAppFit: 1 } };
+    const selection = { ...line(), authority: 'TEST' };
+    const evaluated = recomputeBriefGrammageReadiness({ briefId: 'brief', clusterId: base.clusterId, evidenceSummary, deterministicSelections: [selection] });
+    expect(evaluated.readiness).toBe('READY_FOR_SYNTHESIS');
+    const forged = { ...evaluated, readiness: 'READY_FOR_SYNTHESIS' as const, unresolvedRequiredLines: 0, lines: [] };
+    expect(recomputeBriefGrammageReadiness({ briefId: 'brief', clusterId: base.clusterId, evidenceSummary, deterministicSelections: [{ ...selection, quantity: null }] }).readiness).toBe('NOT_READY_FOR_SYNTHESIS');
+    expect(forged.lines).toHaveLength(0);
   });
 });
