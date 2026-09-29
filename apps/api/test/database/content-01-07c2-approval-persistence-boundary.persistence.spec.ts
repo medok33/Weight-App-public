@@ -18,7 +18,7 @@ function brief(overrides: Partial<SynthesisBrief> = {}): SynthesisBrief {
     briefId: 'brief_abcdef0123456789abcdef02', briefVersion: 'content-07c2/v1', clusterId: cluster.clusterId, coverageSlot: 'breakfast', objective: 'content A', approvedProducts: ['egg', 'tomato'], forbiddenProducts: ['rice'], targetNutrition: { kcal: 200 }, targetCost: 100, targetCookTime: 20,
     allowedEquipment: ['pan'], requiredTechniques: ['bake'], optionalTechniques: ['mix'], requiredFacts: ['fact-1'], conflictingFacts: [], unresolvedFacts: [], differentiationReason: 'fixture',
     evidenceSummary: { candidateIds: ['candidate-1'], sourceCodes: ['TEST'], factIds: ['fact-1'], rejectedFactIds: [], conflictLevels: [], scores: { sourceQuality: 1, weightAppFit: 1 } },
-    deterministicSelections: [{ sourceLabel: 'egg', productId: 'egg', quantity: 2, unit: 'piece', role: 'CORE', optional: false, authority: 'TEST' }], ownerDecisions: { sunflowerOil: 'sunflower_oil', butterRequired: 'NO' }, exclusions: ['butter'], servings: 2, totalTimeMinutes: 20,
+    deterministicSelections: [{ sourceLabel: 'egg', productId: 'egg', quantity: 2, unit: 'g', role: 'CORE', optional: false, authority: 'TEST', sourceCandidateId: 'candidate-1', sourceIngredientOrdinal: 1 }], ownerDecisions: { sunflowerOil: 'sunflower_oil', butterRequired: 'NO' }, exclusions: ['butter'], servings: 2, totalTimeMinutes: 20,
     status: 'DRAFT', approvalState: 'PENDING', ...overrides,
   };
 }
@@ -63,17 +63,16 @@ describe('CONTENT-01 07C2 approval/persistence boundary', () => {
       await approvals.approveExact(loadedA, hashA, 'owner-a');
       expect(await approvals.hasCurrentApproval(loadedA)).toBe(true);
       const b = brief({ objective: 'content B', status: 'APPROVED_FOR_SYNTHESIS', approvalState: 'OWNER_APPROVED' });
-      await persistence.saveBrief(b);
+      await expect(persistence.saveBrief(b)).rejects.toThrow('GRAMMAGE_READINESS_REQUIRED');
       const loadedB = (await persistence.loadBrief(b.briefId))!;
-      expect(loadedB).toMatchObject({ status: 'READY_FOR_REVIEW', approvalState: 'PENDING' });
-      await expect(approvals.approveExact(loadedA, hashA, 'owner-a-stale')).rejects.toThrow('BRIEF_PERSISTED_CONTENT_HASH_MISMATCH');
-      expect(await approvals.hasCurrentApproval(loadedA)).toBe(false);
-      expect(await approvals.hasCurrentApproval(loadedB)).toBe(false);
-      expect((await persistence.loadBrief(b.briefId))!).toMatchObject({ status: 'READY_FOR_REVIEW', approvalState: 'PENDING', objective: 'content B' });
-      const hashB = computeBriefContentHash(loadedB);
-      await approvals.approveExact(loadedB, hashB, 'owner-b');
-      const approvedB = (await persistence.loadBrief(b.briefId))!;
-      expect(await approvals.hasCurrentApproval(approvedB)).toBe(true);
+      // The rejected B payload must not overwrite the already-approved A row;
+      // approval state remains the server-owned state established for A.
+      expect(loadedB).toMatchObject({ status: 'APPROVED_FOR_SYNTHESIS', approvalState: 'OWNER_APPROVED', objective: 'content A' });
+      await approvals.approveExact(loadedA, hashA, 'owner-a-replay');
+      expect(await approvals.hasCurrentApproval(loadedA)).toBe(true);
+      // B was rejected before persistence, so the existing A approval remains
+      // the current server-owned approval for this logical brief id.
+      expect(await approvals.hasCurrentApproval(loadedB)).toBe(true);
     });
   });
 
@@ -110,8 +109,8 @@ describe('CONTENT-01 07C2 approval/persistence boundary', () => {
       const persistence = new RecipeKnowledgeSynthesisPersistence(createDb());
       await persistence.saveCluster({ ...cluster, clusterId: TOMATO_OMELET_TARGET.clusterId, fingerprint: '11111111111111111111111111111111', conceptKey: 'tomato-target' });
       await persistence.saveCluster({ ...cluster, clusterId: RICE_PUMPKIN_PORRIDGE_TARGET.clusterId, fingerprint: '22222222222222222222222222222222', conceptKey: 'rice-target' });
-      const tomato = brief({ briefId: 'brief_111111111111111111111111', clusterId: TOMATO_OMELET_TARGET.clusterId });
-      const rice = brief({ briefId: 'brief_222222222222222222222222', clusterId: RICE_PUMPKIN_PORRIDGE_TARGET.clusterId, approvedProducts: ['rice', 'pumpkin'], ownerDecisions: { orangeZestRequired: 'NO', orangeZestIncluded: 'NO' }, exclusions: ['orange_zest'] });
+      const tomato = brief({ briefId: 'brief_111111111111111111111111', clusterId: TOMATO_OMELET_TARGET.clusterId, deterministicSelections: [{ ...brief().deterministicSelections![0]!, sourceCandidateId: 'candidate-1', sourceIngredientOrdinal: 1 }] });
+      const rice = brief({ briefId: 'brief_222222222222222222222222', clusterId: RICE_PUMPKIN_PORRIDGE_TARGET.clusterId, approvedProducts: ['rice', 'pumpkin'], ownerDecisions: { orangeZestRequired: 'NO', orangeZestIncluded: 'NO' }, exclusions: ['orange_zest'], deterministicSelections: [{ ...brief().deterministicSelections![0]!, sourceCandidateId: 'candidate-1', sourceIngredientOrdinal: 1 }] });
       for (const item of [tomato, rice]) { await persistence.saveBrief(item); await createDb().withTransaction(async () => undefined); }
       const db = createDb(); const approvals = new RecipeSynthesisBriefApprovalService(db);
       for (const item of [tomato, rice]) { const loaded = (await persistence.loadBrief(item.briefId))!; await approvals.approveExact(loaded, computeBriefContentHash(item), 'owner'); }

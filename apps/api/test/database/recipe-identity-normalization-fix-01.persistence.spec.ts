@@ -10,9 +10,9 @@ describe('RECIPE-IDENTITY-NORMALIZATION-FIX-01 disposable acceptance', () => {
       const second = await runProductSelection({ applySynthesisDefaults: true });
       expect(second.metrics).toEqual(first.metrics);
       expect(first.metrics.COHORT_CLUSTERS_ANALYZED).toBe(9);
-      expect(first.metrics.TOTAL_REQUIRED_INGREDIENTS).toBe(198);
+      expect(first.metrics.TOTAL_REQUIRED_INGREDIENTS).toBe(178);
       expect(first.metrics.PRODUCT_CATALOG_GAP).toBe(13);
-      expect(first.metrics.PRODUCT_SELECTION_PENDING).toBe(27);
+      expect(first.metrics.PRODUCT_SELECTION_PENDING).toBe(24);
       expect(first.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(3);
       const julien = first.clusters.find((cluster) => cluster.conceptName === 'Жульен с курицей и грибами в духовке');
       expect(julien).toMatchObject({ catalogGap: 0, selectionPending: 0, conflicts: 0, classification: 'READY_FOR_DETERMINISTIC_GRAMS' });

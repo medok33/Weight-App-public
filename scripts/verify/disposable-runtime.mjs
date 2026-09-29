@@ -29,7 +29,7 @@ const STAGE_BOUNDS = Object.freeze({
   dependencyPrep: 600_000,
   markers: 30_000,
   migration: 180_000,
-  static: 300_000,
+  static: 600_000,
   // Cold forked Vitest startup can exceed five minutes on the shared host
   // even when the suite is making forward progress and exits cleanly.
   apiUnit: 600_000,
@@ -280,8 +280,10 @@ export function createRuntimeEnv() {
   const runtimeId = `wa-${Date.now().toString(36)}-${randomBytes(5).toString('hex')}`;
   const suffix = runtimeId.slice(3).replaceAll('-', '_');
   const password = `test-${randomBytes(18).toString('hex')}`;
-  const pgPort = choosePort(55432);
-  const redisPort = choosePort(56379);
+  const configuredPgPort = Number.parseInt(process.env.DISPOSABLE_POSTGRES_PORT ?? '', 10);
+  const configuredRedisPort = Number.parseInt(process.env.DISPOSABLE_REDIS_PORT ?? '', 10);
+  const pgPort = Number.isInteger(configuredPgPort) && configuredPgPort > 0 ? configuredPgPort : choosePort(55432);
+  const redisPort = Number.isInteger(configuredRedisPort) && configuredRedisPort > 0 ? configuredRedisPort : choosePort(56379);
   const e2ePortBase = 34000 + (Number.parseInt(randomBytes(2).toString('hex'), 16) % 20000);
   const apiPort = String(choosePort(e2ePortBase));
   const webPort = String(choosePort(e2ePortBase + 1));

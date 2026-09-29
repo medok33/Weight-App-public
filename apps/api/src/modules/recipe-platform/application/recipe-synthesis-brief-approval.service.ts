@@ -4,6 +4,7 @@ import { computeBriefContentHash, type BriefApprovalRecord, isApprovalForCurrent
 import type { SynthesisBrief } from '../domain/recipe-knowledge-synthesis.policy';
 import { briefIdToStorageUuid } from '../domain/brief-identity';
 import { mapRecipeSynthesisBriefRow } from './recipe-synthesis-brief.mapper';
+import { recomputeBriefGrammageReadiness } from '../domain/recipe-grammage-readiness.policy';
 
 @Injectable()
 export class RecipeSynthesisBriefApprovalService {
@@ -14,6 +15,8 @@ export class RecipeSynthesisBriefApprovalService {
     const briefUuid = briefIdToStorageUuid(brief.briefId);
     return this.db.withTransaction(async (tx) => {
       const current = await loadCurrentBrief(tx, brief.briefId, true);
+      const recomputed = recomputeBriefGrammageReadiness(current);
+      if (recomputed.readiness !== 'READY_FOR_SYNTHESIS' || recomputed.unresolvedRequiredLines !== 0) throw new Error('GRAMMAGE_READINESS_REQUIRED');
       if (callerHash !== expectedContentHash) throw new Error('BRIEF_CONTENT_HASH_MISMATCH');
       if (computeBriefContentHash(current) !== expectedContentHash) throw new Error('BRIEF_PERSISTED_CONTENT_HASH_MISMATCH');
       await tx(`INSERT INTO "RecipeSynthesisBriefApproval" ("briefId","briefContentHash","decision","actorId","approvedAt") VALUES ($1::uuid,$2,'APPROVE',$3,$4::timestamptz) ON CONFLICT ("briefId","briefContentHash","decision") DO NOTHING`, [briefUuid, expectedContentHash, actorId, approvedAt.toISOString()]);

@@ -39,6 +39,8 @@ export type GrammageInput = {
   rawUnit?: string | null;
   optional?: boolean;
   processInput?: boolean;
+  /** Immutable source-derived classification; runtime markers are ignored. */
+  sourceClassification?: string | null;
   density?: number | null;
   averagePieceWeightGrams?: number | null;
   authority?: GrammageAuthority | null;
@@ -54,7 +56,7 @@ const blocked = (input: GrammageInput, normalizedUnit: string | null, reason: st
 
 /** Resolve source quantity to input grams. Every non-metric conversion is fail-closed. */
 export function resolveIngredientGrams(input: GrammageInput): GrammageResolution {
-  const normalizedUnit = input.unit ? canonicalizeUnitToken(input.unit) : null;
+  const normalizedUnit = typeof input.unit === 'string' && input.unit.trim() ? canonicalizeUnitToken(input.unit) : null;
   const rawQuantity = input.rawQuantity ?? input.amount ?? null;
   const rawUnit = input.rawUnit ?? input.unit ?? null;
   const base = (state: GrammageResolutionState, grams: number | null, coefficient: number | null, coefficientType: GrammageResolution['provenance']['coefficientType'], reason?: string, unitCoefficient: number | null = null, unitCoefficientType: GrammageResolution['provenance']['unitCoefficientType'] = null): GrammageResolution => ({
@@ -62,7 +64,7 @@ export function resolveIngredientGrams(input: GrammageInput): GrammageResolution
     provenance: { rawQuantity, rawUnit, normalizedUnit, coefficient, coefficientType, unitCoefficient, unitCoefficientType, authority: input.authority ?? null, computedGrams: grams },
   });
 
-  if (input.processInput) return base('PROCESS_INPUT_TRACKED', null, null, 'NONE');
+  if (input.sourceClassification === 'PROCESS_INPUT') return base('PROCESS_INPUT_TRACKED', null, null, 'NONE');
   if (input.optional && (input.amount == null || input.unit == null)) return base('EXCLUDED_OPTIONAL', null, null, 'NONE');
   if (input.amount == null || !Number.isFinite(input.amount) || input.amount <= 0 || !normalizedUnit) return blocked(input, normalizedUnit, 'AMOUNT_OR_UNIT_INVALID');
 

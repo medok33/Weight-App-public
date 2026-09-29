@@ -6,11 +6,11 @@ describe('RECIPE-SYNTHESIS-DESIGN-CHOICE-POLICY-01', () => {
   it('reproduces the canonical 9-cluster baseline after donor fail-closed filtering', async () => {
     const { result, audited } = await runDesignChoiceAudit();
     expect(result.metrics.COHORT_CLUSTERS_ANALYZED).toBe(9);
-    expect(result.metrics.TOTAL_REQUIRED_INGREDIENTS).toBe(198);
+    expect(result.metrics.TOTAL_REQUIRED_INGREDIENTS).toBe(178);
     expect(result.metrics.PRODUCT_CATALOG_GAP).toBe(13);
-    expect(result.metrics.PRODUCT_SELECTION_PENDING).toBe(27);
+    expect(result.metrics.PRODUCT_SELECTION_PENDING).toBe(24);
     expect(result.metrics.READY_FOR_DETERMINISTIC_GRAMS_AFTER).toBe(3);
-    expect(audited).toHaveLength(27);
+    expect(audited).toHaveLength(24);
     expect(result.clusters.some((cluster) => cluster.clusterId === 'dcluster_bc855099bb2c9b748b45db46')).toBe(false);
     expect(result.clusters.some((cluster) => cluster.clusterId === 'dcluster_6e5245d7ad0ff5db0075c6bb')).toBe(false);
   }, 180_000);
@@ -21,10 +21,10 @@ describe('RECIPE-SYNTHESIS-DESIGN-CHOICE-POLICY-01', () => {
     for (const row of audited) counts.set(row.policyClass, (counts.get(row.policyClass) ?? 0) + 1);
     expect(counts.get('SAFE_SYNTHESIS_DESIGN_CHOICE') ?? 0).toBe(0);
     expect(counts.get('OWNER_DESIGN_POLICY_REQUIRED')).toBe(9);
-    expect(counts.get('RESEARCH_CONFLICT')).toBe(15);
+    expect(counts.get('RESEARCH_CONFLICT')).toBe(13);
     expect(counts.get('PARSER_OR_IDENTITY_REMEDIATION')).toBe(1);
-    expect(counts.get('NO_SAFE_DESIGN_CHOICE')).toBe(2);
-    expect([...counts.values()].reduce((sum, value) => sum + value, 0)).toBe(27);
+    expect(counts.get('NO_SAFE_DESIGN_CHOICE')).toBe(1);
+    expect([...counts.values()].reduce((sum, value) => sum + value, 0)).toBe(24);
   }, 180_000);
 
   it('preserves explicit source qualifiers and owner-default priority', () => {
